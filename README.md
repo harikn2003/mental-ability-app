@@ -47,3 +47,4 @@ The app features distinct modes tailored for different learning stages:
 * **Platform Target:** **Android 12+** (API 31+).
 
 ---
+    
