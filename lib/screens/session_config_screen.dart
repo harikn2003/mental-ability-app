@@ -478,12 +478,18 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
         height: 56,
         child: ElevatedButton(
           onPressed: () {
-            // Navigate to Quiz Screen with parameters
+            String generatorMode = selectedMode;
+
+            // Map UI modes to generator modes
+            if (selectedMode == 'fig_match') {
+              generatorMode = 'pattern';
+            }
+
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => QuizScreen(
-                  mode: selectedMode,
+                  mode: generatorMode,
                   totalQuestions: selectedCount,
                   timePerQuestion: selectedTime,
                 ),
