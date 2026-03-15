@@ -34,6 +34,24 @@ class AppLocale {
       'analysis': 'Analysis',
       'home': 'Home',
       'practice_weak': 'Practice Weak Areas',
+
+      // ── New Topics (EN) ──────────────────────────────────────────────────────
+      'figure_match': 'Figure Match',
+      'figure_series': 'Figure Series',
+      'geo_completion': 'Geo Completion',
+      'mirror_shape': 'Mirror Shape',
+      'mirror_text': 'Mirror Text',
+      'punch_hole': 'Punch Hole',
+      'embedded': 'Embedded Figure',
+
+      // Quiz screen labels for new types
+      'find_mirror': 'FIND THE MIRROR IMAGE',
+      'find_match': 'FIND THE EXACT MATCH',
+      'find_next': 'FIND THE NEXT FIGURE',
+      'find_complete': 'COMPLETE THE FIGURE',
+      'find_embedded': 'FIND THE EMBEDDED SHAPE',
+      'find_unfolded': 'FIND THE UNFOLDED RESULT',
+      'find_odd': 'FIND THE ODD ONE OUT',
     },
     'MR': {
       // Config Screen
@@ -69,6 +87,23 @@ class AppLocale {
       'analysis': 'विश्लेषण',
       'home': 'मुख्य पृष्ठ',
       'practice_weak': 'सराव करा',
+
+      // ── New Topics (MR) ──────────────────────────────────────────────────────
+      'figure_match': 'समान आकृती',
+      'figure_series': 'आकृती मालिका',
+      'geo_completion': 'भौमितिक पूर्तता',
+      'mirror_shape': 'आरसा प्रतिमा',
+      'mirror_text': 'अक्षर/घड्याळ आरसा',
+      'punch_hole': 'छिद्र आकृती',
+      'embedded': 'अंतर्भूत आकृती',
+
+      'find_mirror': 'आरसा प्रतिमा शोधा',
+      'find_match': 'समान आकृती शोधा',
+      'find_next': 'पुढील आकृती शोधा',
+      'find_complete': 'आकृती पूर्ण करा',
+      'find_embedded': 'अंतर्भूत आकृती शोधा',
+      'find_unfolded': 'उघडलेली आकृती शोधा',
+      'find_odd': 'वेगळी आकृती शोधा',
     },
   };
 

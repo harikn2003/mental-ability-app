@@ -4,7 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:mental_ability_app/config/localization.dart';
 
-import '../engine/reasoning_generator.dart';
+import '../engine/question_generator.dart';
 import '../engine/reasoning_question.dart';
 import '../widgets/option_renderer.dart';
 import '../widgets/question_renderer.dart';
@@ -14,372 +14,774 @@ class QuizScreen extends StatefulWidget {
   final String mode;
   final int totalQuestions;
   final String timePerQuestion;
+  final bool biasEnabled; // ← NEW: wired from SessionConfigScreen
 
   const QuizScreen({
     super.key,
     required this.mode,
     required this.totalQuestions,
     required this.timePerQuestion,
+    this.biasEnabled = true,
   });
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
 }
 
-class _QuizScreenState extends State<QuizScreen> {
+class _QuizScreenState extends State<QuizScreen>
+    with SingleTickerProviderStateMixin {
 
-  List<ReasoningQuestion> sessionQuestions = [];
+  // ── Session state ─────────────────────────────────────────────────────────
+  // Questions are generated ONE AT A TIME so bias weights are always current.
+  // We keep already-seen signatures to avoid exact duplicates.
+  final List<ReasoningQuestion> _questions = [];
+  final Set<String> _seenSignatures = {};
 
   int currentQuestionIndex = 0;
   String? selectedOption;
-
   bool isAnswered = false;
   bool isCorrect = false;
+  int skippedCount = 0;
 
+  // ── Timer ─────────────────────────────────────────────────────────────────
   int remainingSeconds = 0;
   int secondsElapsedForCurrent = 0;
-
   Timer? _timer;
 
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnim;
+
+  // ── Scoring ───────────────────────────────────────────────────────────────
   int score = 0;
-
   List<int> timeSpentPerQuestion = [];
-
   Map<String, List<bool>> categoryPerformance = {};
 
-  Map<String, int> categoryWeights = {
+  // ── Bias weights ──────────────────────────────────────────────────────────
+  // All start at 1 (equal probability).
+  // Wrong answer / skip → weight += 2 (up to max 10) — asked more often.
+  // Correct answer      → weight -= 1 (down to min 1) — asked less often.
+  // In non-bias mode these never change, so distribution stays flat.
+  Map<String, int> _weights = {
     'pattern': 1,
     'analogy': 1,
     'odd_man': 1,
-    'mirror': 1,
+    'mirror_shape': 1,
+    'figure_match': 1,
+    'figure_series': 1,
+    'geo_completion': 1,
+    'mirror_text': 1,
+    'punch_hole': 1,
+    'embedded': 1,
   };
 
+  // ── Constants ─────────────────────────────────────────────────────────────
   final String currentLang = 'EN';
-
   static const Color primary = Color(0xFF195DE6);
   static const Color background = Color(0xFFF6F6F8);
   static const Color surface = Colors.white;
   static const Color success = Color(0xFF10B981);
   static const Color error = Color(0xFFEF4444);
+  static const Color warning = Color(0xFFF97316);
 
+  bool get _hasTimer => widget.timePerQuestion != 'Unlimited';
+
+  int get _totalSeconds {
+    if (widget.timePerQuestion == '30s') return 30;
+    if (widget.timePerQuestion == '2m') return 120;
+    return 1;
+  }
+
+  // ── Current question shortcut ─────────────────────────────────────────────
+  ReasoningQuestion get _currentQ => _questions[currentQuestionIndex];
+
+  // ══════════════════════════════════════════════════════════════════════════
   @override
   void initState() {
     super.initState();
-    _loadQuestions();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    )
+      ..repeat(reverse: true);
+    _pulseAnim = Tween<double>(begin: 1.0, end: 1.18).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+    // Generate ONLY the first question — rest generated on-demand
+    _generateNextQuestion();
     _startTimer();
-  }
-
-  String pickBiasedCategory() {
-    int totalWeight = categoryWeights.values.reduce((a, b) => a + b);
-
-    int randomValue = Random().nextInt(totalWeight);
-
-    int cumulative = 0;
-
-    for (var entry in categoryWeights.entries) {
-      cumulative += entry.value;
-
-      if (randomValue < cumulative) {
-        return entry.key;
-      }
-    }
-
-    return categoryWeights.keys.first;
-  }
-
-  void _loadQuestions() {
-    sessionQuestions = [];
-
-    for (int i = 0; i < widget.totalQuestions; i++) {
-      String category = pickBiasedCategory();
-
-      sessionQuestions.add(
-        ReasoningGenerator.generate(category),
-      );
-    }
-  }
-
-  void _startTimer() {
-
-    _timer?.cancel();
-
-    secondsElapsedForCurrent = 0;
-
-    if (widget.timePerQuestion == '30s') {
-      remainingSeconds = 30;
-    }
-    else if (widget.timePerQuestion == '2m') {
-      remainingSeconds = 120;
-    }
-    else {
-      remainingSeconds = -1;
-    }
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      secondsElapsedForCurrent++;
-
-      if (remainingSeconds > 0) {
-        setState(() => remainingSeconds--);
-      }
-
-      else if (remainingSeconds == 0) {
-
-        _timer?.cancel();
-
-        if (!isAnswered) {
-          _recordAnswer(false, null);
-        }
-      }
-    });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _pulseController.dispose();
     super.dispose();
   }
 
-  void _handleOptionTap(String option) {
+  // ── Bias: pick a category ─────────────────────────────────────────────────
+  String _pickCategory() {
+    if (widget.mode != 'random') return widget.mode;
 
-    if (isAnswered) return;
-
-    int selected = int.parse(option);
-
-    bool answeredCorrectly =
-        selected == sessionQuestions[currentQuestionIndex].correctIndex;
-
-    _recordAnswer(answeredCorrectly, option);
+    final int total = _weights.values.reduce((a, b) => a + b);
+    int roll = Random().nextInt(total);
+    for (final entry in _weights.entries) {
+      roll -= entry.value;
+      if (roll < 0) return entry.key;
+    }
+    return _weights.keys.first;
   }
 
-  void _recordAnswer(bool correct, String? optionSelected) {
+  // ── Generate a single question, avoiding exact duplicates ─────────────────
+  void _generateNextQuestion() {
+    final category = _pickCategory();
+    ReasoningQuestion q;
+    int attempts = 0;
+    do {
+      q = QuestionGenerator.generate(category);
+      attempts++;
+    } while (
+    _seenSignatures.contains(q.puzzle.toString() + q.options.toString()) &&
+        attempts < 20
+    );
+    _seenSignatures.add(q.puzzle.toString() + q.options.toString());
+    _questions.add(q);
+  }
 
-    _timer?.cancel();
-
-    final currentCategory =
-        sessionQuestions[currentQuestionIndex].category;
+  // ── Update bias weights after each answer ─────────────────────────────────
+  void _updateWeights(String category, bool correct) {
+    if (!widget.biasEnabled) return; // toggle off → don't change anything
 
     setState(() {
-
-      isAnswered = true;
-      selectedOption = optionSelected;
-      isCorrect = correct;
-
       if (correct) {
-        score++;
+        // Student got it right → reduce weight (min 1)
+        _weights[category] = max(1, (_weights[category] ?? 1) - 1);
       } else {
-        categoryWeights[currentCategory] =
-            min(categoryWeights[currentCategory]! + 1, 10);
+        // Student got it wrong or skipped → increase weight (max 10)
+        _weights[category] = min(10, (_weights[category] ?? 1) + 2);
       }
-
-      timeSpentPerQuestion.add(secondsElapsedForCurrent);
-
-      categoryPerformance
-          .putIfAbsent(currentCategory, () => [])
-          .add(correct);
     });
   }
 
+  // ── Timer ─────────────────────────────────────────────────────────────────
+  void _startTimer() {
+    _timer?.cancel();
+    secondsElapsedForCurrent = 0;
+
+    if (widget.timePerQuestion == '30s')
+      remainingSeconds = 30;
+    else if (widget.timePerQuestion == '2m')
+      remainingSeconds = 120;
+    else
+      remainingSeconds = -1;
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      setState(() => secondsElapsedForCurrent++);
+      if (remainingSeconds > 0) {
+        setState(() => remainingSeconds--);
+      } else if (remainingSeconds == 0) {
+        t.cancel();
+        if (!isAnswered) _recordAnswer(false, null);
+      }
+    });
+  }
+
+  // ── Answer handling ───────────────────────────────────────────────────────
+  void _handleOptionTap(String option) {
+    if (isAnswered) return;
+    final selected = int.parse(option);
+    _recordAnswer(selected == _currentQ.correctIndex, option);
+  }
+
+  void _recordAnswer(bool correct, String? optionSelected) {
+    _timer?.cancel();
+    final cat = _currentQ.category;
+    setState(() {
+      isAnswered = true;
+      selectedOption = optionSelected;
+      isCorrect = correct;
+      if (correct) score++;
+      timeSpentPerQuestion.add(secondsElapsedForCurrent);
+      categoryPerformance.putIfAbsent(cat, () => []).add(correct);
+    });
+    _updateWeights(cat, correct);
+  }
+
+  void _skipQuestion() {
+    if (isAnswered) return;
+    _timer?.cancel();
+    final cat = _currentQ.category;
+    setState(() {
+      isAnswered = true;
+      selectedOption = null;
+      isCorrect = false;
+      skippedCount++;
+      timeSpentPerQuestion.add(secondsElapsedForCurrent);
+      categoryPerformance.putIfAbsent(cat, () => []).add(false);
+    });
+    _updateWeights(cat, false); // skip counts as wrong for bias
+  }
+
   void _nextQuestion() {
-
-    if (currentQuestionIndex < sessionQuestions.length - 1) {
-
-      setState(() {
-
-        currentQuestionIndex++;
-
-        isAnswered = false;
-        selectedOption = null;
-        isCorrect = false;
-
-        _startTimer();
-      });
-    }
-
-    else {
-
+    final isLast = currentQuestionIndex >= widget.totalQuestions - 1;
+    if (isLast) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => SessionSummaryScreen(
-            score: score,
-            totalQuestions: sessionQuestions.length,
-            timeSpent: timeSpentPerQuestion,
-            categoryStats: categoryPerformance,
+          builder: (_) =>
+              SessionSummaryScreen(
+                score: score,
+                totalQuestions: widget.totalQuestions,
+                timeSpent: timeSpentPerQuestion,
+                categoryStats: categoryPerformance,
           ),
         ),
       );
+      return;
     }
+
+    // Generate the NEXT question now (weights are already updated)
+    _generateNextQuestion();
+
+    setState(() {
+      currentQuestionIndex++;
+      isAnswered = false;
+      selectedOption = null;
+      isCorrect = false;
+      _startTimer();
+    });
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // UI helpers
+  // ═══════════════════════════════════════════════════════════════════════════
+  String _getTopicLabel(String category) {
+    const labels = {
+      'pattern': 'PATTERN COMPLETION',
+      'mirror_shape': 'MIRROR IMAGE',
+      'mirror_text': 'MIRROR IMAGE',
+      'odd_man': 'ODD MAN OUT',
+      'analogy': 'ANALOGY',
+      'figure_match': 'FIGURE MATCH',
+      'figure_series': 'FIGURE SERIES',
+      'geo_completion': 'GEO COMPLETION',
+      'punch_hole': 'PUNCH HOLE',
+      'embedded': 'EMBEDDED FIGURE',
+    };
+    return labels[category] ?? 'MENTAL ABILITY';
+  }
+
+  String _formatTime(int seconds) {
+    if (seconds < 0) return '∞';
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    if (m > 0) return '${m}m ${s.toString().padLeft(2, '0')}s';
+    return '${s}s';
+  }
+
+  Color _timerColor() {
+    if (!_hasTimer) return Colors.grey.shade500;
+    final pct = remainingSeconds / _totalSeconds;
+    if (pct > 0.5) return success;
+    if (pct > 0.25) return warning;
+    return error;
+  }
+
+  bool get _isTimeLow =>
+      _hasTimer && remainingSeconds >= 0 && remainingSeconds <= 10;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Build
+  // ═══════════════════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
-    if (sessionQuestions.isEmpty) {
-      return Scaffold(
-        backgroundColor: background,
-        body: const Center(child: Text("No questions generated")),
+    if (_questions.isEmpty) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    final currentQuestion =
-    sessionQuestions[currentQuestionIndex];
-
-    double progress =
-        (currentQuestionIndex + 1) / sessionQuestions.length;
+    final double progress = (currentQuestionIndex + 1) / widget.totalQuestions;
 
     return Scaffold(
-
       backgroundColor: background,
-
       body: SafeArea(
         child: Column(
           children: [
-
-            _buildHeader(progress),
-
+            _buildHeader(progress, _currentQ.category),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
                 child: Column(
                   children: [
-
-                    _buildQuestionFigure(currentQuestion),
-
-                    const SizedBox(height: 24),
-
-                    _buildOptions(currentQuestion),
-
-                    const SizedBox(height: 24),
-
-                    if (isAnswered)
-                      _buildResultMessage(currentQuestion),
+                    _buildQuestionFigure(),
+                    const SizedBox(height: 20),
+                    _buildOptions(),
+                    const SizedBox(height: 14),
+                    if (isAnswered) _buildResultMessage(),
                   ],
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),
-
-      floatingActionButton: isAnswered
-          ? FloatingActionButton.extended(
-        onPressed: _nextQuestion,
-        backgroundColor: primary,
-        label: Text(
-          AppLocale.get(currentLang, 'next_question'),
-        ),
-      )
-          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: _buildBottomActions(),
     );
   }
 
-  Widget _buildHeader(double progress) {
+  // ── Header ────────────────────────────────────────────────────────────────
+  Widget _buildHeader(double progress, String category) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      color: surface,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: surface,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05),
+              blurRadius: 6,
+              offset: const Offset(0, 2))
+        ],
+      ),
       child: Column(
         children: [
-
-          LinearProgressIndicator(
-            value: progress,
-            color: primary,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              color: primary,
+              backgroundColor: Colors.grey.shade200,
+              minHeight: 5,
+            ),
           ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              // Topic pill
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  _getTopicLabel(category),
+                  style: const TextStyle(
+                    fontSize: 10, fontWeight: FontWeight.bold,
+                    color: primary, letterSpacing: 0.8,
+                  ),
+                ),
+              ),
 
-          const SizedBox(height: 8),
+              // Bias indicator (only visible when bias is on and a weight is elevated)
+              if (widget.biasEnabled) ...[
+                const SizedBox(width: 6),
+                _buildBiasIndicator(category),
+              ],
 
-          Text(
-            "Q ${currentQuestionIndex + 1} / ${sessionQuestions.length}",
-            style: const TextStyle(fontWeight: FontWeight.bold),
+              const Spacer(),
+              _buildTimerWidget(),
+              const SizedBox(width: 12),
+              Text(
+                'Q ${currentQuestionIndex + 1} / ${widget.totalQuestions}',
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildQuestionFigure(ReasoningQuestion question) {
+  /// Small dot that shows the current bias weight for this topic.
+  /// Green = low weight (easy), orange = medium, red = high weight (weak area).
+  Widget _buildBiasIndicator(String category) {
+    final weight = _weights[category] ?? 1;
+    if (weight <= 1) return const SizedBox.shrink(); // no dot when equal weight
+
+    Color dotColor;
+    String tooltip;
+    if (weight <= 3) {
+      dotColor = warning;
+      tooltip = 'Reviewing';
+    } else {
+      dotColor = error;
+      tooltip = 'Weak area';
+    }
+
+    return Tooltip(
+      message: tooltip,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7, height: 7,
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 3),
+          Text(
+            tooltip,
+            style: TextStyle(
+                fontSize: 9, color: dotColor, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimerWidget() {
+    final color = _timerColor();
+    if (!_hasTimer) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.timer_outlined, size: 14, color: Colors.grey.shade400),
+          const SizedBox(width: 3),
+          Text(_formatTime(secondsElapsedForCurrent),
+              style: TextStyle(fontSize: 12,
+                  color: Colors.grey.shade500,
+                  fontWeight: FontWeight.w500)),
+        ],
+      );
+    }
+
+    final container = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: _isTimeLow ? Border.all(color: error.withOpacity(0.5)) : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_isTimeLow ? Icons.timer_off_rounded : Icons.timer_rounded,
+              size: 15, color: color),
+          const SizedBox(width: 4),
+          Text(_formatTime(remainingSeconds),
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+        ],
+      ),
+    );
+
+    return (_isTimeLow && !isAnswered)
+        ? ScaleTransition(scale: _pulseAnim, child: container)
+        : container;
+  }
+
+  // ── Question figure ───────────────────────────────────────────────────────
+  Widget _buildQuestionFigure() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: surface,
         borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 3))
+        ],
       ),
-      child: QuestionRenderer(
-        puzzle: question.puzzle,
-      ),
+      child: QuestionRenderer(puzzle: _currentQ.puzzle),
     );
   }
 
-  Widget _buildOptions(ReasoningQuestion question) {
+  // ── Options ───────────────────────────────────────────────────────────────
+  Widget _buildOptions() {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
-      children: List.generate(
-        4,
-            (index) => _buildOptionCard(index, question),
-      ),
+      crossAxisSpacing: 14,
+      mainAxisSpacing: 14,
+      children: List.generate(4, _buildOptionCard),
     );
   }
 
-  Widget _buildOptionCard(int index, ReasoningQuestion question) {
-    Map<String, dynamic> optionData = question.options[index];
-
-    bool isSelected = selectedOption == index.toString();
-    bool isCorrectOption = index == question.correctIndex;
+  Widget _buildOptionCard(int index) {
+    final optionData = _currentQ.options[index];
+    final isSelected = selectedOption == index.toString();
+    final isCorrectOption = index == _currentQ.correctIndex;
 
     Color bgColor = surface;
-    Color borderColor = Colors.grey.shade300;
+    Color borderColor = Colors.grey.shade200;
+    double borderWidth = 1;
+    Widget? badge;
 
     if (isAnswered) {
       if (isCorrectOption) {
-        bgColor = success.withOpacity(0.2);
+        bgColor = success.withOpacity(0.12);
         borderColor = success;
-      }
-
-      else if (isSelected) {
-        bgColor = error.withOpacity(0.2);
+        borderWidth = 2;
+        badge = _badge(Icons.check_rounded, success);
+      } else if (isSelected) {
+        bgColor = error.withOpacity(0.12);
         borderColor = error;
+        borderWidth = 2;
+        badge = _badge(Icons.close_rounded, error);
       }
     }
 
     return GestureDetector(
-
       onTap: () => _handleOptionTap(index.toString()),
-
-      child: Container(
-
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: borderColor),
+          border: Border.all(color: borderColor, width: borderWidth),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2))
+          ],
         ),
+        child: Stack(
+          children: [
+            Center(child: OptionRenderer(data: optionData)),
+            if (badge != null) Positioned(top: 8, right: 8, child: badge),
+          ],
+        ),
+      ),
+    );
+  }
 
-        child: Center(
-          child: OptionRenderer(
-            data: optionData,
+  Widget _badge(IconData icon, Color color) =>
+      Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        child: Icon(icon, size: 12, color: Colors.white),
+      );
+
+  // ── Result message ────────────────────────────────────────────────────────
+  Widget _buildResultMessage() {
+    final isSkipped = selectedOption == null;
+    Color bg;
+    Color fg;
+    IconData icon;
+    String text;
+
+    if (isSkipped) {
+      bg = Colors.grey.shade100;
+      fg = Colors.grey.shade600;
+      icon = Icons.skip_next_rounded;
+      text = 'Skipped — correct answer: ${_currentQ.correctIndex + 1}';
+    } else if (isCorrect) {
+      bg = success.withOpacity(0.1);
+      fg = success;
+      icon = Icons.check_circle_outline_rounded;
+      text = 'Correct!';
+    } else {
+      bg = error.withOpacity(0.1);
+      fg = error;
+      icon = Icons.cancel_outlined;
+      text = 'Incorrect — correct answer: ${_currentQ.correctIndex + 1}';
+    }
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+              color: bg, borderRadius: BorderRadius.circular(14)),
+          child: Row(
+            children: [
+              Icon(icon, color: fg, size: 20),
+              const SizedBox(width: 10),
+              Expanded(child: Text(text,
+                  style: TextStyle(color: fg, fontWeight: FontWeight.bold))),
+            ],
           ),
         ),
+        // ── Live bias weight preview (only in random + bias mode) ──────────
+        if (widget.biasEnabled && widget.mode == 'random') ...[
+          const SizedBox(height: 10),
+          _buildWeightPreview(),
+        ],
+      ],
+    );
+  }
+
+  /// Shows a mini bar chart of all 10 category weights after each answer,
+  /// so the student/coordinator can see which topics are being focused on.
+  Widget _buildWeightPreview() {
+    final maxW = _weights.values.reduce(max).toDouble();
+    final shortLabels = {
+      'pattern': 'Pat',
+      'analogy': 'Ana',
+      'odd_man': 'Odd',
+      'mirror_shape': 'Mir',
+      'figure_match': 'Fig',
+      'figure_series': 'Ser',
+      'geo_completion': 'Geo',
+      'mirror_text': 'Txt',
+      'punch_hole': 'Pnc',
+      'embedded': 'Emb',
+    };
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                  Icons.analytics_outlined, size: 13, color: Color(0xFF64748B)),
+              const SizedBox(width: 5),
+              const Text(
+                'BIAS WEIGHTS',
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
+                    color: Color(0xFF64748B), letterSpacing: 0.8),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: _weights.entries.map((e) {
+              final isCurrentCat = e.key == _currentQ.category;
+              final barH = 4.0 + (e.value / maxW) * 28.0;
+              final barColor = e.value <= 1
+                  ? success
+                  : e.value <= 4
+                  ? warning
+                  : error;
+              return Expanded(
+                child: Column(
+                  children: [
+                    if (isCurrentCat)
+                      Container(
+                        width: 4, height: 4,
+                        decoration: const BoxDecoration(color: primary,
+                            shape: BoxShape.circle),
+                      )
+                    else
+                      const SizedBox(height: 4),
+                    const SizedBox(height: 2),
+                    Container(
+                      height: barH,
+                      margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                      decoration: BoxDecoration(
+                        color: isCurrentCat ? barColor : barColor.withOpacity(
+                            0.45),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      shortLabels[e.key] ?? e.key.substring(0, 3),
+                      style: TextStyle(
+                        fontSize: 7.5,
+                        color: isCurrentCat ? primary : Colors.grey.shade500,
+                        fontWeight: isCurrentCat ? FontWeight.bold : FontWeight
+                            .normal,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildResultMessage(ReasoningQuestion question) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isCorrect ? success.withOpacity(0.1) : error.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(
-        isCorrect
-            ? "Correct!"
-            : "Incorrect. Correct answer: ${question.correctIndex + 1}",
-        style: TextStyle(
-          color: isCorrect ? success : error,
-          fontWeight: FontWeight.bold,
-        ),
+  // ── Bottom actions ────────────────────────────────────────────────────────
+  Widget _buildBottomActions() {
+    if (!isAnswered) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Row(mainAxisAlignment: MainAxisAlignment.end,
+            children: [_skipButton()]),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          if (skippedCount > 0) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(14)),
+              child: Row(
+                children: [
+                  Icon(Icons.skip_next_rounded, size: 16,
+                      color: Colors.grey.shade600),
+                  const SizedBox(width: 4),
+                  Text('$skippedCount skipped',
+                      style: TextStyle(fontSize: 12,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+          ],
+          Expanded(
+            child: FloatingActionButton.extended(
+              heroTag: 'next_btn',
+              onPressed: _nextQuestion,
+              backgroundColor: primary,
+              elevation: 4,
+              label: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    currentQuestionIndex < widget.totalQuestions - 1
+                        ? AppLocale.get(currentLang, 'next_question')
+                        : 'Finish',
+                    style: const TextStyle(color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.arrow_forward_rounded, color: Colors.white,
+                      size: 18),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  Widget _skipButton() =>
+      GestureDetector(
+        onTap: _skipQuestion,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          decoration: BoxDecoration(
+            color: surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.grey.shade300),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3))
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.skip_next_rounded, size: 18,
+                  color: Colors.grey.shade600),
+              const SizedBox(width: 6),
+              Text('Skip', style: TextStyle(fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade600)),
+            ],
+          ),
+        ),
+      );
 }

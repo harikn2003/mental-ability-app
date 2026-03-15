@@ -75,30 +75,45 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                       mainAxisSpacing: 12,
                       childAspectRatio: 1.1,
                       children: [
-                        _buildTopicCard(
-                          id: 'odd_man',
-                          title: AppLocale.get(currentLang, 'odd_man'),
-                          icon: Icons.grid_view,
-                          color: primary,
-                        ),
-                        _buildTopicCard(
-                          id: 'fig_match',
-                          title: AppLocale.get(currentLang, 'fig_match'),
-                          icon: Icons.join_inner,
-                          color: accentOrange,
-                        ),
-                        _buildTopicCard(
-                          id: 'pattern',
-                          title: AppLocale.get(currentLang, 'pattern'),
-                          icon: Icons.texture,
-                          color: accentEmerald,
-                        ),
-                        _buildTopicCard(
-                          id: 'analogy',
-                          title: AppLocale.get(currentLang, 'analogy'),
-                          icon: Icons.compare_arrows,
-                          color: accentPurple,
-                        ),
+                        _buildTopicCard(id: 'odd_man',
+                            title: AppLocale.get(currentLang, 'odd_man'),
+                            icon: Icons.grid_view,
+                            color: primary),
+                        _buildTopicCard(id: 'figure_match',
+                            title: AppLocale.get(currentLang, 'fig_match'),
+                            icon: Icons.join_inner,
+                            color: accentOrange),
+                        _buildTopicCard(id: 'pattern',
+                            title: AppLocale.get(currentLang, 'pattern'),
+                            icon: Icons.texture,
+                            color: accentEmerald),
+                        _buildTopicCard(id: 'figure_series',
+                            title: 'Figure Series',
+                            icon: Icons.trending_flat,
+                            color: accentPurple),
+                        _buildTopicCard(id: 'analogy',
+                            title: AppLocale.get(currentLang, 'analogy'),
+                            icon: Icons.compare_arrows,
+                            color: const Color(0xFF14B8A6)),
+
+                        // GEO COMPLETION - DISABLED AS TODO
+                        // _buildTopicCard(id: 'geo_completion', title: 'Geo Completion',                         icon: Icons.change_history,          color: const Color(0xFFF59E0B)),
+
+                        _buildTopicCard(id: 'mirror_shape',
+                            title: 'Mirror Shape',
+                            icon: Icons.flip,
+                            color: const Color(0xFFF43F5E)),
+                        _buildTopicCard(id: 'mirror_text',
+                            title: 'Mirror Text/Clock',
+                            icon: Icons.text_fields,
+                            color: accentOrange),
+                        _buildTopicCard(id: 'punch_hole',
+                            title: 'Punch Hole',
+                            icon: Icons.radio_button_unchecked,
+                            color: accentEmerald),
+
+                        // EMBEDDED FIGURE - DISABLED AS TODO
+                        // _buildTopicCard(id: 'embedded',       title: 'Embedded Figure',                        icon: Icons.center_focus_strong,     color: const Color(0xFF14B8A6)),
                       ],
                     ),
                     const SizedBox(height: 100), // Spacing for sticky footer
@@ -138,7 +153,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
               ),
               GestureDetector(
                 onTap: () => setState(
-                  () => currentLang = currentLang == 'EN' ? 'MR' : 'EN',
+                      () => currentLang = currentLang == 'EN' ? 'MR' : 'EN',
                 ),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -181,7 +196,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                     isSelected: selectedCount == val,
                     onTap: () => setState(() => selectedCount = val),
                   ),
-                )
+            )
                 .toList(),
           ),
           const SizedBox(height: 16),
@@ -197,7 +212,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                     isSelected: selectedTime == val,
                     onTap: () => setState(() => selectedTime = val),
                   ),
-                )
+            )
                 .toList(),
           ),
         ],
@@ -445,12 +460,12 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
             ),
             boxShadow: isSelected
                 ? [
-                    BoxShadow(
-                      color: primary.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
+              BoxShadow(
+                color: primary.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ]
                 : [],
           ),
           child: Text(
@@ -478,20 +493,14 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
         height: 56,
         child: ElevatedButton(
           onPressed: () {
-            String generatorMode = selectedMode;
-
-            // Map UI modes to generator modes
-            if (selectedMode == 'fig_match') {
-              generatorMode = 'pattern';
-            }
-
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => QuizScreen(
-                  mode: generatorMode,
+                  mode: selectedMode,
                   totalQuestions: selectedCount,
                   timePerQuestion: selectedTime,
+                  biasEnabled: isBiasEnabled, // ← wired to the toggle
                 ),
               ),
             );

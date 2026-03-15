@@ -1,22 +1,6 @@
-import 'package:flutter/material.dart';
+// reasoning_question_widget.dart
+// This file is kept for backward compatibility.
+// All question rendering is now handled by QuestionRenderer and OptionRenderer.
+// You can safely delete this file if nothing else imports it.
 
-import '../engine/question_rule.dart';
-import '../painters/reasoning_painter.dart';
-
-class ReasoningQuestionWidget extends StatelessWidget {
-  final QuestionRule rule;
-
-  const ReasoningQuestionWidget({super.key, required this.rule});
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      size: const Size(200, 200),
-      painter: ReasoningPainter(
-        shape: rule.shape,
-        rotation: rule.rotation,
-        elements: rule.elements,
-      ),
-    );
-  }
-}
+export 'question_renderer.dart';
