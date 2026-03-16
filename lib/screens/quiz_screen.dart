@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:mental_ability_app/config/localization.dart';
 
+import '../engine/question_attempt.dart';
 import '../engine/question_generator.dart';
 import '../engine/reasoning_question.dart';
 import '../widgets/option_renderer.dart';
@@ -35,6 +36,7 @@ class _QuizScreenState extends State<QuizScreen>
   // Questions are generated ONE AT A TIME so bias weights are always current.
   // We keep already-seen signatures to avoid exact duplicates.
   final List<ReasoningQuestion> _questions = [];
+  final List<QuestionAttempt> _attempts = [];
   final Set<String> _seenSignatures = {};
 
   int currentQuestionIndex = 0;
@@ -196,13 +198,23 @@ class _QuizScreenState extends State<QuizScreen>
   void _recordAnswer(bool correct, String? optionSelected) {
     _timer?.cancel();
     final cat = _currentQ.category;
+    final selIdx = optionSelected != null ? int.tryParse(optionSelected) : null;
+    final timeSecs = secondsElapsedForCurrent;
     setState(() {
       isAnswered = true;
       selectedOption = optionSelected;
       isCorrect = correct;
       if (correct) score++;
-      timeSpentPerQuestion.add(secondsElapsedForCurrent);
+      timeSpentPerQuestion.add(timeSecs);
       categoryPerformance.putIfAbsent(cat, () => []).add(correct);
+      _attempts.add(QuestionAttempt(
+        questionNumber: currentQuestionIndex + 1,
+        question: _currentQ,
+        selectedIndex: selIdx,
+        isCorrect: correct,
+        wasSkipped: false,
+        timeSpentSeconds: timeSecs,
+      ));
     });
     _updateWeights(cat, correct);
   }
@@ -211,13 +223,22 @@ class _QuizScreenState extends State<QuizScreen>
     if (isAnswered) return;
     _timer?.cancel();
     final cat = _currentQ.category;
+    final timeSecs = secondsElapsedForCurrent;
     setState(() {
       isAnswered = true;
       selectedOption = null;
       isCorrect = false;
       skippedCount++;
-      timeSpentPerQuestion.add(secondsElapsedForCurrent);
+      timeSpentPerQuestion.add(timeSecs);
       categoryPerformance.putIfAbsent(cat, () => []).add(false);
+      _attempts.add(QuestionAttempt(
+        questionNumber: currentQuestionIndex + 1,
+        question: _currentQ,
+        selectedIndex: null,
+        isCorrect: false,
+        wasSkipped: true,
+        timeSpentSeconds: timeSecs,
+      ));
     });
     _updateWeights(cat, false); // skip counts as wrong for bias
   }
@@ -234,6 +255,7 @@ class _QuizScreenState extends State<QuizScreen>
                 totalQuestions: widget.totalQuestions,
                 timeSpent: timeSpentPerQuestion,
                 categoryStats: categoryPerformance,
+                attempts: List.unmodifiable(_attempts),
           ),
         ),
       );

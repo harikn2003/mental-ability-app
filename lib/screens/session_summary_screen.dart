@@ -3,11 +3,15 @@ import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../engine/question_attempt.dart';
+import 'session_review_screen.dart';
+
 class SessionSummaryScreen extends StatelessWidget {
   final int score;
   final int totalQuestions;
   final List<int> timeSpent;
   final Map<String, List<bool>> categoryStats;
+  final List<QuestionAttempt> attempts;
 
   const SessionSummaryScreen({
     super.key,
@@ -15,6 +19,7 @@ class SessionSummaryScreen extends StatelessWidget {
     required this.totalQuestions,
     required this.timeSpent,
     required this.categoryStats,
+    required this.attempts,
   });
 
   @override
@@ -52,11 +57,9 @@ class SessionSummaryScreen extends StatelessWidget {
   }
 
   // --- 1. HERO SECTION: SCORECARD & DONUT CHART ---
-  Widget _buildScorecardHero(
-    BuildContext context,
-    double accuracy,
-    int incorrect,
-  ) {
+  Widget _buildScorecardHero(BuildContext context,
+      double accuracy,
+      int incorrect,) {
     return Card(
       elevation: 0,
       color: const Color(0xFF195DE6).withOpacity(0.1), // Primary color tinted
@@ -226,12 +229,11 @@ class SessionSummaryScreen extends StatelessWidget {
     );
   }
 
-  BarChartGroupData _makeBarGroup(
-    int x,
-    double y,
-    BuildContext context, {
-    bool isTimeTrap = false,
-  }) {
+  BarChartGroupData _makeBarGroup(int x,
+      double y,
+      BuildContext context, {
+        bool isTimeTrap = false,
+      }) {
     return BarChartGroupData(
       x: x,
       barRods: [
@@ -288,12 +290,10 @@ class SessionSummaryScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMasteryTile(
-    String title,
-    String status,
-    double progress,
-    MaterialColor color,
-  ) {
+  Widget _buildMasteryTile(String title,
+      String status,
+      double progress,
+      MaterialColor color,) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Container(
@@ -338,13 +338,29 @@ class SessionSummaryScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FilledButton(
-          onPressed: () {
-            // Future Hive Logic: Flag the 'Weak' categories here and restart
-            Navigator.pop(context); // Goes back to config for now
-          },
+        // ── REVIEW ANSWERS (new) ────────────────────────────────────────────
+        FilledButton.icon(
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SessionReviewScreen(attempts: attempts),
+            ),
+          ),
+          icon: const Icon(Icons.rate_review_rounded),
+          label: const Text('Review Answers', style: TextStyle(fontSize: 16)),
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF195DE6),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(100),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF10B981),
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(100),
@@ -357,7 +373,7 @@ class SessionSummaryScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         OutlinedButton(
-          onPressed: () => Navigator.pop(context), // Pop back to config screen
+          onPressed: () => Navigator.pop(context),
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(

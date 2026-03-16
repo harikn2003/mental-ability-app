@@ -77,16 +77,28 @@ class QuestionGenerator {
 
   /// Compact string key for a shape map — used to detect duplicate options.
   static String _key(Map<String, dynamic> m) {
+    // ── Punch hole options ─────────────────────────────────────────────────
+    if (m.containsKey('holes') && m.containsKey('unfolded')) {
+      final holes = (m['holes'] as List)
+          .map((h) => '(${(h["x"] as num).toStringAsFixed(2)},${(h["y"] as num)
+          .toStringAsFixed(2)})')
+          .toList()
+        ..sort();
+      return 'punch|ax:${m["fold_axis"]}|holes:${holes.join("-")}';
+    }
+    // ── Mirror text options ────────────────────────────────────────────────
+    if (m.containsKey('mirror_h') || m.containsKey('is_clock')) {
+      final ch = m['content'] ?? 'clk:${m["clock_hour"]}:${m["clock_minute"]}';
+      return 'txt|$ch|h:${m["mirror_h"]}|v:${m["mirror_v"]}';
+    }
+    // ── Shape options ──────────────────────────────────────────────────────
     final int s = m['shape'] ?? 0;
     int rot = m['rotation'] ?? 0;
     bool mir = m['mirror'] ?? false;
-    // Rotationally symmetric shapes — normalise so rot 0/1/2/3 all map to 0
-    // circle(0), square(1), cross(4), hexagon(6) look identical when rotated
     if (s == 0 || s == 1 || s == 4 || s == 6) {
       rot = 0;
       mir = false;
     }
-    // Diamond(3) and pentagon(5) have 2-fold symmetry — rot 0==2, 1==3
     if (s == 3 || s == 5) rot = rot % 2;
     return '$s,${m["filled"]},$rot,$mir,${m["dots"]},${m["inner"]},${m["lines"]},${m["missingCorner"]}';
   }
@@ -108,12 +120,38 @@ class QuestionGenerator {
         deduped.add(w);
       }
     }
-    // If we lost wrongs due to dedup, fill with shape variants
-    while (deduped.length < 3) {
-      final fallback = _f(
-        _allNonCircle[_r.nextInt(_allNonCircle.length)],
-        rot: _r.nextInt(4), filled: _r.nextBool(),
-      );
+    // If we lost wrongs due to dedup, generate type-appropriate fallbacks
+    final bool isPunchHole = correct.containsKey('holes');
+    final bool isMirrorText = correct.containsKey('mirror_h') ||
+        correct.containsKey('is_clock');
+    int safety = 0;
+    while (deduped.length < 3 && safety < 50) {
+      safety++;
+      Map<String, dynamic> fallback;
+      if (isPunchHole) {
+        // Generate another punch-hole option with random hole count
+        final hx = 0.2 + _r.nextDouble() * 0.2;
+        final hy = 0.2 + _r.nextDouble() * 0.6;
+        final ax = correct['fold_axis'] as int? ?? 0;
+        final n = _r.nextInt(3) + 1; // 1-3 holes
+        fallback = {
+          'type': 'punch_hole', 'unfolded': true, 'fold_axis': ax,
+          'holes': List.generate(n, (i) =>
+          {
+            'x': hx + i * 0.15, 'y': hy,
+          }),
+        };
+      } else if (isMirrorText) {
+        // Another mirror_text combo
+        final ch = ['B', 'R', 'F', 'J'][_r.nextInt(4)];
+        fallback = {'type': 'mirror_text', 'content': ch, 'is_clock': false,
+          'mirror_h': _r.nextBool(), 'mirror_v': _r.nextBool()};
+      } else {
+        fallback = _f(
+          _allNonCircle[_r.nextInt(_allNonCircle.length)],
+          rot: _r.nextInt(4), filled: _r.nextBool(),
+        );
+      }
       final fk = _key(fallback);
       if (!seen.contains(fk)) {
         seen.add(fk);
@@ -164,6 +202,7 @@ class QuestionGenerator {
       String sigKey;
 
       switch (v) {
+
       // ── A: FILL ──────────────────────────────────────────────────────────
       // Rule: 3 same fill, 1 different fill.
       // All same shape + same rotation — fill is the ONLY difference.
@@ -850,42 +889,91 @@ class QuestionGenerator {
   // 9. PUNCH HOLE
   // Fixed: wrongs now use same axis but different positions (not opposite axis)
   // ═══════════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PUNCH HOLE
+  //
+  // How it works visually:
+  //   • Puzzle shows folded paper with 1 punched hole.
+  //   • Student must pick which unfolded result is correct.
+  //
+  // Distractor strategy — all 4 options are valid-looking punch hole results
+  // (no shapes / figures). They differ in WHERE the symmetric holes land:
+  //
+  //   CORRECT  → holes mirrored on the actual fold axis
+  //   WRONG A  → holes mirrored on the OPPOSITE axis  (common mistake)
+  //   WRONG B  → both axes mirrored (double-fold result — too many holes)
+  //   WRONG C  → only 1 hole shown (student forgot unfolding doubles it)
+  //
+  // Fold types:
+  //   axis=0: vertical fold   (paper folded left→right, crease is vertical centre)
+  //   axis=1: horizontal fold (paper folded top→bottom, crease is horizontal centre)
+  // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion _punchHole() {
     final foldAxis = _r.nextInt(2);
 
-    // Pre-defined hole positions in the punched half (normalised 0-1)
-    // axis=0 (vertical fold): hole is in left half → x < 0.5
-    // axis=1 (horizontal fold): hole is in top half → y < 0.5
+    // Pre-defined hole positions always inside the visible (non-folded) quadrant
+    // axis=0: hole in left half (x < 0.5), any y
+    // axis=1: hole in top half  (y < 0.5), any x
     final positions = foldAxis == 0
         ? [
-      {'x': 0.25, 'y': 0.30}, {'x': 0.25, 'y': 0.50}, {'x': 0.25, 'y': 0.70},
-      {'x': 0.35, 'y': 0.25}, {'x': 0.35, 'y': 0.50}, {'x': 0.35, 'y': 0.75},
+      {'x': 0.22, 'y': 0.28}, {'x': 0.22, 'y': 0.50}, {'x': 0.22, 'y': 0.72},
+      {'x': 0.33, 'y': 0.22}, {'x': 0.33, 'y': 0.50}, {'x': 0.33, 'y': 0.78},
+      {'x': 0.25, 'y': 0.40}, {'x': 0.30, 'y': 0.60},
     ]
         : [
-      {'x': 0.30, 'y': 0.25}, {'x': 0.50, 'y': 0.25}, {'x': 0.70, 'y': 0.25},
-      {'x': 0.25, 'y': 0.35}, {'x': 0.50, 'y': 0.35}, {'x': 0.75, 'y': 0.35},
+      {'x': 0.28, 'y': 0.22}, {'x': 0.50, 'y': 0.22}, {'x': 0.72, 'y': 0.22},
+      {'x': 0.22, 'y': 0.33}, {'x': 0.50, 'y': 0.33}, {'x': 0.78, 'y': 0.33},
+      {'x': 0.40, 'y': 0.25}, {'x': 0.60, 'y': 0.30},
     ];
     positions.shuffle(_r);
 
-    final hole = Map<String, double>.from(
-        positions[0].map((k, v) => MapEntry(k, v.toDouble())));
-    final sigKey = 'punch:ax$foldAxis,x${hole['x']},y${hole['y']}';
+    final hp = positions[0];
+    final hx = (hp['x'] as num).toDouble();
+    final hy = (hp['y'] as num).toDouble();
+    final sigKey = 'punch:ax$foldAxis,x${hx.toStringAsFixed(2)},y${hy
+        .toStringAsFixed(2)}';
 
-    Map<String, dynamic> opt(Map<String, double> h) =>
+    // ── Build all 4 option types ────────────────────────────────────────────
+
+    // CORRECT: unfold along actual fold axis
+    // axis=0 (vertical): mirror x  → (x,y) + (1-x, y)
+    // axis=1 (horizontal): mirror y → (x,y) + (x, 1-y)
+    final correctHoles = foldAxis == 0
+        ? [{'x': hx, 'y': hy}, {'x': 1.0 - hx, 'y': hy}]
+        : [{'x': hx, 'y': hy}, {'x': hx, 'y': 1.0 - hy}];
+
+    // WRONG A: unfold along OPPOSITE axis (classic confusion)
+    final wrongA_holes = foldAxis == 0
+        ? [{'x': hx, 'y': hy}, {'x': hx, 'y': 1.0 - hy}] // mirror y instead
+        : [{'x': hx, 'y': hy}, {'x': 1.0 - hx, 'y': hy}]; // mirror x instead
+
+    // WRONG B: unfold along BOTH axes (as if doubly folded → 4 holes)
+    final wrongB_holes = [
+      {'x': hx, 'y': hy},
+      {'x': 1.0 - hx, 'y': hy},
+      {'x': hx, 'y': 1.0 - hy},
+      {'x': 1.0 - hx, 'y': 1.0 - hy},
+    ];
+
+    // WRONG C: single hole only — student forgot that unfolding mirrors it
+    final wrongC_holes = [{'x': hx, 'y': hy}];
+
+    Map<String, dynamic> _opt(List<Map<String, dynamic>> holes) =>
         {
-          'type': 'punch_hole', 'unfolded': true,
-          'fold_axis': foldAxis, 'holes': _unfold(h, foldAxis),
+          'type': 'punch_hole',
+          'unfolded': true,
+          'fold_axis': foldAxis,
+          'holes': holes,
         };
 
-    final ans = opt(hole);
-    // Wrongs: different hole positions, same fold axis
-    final wrongs = positions.skip(1).take(3)
-        .map((p) =>
-        opt(Map<String, double>.from(
-        p.map((k, v) => MapEntry(k, v.toDouble())))))
-        .toList();
+    final correct = _opt(correctHoles);
+    final wrongs = [
+      _opt(wrongA_holes),
+      _opt(wrongB_holes),
+      _opt(wrongC_holes),
+    ];
 
-    final r = _pack(ans, wrongs);
+    final r = _pack(correct, wrongs);
     _markSeen(sigKey);
     return ReasoningQuestion(
       category: 'punch_hole',
@@ -894,7 +982,7 @@ class QuestionGenerator {
         'type': 'punch_hole',
         'folded': true,
         'fold_axis': foldAxis,
-        'holes': [hole]
+        'holes': [{'x': hx, 'y': hy}],
       },
       options: r.opts,
       correctIndex: r.idx,
