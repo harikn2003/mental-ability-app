@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mental_ability_app/config/localization.dart';
 
 import '../engine/question_attempt.dart';
@@ -44,6 +45,8 @@ class _QuizScreenState extends State<QuizScreen>
   bool isAnswered = false;
   bool isCorrect = false;
   int skippedCount = 0;
+  bool _nextLocked = false; // true for 1.2s after wrong answer
+  bool _showBiasChart = false; // coordinator toggle for bias weight chart
 
   // ── Timer ─────────────────────────────────────────────────────────────────
   int remainingSeconds = 0;
@@ -200,6 +203,16 @@ class _QuizScreenState extends State<QuizScreen>
     final cat = _currentQ.category;
     final selIdx = optionSelected != null ? int.tryParse(optionSelected) : null;
     final timeSecs = secondsElapsedForCurrent;
+
+    // Haptic feedback — distinct patterns for right vs wrong
+    if (correct) {
+      HapticFeedback.lightImpact();
+    } else {
+      HapticFeedback.mediumImpact();
+      Future.delayed(
+          const Duration(milliseconds: 120), HapticFeedback.mediumImpact);
+    }
+
     setState(() {
       isAnswered = true;
       selectedOption = optionSelected;
@@ -215,6 +228,13 @@ class _QuizScreenState extends State<QuizScreen>
         wasSkipped: false,
         timeSpentSeconds: timeSecs,
       ));
+      // Lock Next for 1.2s after wrong answer so student sees the correct option
+      if (!correct) {
+        _nextLocked = true;
+        Future.delayed(const Duration(milliseconds: 1200), () {
+          if (mounted) setState(() => _nextLocked = false);
+        });
+      }
     });
     _updateWeights(cat, correct);
   }
@@ -526,10 +546,12 @@ class _QuizScreenState extends State<QuizScreen>
     final optionData = _currentQ.options[index];
     final isSelected = selectedOption == index.toString();
     final isCorrectOption = index == _currentQ.correctIndex;
+    final label = String.fromCharCode(65 + index); // A, B, C, D
 
     Color bgColor = surface;
     Color borderColor = Colors.grey.shade200;
     double borderWidth = 1;
+    Color labelColor = const Color(0xFF94A3B8);
     Widget? badge;
 
     if (isAnswered) {
@@ -537,17 +559,19 @@ class _QuizScreenState extends State<QuizScreen>
         bgColor = success.withOpacity(0.12);
         borderColor = success;
         borderWidth = 2;
+        labelColor = success;
         badge = _badge(Icons.check_rounded, success);
       } else if (isSelected) {
         bgColor = error.withOpacity(0.12);
         borderColor = error;
         borderWidth = 2;
+        labelColor = error;
         badge = _badge(Icons.close_rounded, error);
       }
     }
 
-    return GestureDetector(
-      onTap: () => _handleOptionTap(index.toString()),
+    return _PressScaleCard(
+      onTap: isAnswered ? null : () => _handleOptionTap(index.toString()),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         decoration: BoxDecoration(
@@ -562,8 +586,22 @@ class _QuizScreenState extends State<QuizScreen>
         ),
         child: Stack(
           children: [
+            // Shape figure centred
             Center(child: OptionRenderer(data: optionData)),
-            if (badge != null) Positioned(top: 8, right: 8, child: badge),
+            // A/B/C/D label — top-left corner always visible
+            Positioned(
+              top: 7, left: 9,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: labelColor,
+                ),
+              ),
+            ),
+            // Correct / wrong badge — top-right corner after answering
+            if (badge != null) Positioned(top: 7, right: 7, child: badge),
           ],
         ),
       ),
@@ -580,6 +618,8 @@ class _QuizScreenState extends State<QuizScreen>
   // ── Result message ────────────────────────────────────────────────────────
   Widget _buildResultMessage() {
     final isSkipped = selectedOption == null;
+    final correctLetter = String.fromCharCode(
+        65 + _currentQ.correctIndex); // A/B/C/D
     Color bg;
     Color fg;
     IconData icon;
@@ -589,17 +629,17 @@ class _QuizScreenState extends State<QuizScreen>
       bg = Colors.grey.shade100;
       fg = Colors.grey.shade600;
       icon = Icons.skip_next_rounded;
-      text = 'Skipped — correct answer: ${_currentQ.correctIndex + 1}';
+      text = 'Skipped — correct answer is Option $correctLetter';
     } else if (isCorrect) {
       bg = success.withOpacity(0.1);
       fg = success;
       icon = Icons.check_circle_outline_rounded;
-      text = 'Correct!';
+      text = 'Correct! Well done.';
     } else {
       bg = error.withOpacity(0.1);
       fg = error;
       icon = Icons.cancel_outlined;
-      text = 'Incorrect — correct answer: ${_currentQ.correctIndex + 1}';
+      text = 'Wrong — correct answer is Option $correctLetter';
     }
 
     return Column(
@@ -617,10 +657,45 @@ class _QuizScreenState extends State<QuizScreen>
             ],
           ),
         ),
-        // ── Live bias weight preview (only in random + bias mode) ──────────
+        // ── Coordinator bias chart — hidden behind a toggle ────────────────
         if (widget.biasEnabled && widget.mode == 'random') ...[
           const SizedBox(height: 10),
-          _buildWeightPreview(),
+          GestureDetector(
+            onTap: () => setState(() => _showBiasChart = !_showBiasChart),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.analytics_outlined,
+                  size: 13,
+                  color: const Color(0xFF94A3B8),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _showBiasChart
+                      ? 'Hide bias chart'
+                      : 'Coordinator: show bias chart',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF94A3B8),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Icon(
+                  _showBiasChart
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  size: 14,
+                  color: const Color(0xFF94A3B8),
+                ),
+              ],
+            ),
+          ),
+          if (_showBiasChart) ...[
+            const SizedBox(height: 6),
+            _buildWeightPreview(),
+          ],
         ],
       ],
     );
@@ -752,23 +827,43 @@ class _QuizScreenState extends State<QuizScreen>
           Expanded(
             child: FloatingActionButton.extended(
               heroTag: 'next_btn',
-              onPressed: _nextQuestion,
-              backgroundColor: primary,
-              elevation: 4,
+              onPressed: _nextLocked ? null : _nextQuestion,
+              backgroundColor: _nextLocked ? Colors.grey.shade400 : primary,
+              elevation: _nextLocked ? 0 : 4,
               label: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    currentQuestionIndex < widget.totalQuestions - 1
-                        ? AppLocale.get(currentLang, 'next_question')
-                        : 'Finish',
-                    style: const TextStyle(color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15),
-                  ),
-                  const SizedBox(width: 6),
-                  const Icon(Icons.arrow_forward_rounded, color: Colors.white,
-                      size: 18),
+                  if (_nextLocked) ...[
+                    const SizedBox(
+                      width: 14, height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white70),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Look at Option...',
+                      style: TextStyle(color: Colors.white70,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14),
+                    ),
+                  ] else
+                    ...[
+                      Text(
+                        currentQuestionIndex < widget.totalQuestions - 1
+                            ? AppLocale.get(currentLang, 'next_question')
+                            : 'Finish',
+                        style: const TextStyle(color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                          Icons.arrow_forward_rounded, color: Colors.white,
+                          size: 18),
+                    ],
                 ],
               ),
             ),
@@ -806,4 +901,44 @@ class _QuizScreenState extends State<QuizScreen>
           ),
         ),
       );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Press-scale wrapper: shrinks to 96% on tap-down, springs back on release.
+// Gives instant tactile feedback without any animation controller boilerplate.
+// ─────────────────────────────────────────────────────────────────────────────
+class _PressScaleCard extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+
+  const _PressScaleCard({required this.child, this.onTap});
+
+  @override
+  State<_PressScaleCard> createState() => _PressScaleCardState();
+}
+
+class _PressScaleCardState extends State<_PressScaleCard> {
+  double _scale = 1.0;
+
+  void _onTapDown(_) => setState(() => _scale = 0.95);
+
+  void _onTapUp(_) => setState(() => _scale = 1.0);
+
+  void _onTapCancel() => setState(() => _scale = 1.0);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      onTapDown: widget.onTap != null ? _onTapDown : null,
+      onTapUp: widget.onTap != null ? _onTapUp : null,
+      onTapCancel: widget.onTap != null ? _onTapCancel : null,
+      child: AnimatedScale(
+        scale: _scale,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+        child: widget.child,
+      ),
+    );
+  }
 }

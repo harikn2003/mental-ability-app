@@ -11,12 +11,17 @@ import '../widgets/question_renderer.dart';
 ///  • Correct answer always highlighted green
 ///  • Category label + time taken
 ///  • "Skipped" badge if the student skipped
-class SessionReviewScreen extends StatelessWidget {
+class SessionReviewScreen extends StatefulWidget {
   final List<QuestionAttempt> attempts;
 
   const SessionReviewScreen({super.key, required this.attempts});
 
-  // ── Colours ────────────────────────────────────────────────────────────────
+  @override
+  State<SessionReviewScreen> createState() => _SessionReviewScreenState();
+}
+
+class _SessionReviewScreenState extends State<SessionReviewScreen> {
+  // ── Colours ─────────────────────────────────────────────────────────────
   static const _bg = Color(0xFFF6F6F8);
   static const _surface = Colors.white;
   static const _ink = Color(0xFF0F172A);
@@ -26,8 +31,28 @@ class SessionReviewScreen extends StatelessWidget {
   static const _red = Color(0xFFEF4444);
   static const _orange = Color(0xFFF97316);
 
+  // ── Filter state ─────────────────────────────────────────────────────────
+  bool _showWrongOnly = false; // when true, collapse correct cards
+
+  List<QuestionAttempt> get _filtered =>
+      _showWrongOnly
+          ? widget.attempts.where((a) => !a.isCorrect).toList()
+          : widget.attempts;
+
+  int get _wrongCount =>
+      widget.attempts
+          .where((a) => !a.isCorrect)
+          .length;
+
+  int get _correctCount =>
+      widget.attempts
+          .where((a) => a.isCorrect)
+          .length;
+
   @override
   Widget build(BuildContext context) {
+    final filtered = _filtered;
+
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
@@ -37,55 +62,143 @@ class SessionReviewScreen extends StatelessWidget {
         title: const Text(
           'Answer Review',
           style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-            color: _ink,
-          ),
+              fontWeight: FontWeight.bold, fontSize: 18, color: _ink),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: _ink),
           onPressed: () => Navigator.pop(context),
         ),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(36),
-          child: _buildLegend(),
+          preferredSize: const Size.fromHeight(88),
+          child: Column(
+            children: [
+              // ── Score strip ──────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _statChip(_correctCount.toString(), 'Correct', _green),
+                    const SizedBox(width: 12),
+                    _statChip(_wrongCount.toString(), 'Wrong', _red),
+                    const SizedBox(width: 12),
+                    _statChip(
+                      widget.attempts
+                          .where((a) => a.wasSkipped)
+                          .length
+                          .toString(),
+                      'Skipped', _orange,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              // ── Filter toggle ────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                child: GestureDetector(
+                  onTap: () => setState(() => _showWrongOnly = !_showWrongOnly),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _showWrongOnly
+                          ? _red.withOpacity(0.12)
+                          : _surface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _showWrongOnly ? _red : Colors.grey.shade300,
+                        width: _showWrongOnly ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _showWrongOnly
+                              ? Icons.filter_list_off_rounded
+                              : Icons.filter_list_rounded,
+                          size: 15,
+                          color: _showWrongOnly ? _red : _subtle,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _showWrongOnly
+                              ? 'Showing $_wrongCount wrong answers — tap to show all'
+                              : 'Show wrong answers only  ($_wrongCount)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _showWrongOnly ? _red : _subtle,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      body: ListView.builder(
+      body: filtered.isEmpty
+          ? _buildEmpty()
+          : ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        itemCount: attempts.length,
+        itemCount: filtered.length,
         itemBuilder: (_, i) =>
-            _QuestionReviewCard(attempt: attempts[i], number: i + 1),
+            _QuestionReviewCard(
+              attempt: filtered[i],
+              number: widget.attempts.indexOf(filtered[i]) + 1,
+              // Auto-expand wrong/skipped cards; collapse correct ones
+              initiallyExpanded: !filtered[i].isCorrect,
+            ),
       ),
     );
   }
 
-  Widget _buildLegend() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10, left: 16, right: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _legendDot(_green, 'Correct'),
-          const SizedBox(width: 20),
-          _legendDot(_red, 'Wrong'),
-          const SizedBox(width: 20),
-          _legendDot(_orange, 'Skipped'),
+  Widget _statChip(String value, String label, Color color) =>
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: '$value ',
+                style: TextStyle(
+                  fontSize: 15, fontWeight: FontWeight.bold, color: color,
+                ),
+              ),
+              TextSpan(
+                text: label,
+                style: TextStyle(fontSize: 11, color: color.withOpacity(0.8)),
+              ),
         ],
       ),
-    );
-  }
+        ),
+      );
 
-  Widget _legendDot(Color c, String label) => Row(
-    children: [
-      Container(
-        width: 10,
-        height: 10,
-        decoration: BoxDecoration(color: c, shape: BoxShape.circle),
-      ),
-      const SizedBox(width: 5),
-      Text(label, style: const TextStyle(fontSize: 11, color: _subtle)),
-    ],
+  Widget _buildEmpty() =>
+      Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle_outline_rounded, size: 64,
+                color: _green.withOpacity(0.5)),
+            const SizedBox(height: 16),
+            const Text('All answers were correct!',
+                style: TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold, color: _ink)),
+            const SizedBox(height: 8),
+            Text('No wrong answers to show.',
+                style: TextStyle(fontSize: 14, color: _subtle)),
+          ],
+        ),
   );
 }
 
@@ -95,15 +208,26 @@ class SessionReviewScreen extends StatelessWidget {
 class _QuestionReviewCard extends StatefulWidget {
   final QuestionAttempt attempt;
   final int number;
+  final bool initiallyExpanded;
 
-  const _QuestionReviewCard({required this.attempt, required this.number});
+  const _QuestionReviewCard({
+    required this.attempt,
+    required this.number,
+    this.initiallyExpanded = false,
+  });
 
   @override
   State<_QuestionReviewCard> createState() => _QuestionReviewCardState();
 }
 
 class _QuestionReviewCardState extends State<_QuestionReviewCard> {
-  bool _expanded = false;
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initiallyExpanded;
+  }
 
   static const _bg = Color(0xFFF6F6F8);
   static const _surface = Colors.white;
@@ -125,16 +249,19 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
     IconData statusIcon = isCorrect
         ? Icons.check_circle_rounded
         : (isSkipped ? Icons.skip_next_rounded : Icons.cancel_rounded);
-    String statusText = isCorrect
-        ? 'Correct'
-        : (isSkipped ? 'Skipped' : 'Wrong');
+    String statusText = isCorrect ? 'Correct' : (isSkipped
+        ? 'Skipped'
+        : 'Wrong');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: _surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: statusColor.withOpacity(0.35), width: 1.5),
+        border: Border.all(
+          color: statusColor.withOpacity(0.35),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
@@ -155,8 +282,7 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
                 children: [
                   // Question number badge
                   Container(
-                    width: 34,
-                    height: 34,
+                    width: 34, height: 34,
                     decoration: BoxDecoration(
                       color: _primary.withOpacity(0.1),
                       shape: BoxShape.circle,
@@ -165,8 +291,7 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
                       child: Text(
                         'Q${widget.number}',
                         style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 11, fontWeight: FontWeight.bold,
                           color: _primary,
                         ),
                       ),
@@ -179,12 +304,10 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          a.categoryLabel,
+                        Text(a.categoryLabel,
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            color: _ink,
+                            fontSize: 14, color: _ink,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -199,9 +322,7 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
                   // Status chip
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
+                        horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(20),
@@ -211,11 +332,9 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
                       children: [
                         Icon(statusIcon, size: 13, color: statusColor),
                         const SizedBox(width: 4),
-                        Text(
-                          statusText,
+                        Text(statusText,
                           style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 11, fontWeight: FontWeight.bold,
                             color: statusColor,
                           ),
                         ),
@@ -229,8 +348,7 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
                     _expanded
                         ? Icons.keyboard_arrow_up_rounded
                         : Icons.keyboard_arrow_down_rounded,
-                    color: _subtle,
-                    size: 20,
+                    color: _subtle, size: 20,
                   ),
                 ],
               ),
@@ -278,11 +396,9 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
     );
   }
 
-  Widget _buildOptionCard(
-    int index,
-    Map<String, dynamic> optionData,
-    QuestionAttempt a,
-  ) {
+  Widget _buildOptionCard(int index,
+      Map<String, dynamic> optionData,
+      QuestionAttempt a,) {
     final isCorrectOption = index == a.question.correctIndex;
     final isStudentChoice = index == a.selectedIndex;
     final isWrongChoice = isStudentChoice && !isCorrectOption;
@@ -316,10 +432,8 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: borderColor,
-          width: isCorrectOption || isStudentChoice ? 2.0 : 1.0,
-        ),
+        border: Border.all(color: borderColor,
+            width: isCorrectOption || isStudentChoice ? 2.0 : 1.0),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -344,13 +458,19 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
 
           // The shape
           Expanded(
-            child: Center(child: OptionRenderer(data: optionData, size: 52)),
+            child: Center(
+              child: OptionRenderer(data: optionData, size: 52),
+            ),
           ),
 
           // Badge at bottom
           if (badge != null)
-            Padding(padding: const EdgeInsets.only(bottom: 6), child: badge),
-          if (badge == null) const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: badge,
+            ),
+          if (badge == null)
+            const SizedBox(height: 6),
         ],
       ),
     );
