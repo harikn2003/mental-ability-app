@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../engine/question_attempt.dart';
+import 'quiz_screen.dart';
 import 'session_review_screen.dart';
 
 class SessionSummaryScreen extends StatelessWidget {
@@ -57,9 +58,11 @@ class SessionSummaryScreen extends StatelessWidget {
   }
 
   // --- 1. HERO SECTION: SCORECARD & DONUT CHART ---
-  Widget _buildScorecardHero(BuildContext context,
-      double accuracy,
-      int incorrect,) {
+  Widget _buildScorecardHero(
+    BuildContext context,
+    double accuracy,
+    int incorrect,
+  ) {
     return Card(
       elevation: 0,
       color: const Color(0xFF195DE6).withOpacity(0.1), // Primary color tinted
@@ -229,8 +232,9 @@ class SessionSummaryScreen extends StatelessWidget {
     );
   }
 
-  BarChartGroupData _makeBarGroup(int x,
-      double y,
+  BarChartGroupData _makeBarGroup(
+    int x,
+    double y,
       BuildContext context, {
         bool isTimeTrap = false,
       }) {
@@ -290,10 +294,12 @@ class SessionSummaryScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMasteryTile(String title,
-      String status,
+  Widget _buildMasteryTile(
+    String title,
+    String status,
       double progress,
-      MaterialColor color,) {
+    MaterialColor color,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Container(
@@ -333,6 +339,32 @@ class SessionSummaryScreen extends StatelessWidget {
     );
   }
 
+  // --- HELPER: weakest category label ---
+  String _weakestLabel() {
+    if (categoryStats.isEmpty) return 'Weak Areas';
+    final weakest = categoryStats.entries
+        .map((e) {
+          final correct = e.value.where((v) => v).length;
+          final pct = e.value.isEmpty ? 1.0 : correct / e.value.length;
+          return MapEntry(e.key, pct);
+        })
+        .reduce((a, b) => a.value <= b.value ? a : b)
+        .key;
+    const labels = {
+      'odd_man': 'Odd Man Out',
+      'figure_match': 'Figure Match',
+      'pattern': 'Pattern Completion',
+      'figure_series': 'Figure Series',
+      'analogy': 'Analogy',
+      'geo_completion': 'Geo Completion',
+      'mirror_shape': 'Mirror Shape',
+      'mirror_text': 'Mirror Text',
+      'punch_hole': 'Punch Hole',
+      'embedded': 'Embedded Figure',
+    };
+    return labels[weakest] ?? weakest;
+  }
+
   // --- 4. BOTTOM ACTION BUTTONS ---
   Widget _buildActionButtons(BuildContext context) {
     return Column(
@@ -358,7 +390,35 @@ class SessionSummaryScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         FilledButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: categoryStats.isEmpty
+              ? null
+              : () {
+                  // Find the weakest category (lowest accuracy)
+                  String weakest = categoryStats.entries
+                      .map((e) {
+                        final correct = e.value.where((v) => v).length;
+                        final pct = e.value.isEmpty
+                            ? 1.0
+                            : correct / e.value.length;
+                        return MapEntry(e.key, pct);
+                      })
+                      .reduce((a, b) => a.value <= b.value ? a : b)
+                      .key;
+
+                  // Pop summary, then push a new quiz session focused on that category
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => QuizScreen(
+                        mode: weakest,
+                        totalQuestions: 10,
+                        timePerQuestion: '2m',
+                        biasEnabled: false, // fixed category, no bias needed
+                      ),
+                    ),
+                  );
+                },
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF10B981),
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -366,9 +426,11 @@ class SessionSummaryScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(100),
             ),
           ),
-          child: const Text(
-            'Practice Weak Areas',
-            style: TextStyle(fontSize: 16),
+          child: Text(
+            categoryStats.isEmpty
+                ? 'Practice Weak Areas'
+                : 'Practice ${_weakestLabel()}',
+            style: const TextStyle(fontSize: 16),
           ),
         ),
         const SizedBox(height: 12),

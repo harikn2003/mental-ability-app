@@ -91,6 +91,17 @@ class QuestionGenerator {
       final ch = m['content'] ?? 'clk:${m["clock_hour"]}:${m["clock_minute"]}';
       return 'txt|$ch|h:${m["mirror_h"]}|v:${m["mirror_v"]}';
     }
+    // ── Geo cell options ───────────────────────────────────────────────────
+    if (m['type'] == 'geo_cell') {
+      return 'geocell|f:${m["filled"]}|mk:${m["mark"] ?? "none"}';
+    }
+    // ── Embedded option ────────────────────────────────────────────────────
+    if (m['type'] == 'embedded_option') {
+      final shapes = (m['shapes'] as List)
+          .map((s) => '${s["shape"]}-${s["filled"]}-${s["rotation"] ?? 0}')
+          .join('+');
+      return 'emb|$shapes|off:${m["offset"]}';
+    }
     // ── Shape options ──────────────────────────────────────────────────────
     final int s = m['shape'] ?? 0;
     int rot = m['rotation'] ?? 0;
@@ -705,41 +716,102 @@ class QuestionGenerator {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 6. GEO COMPLETION
+  //
+  // Design: A 2×2 grid of cells is shown. Some cells are filled (shaded),
+  // some are empty. The grid follows a rule — e.g. diagonal cells are filled,
+  // or a specific L-shape pattern. One cell is replaced with "?".
+  // The student picks which of 4 options correctly fills the missing cell.
+  //
+  // The option is a single cell: either filled or empty.
+  // Distractors are always the opposite fill state so the answer is binary
+  // but the reasoning requires understanding the grid pattern.
+  //
+  // Grid patterns (which cells are filled, indexed TL=0,TR=1,BL=2,BR=3):
+  //   Pattern 0: diagonal  [0,3]        → TL+BR filled
+  //   Pattern 1: diagonal  [1,2]        → TR+BL filled
+  //   Pattern 2: top row   [0,1]        → TL+TR filled
+  //   Pattern 3: bottom row[2,3]        → BL+BR filled
+  //   Pattern 4: left col  [0,2]        → TL+BL filled
+  //   Pattern 5: right col [1,3]        → TR+BR filled
+  //   Pattern 6: L-shape   [0,1,2]      → all except BR
+  //   Pattern 7: L-shape   [1,2,3]      → all except TL
+  //   Pattern 8: single    [0]          → only TL filled
+  //   Pattern 9: single    [3]          → only BR filled
+  //
+  // Missing cell is always one of the FILLED cells — answer is always "filled".
+  // This makes the correct answer non-trivially deducible from the pattern.
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion _geoCompletion() {
-    for (int attempt = 0; attempt < 20; attempt++) {
-      final missing = _r.nextInt(4) + 1;
-      final sigKey = 'geo:m$missing';
+    // filled cell indices for each pattern (0=TL,1=TR,2=BL,3=BR)
+    const patterns = [
+      [0, 3], // diagonal 1
+      [1, 2], // diagonal 2
+      [0, 1], // top row
+      [2, 3], // bottom row
+      [0, 2], // left col
+      [1, 3], // right col
+      [0, 1, 2], // L top-left
+      [1, 2, 3], // L bottom-right
+      [0, 1, 3], // L top-right
+      [0, 2, 3], // L bottom-left
+    ];
+
+    for (int attempt = 0; attempt < 30; attempt++) {
+      final patIdx = _r.nextInt(patterns.length);
+      final filled = List<int>.from(patterns[patIdx]);
+      // Pick which filled cell to hide as "?"
+      final hideIdx = _r.nextInt(filled.length);
+      final hideCell = filled[hideIdx];
+      final sigKey = 'geo2:p$patIdx,h$hideCell';
       if (_seen(sigKey)) continue;
 
-      final others = [1, 2, 3, 4].where((c) => c != missing).toList()
-        ..shuffle(_r);
-      final ans = _f(1);
-      final r = _pack(ans, others.map((c) => _f(1, missingCorner: c)).toList());
+      // Build the 4-cell grid: true=filled, false=empty, null=question mark
+      final cells = List<bool?>.generate(4, (i) {
+        if (i == hideCell) return null; // the "?" cell
+        return filled.contains(i);
+      });
+
+      // Correct answer: a filled cell (because the hidden cell was filled)
+      // Wrong answers: an empty cell (the cell should NOT be empty)
+      // We encode options as {'type':'geo_cell','filled':bool}
+      final correct = {'type': 'geo_cell', 'filled': true};
+      final wrong1 = {'type': 'geo_cell', 'filled': false};
+      // Add two more wrongs that are also empty but with a visual mark
+      // to make them look different: use small dot or cross indicator
+      final wrong2 = {'type': 'geo_cell', 'filled': false, 'mark': 'dot'};
+      final wrong3 = {'type': 'geo_cell', 'filled': false, 'mark': 'cross'};
+
+      final pos = _r.nextInt(4);
+      final opts = [wrong1, wrong2, wrong3];
+      opts.shuffle(_r);
+      opts.insert(pos, correct);
 
       _markSeen(sigKey);
       return ReasoningQuestion(
         category: 'geo_completion',
         type: 'geo_completion',
-        puzzle: {
-          'type': 'geo_completion',
-          'target': _f(1, missingCorner: missing)
-        },
-        options: r.opts,
-        correctIndex: r.idx,
+        puzzle: {'type': 'geo_completion', 'cells': cells, 'pattern': patIdx},
+        options: opts,
+        correctIndex: pos,
       );
     }
-    final missing = _r.nextInt(4) + 1;
-    final others = [1, 2, 3, 4].where((c) => c != missing).toList();
-    final r = _pack(_f(1), others.map((c) => _f(1, missingCorner: c)).toList());
-    return ReasoningQuestion(category: 'geo_completion',
-        type: 'geo_completion',
-        puzzle: {
-          'type': 'geo_completion',
-          'target': _f(1, missingCorner: missing)
-        },
-        options: r.opts,
-        correctIndex: r.idx);
+    // Fallback: top-row pattern, hide TL
+    final cells = <bool?>[null, true, false, false];
+    final opts = [
+      {'type': 'geo_cell', 'filled': true},
+      {'type': 'geo_cell', 'filled': false},
+      {'type': 'geo_cell', 'filled': false, 'mark': 'dot'},
+      {'type': 'geo_cell', 'filled': false, 'mark': 'cross'},
+    ]
+      ..shuffle(_r);
+    final pos = opts.indexWhere((o) => o['filled'] == true);
+    return ReasoningQuestion(
+      category: 'geo_completion',
+      type: 'geo_completion',
+      puzzle: {'type': 'geo_completion', 'cells': cells, 'pattern': 2},
+      options: opts,
+      correctIndex: pos,
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -998,44 +1070,139 @@ class QuestionGenerator {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 10. EMBEDDED FIGURE
+  //
+  // Design: Show a simple TARGET shape (triangle, square, diamond, arrow).
+  // Ask: "Which of the 4 options contains this shape hidden inside it?"
+  //
+  // Implementation: Each option is a COMPOSITE figure — two shapes overlaid
+  // or adjacently placed. Exactly one option contains the target shape as
+  // one of its two components. The other three contain different shape pairs
+  // that do NOT include the target.
+  //
+  // Data format for options:
+  //   {'type': 'embedded_option', 'shapes': [shapeA, shapeB], 'offset': 1-4}
+  //   shapeA, shapeB are normal FigurePainter data maps.
+  //   offset controls where shape B is placed relative to A (1=TR,2=BR,3=BL,4=TL)
+  //
+  // The correct option always has the TARGET as shapeA and a random companion
+  // as shapeB. Wrong options have two non-target shapes.
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion _embedded() {
-    for (int attempt = 0; attempt < 20; attempt++) {
-      final targetShape = _r.nextInt(4) + 1;
-      final lineCount = _r.nextInt(2) + 2;
-      final sigKey = 'embed:s$targetShape,l$lineCount';
+    // Only use clearly distinct shapes with visible difference at small sizes
+    const _embShapes = [1, 2, 3, 7]; // square, triangle, diamond, arrow
+
+    for (int attempt = 0; attempt < 30; attempt++) {
+      final targetShape = _embShapes[_r.nextInt(_embShapes.length)];
+      final targetFilled = _r.nextBool();
+      final sigKey = 'embed2:s$targetShape,f$targetFilled';
       if (_seen(sigKey)) continue;
 
-      final target = _f(targetShape);
-      final host = _f(targetShape, lines: lineCount);
+      final target = _f(targetShape, filled: targetFilled);
 
-      final used = <int>{targetShape};
+      // Companion for the correct option — different shape, different fill
+      int companion;
+      do {
+        companion = _embShapes[_r.nextInt(_embShapes.length)];
+      }
+      while (companion == targetShape);
+      final companionFilled = !targetFilled;
+      final offset = _r.nextInt(4) + 1;
+
+      final correct = {
+        'type': 'embedded_option',
+        'shapes': [target, _f(companion, filled: companionFilled)],
+        'offset': offset,
+        'contains_target': true,
+      };
+
+      // 3 wrong options — pairs that don't include the target shape
       final wrongs = <Map<String, dynamic>>[];
-      while (wrongs.length < 3) {
-        int s;
+      final usedPairs = <String>{'$targetShape-$companion'};
+      int safety = 0;
+      while (wrongs.length < 3 && safety < 40) {
+        safety++;
+        int sA, sB;
         do {
-          s = _r.nextInt(5);
-        } while (used.contains(s));
-        used.add(s);
-        wrongs.add(_f(s, lines: _r.nextInt(2) + 1));
+          sA = _embShapes[_r.nextInt(_embShapes.length)];
+        }
+        while (sA == targetShape);
+        do {
+          sB = _embShapes[_r.nextInt(_embShapes.length)];
+        }
+        while (sB == targetShape || sB == sA);
+        final pairKey = [sA, sB].toList()
+          ..sort();
+        final pk = pairKey.join('-');
+        if (usedPairs.contains(pk)) continue;
+        usedPairs.add(pk);
+        final off2 = _r.nextInt(4) + 1;
+        final fA = _r.nextBool();
+        wrongs.add({
+          'type': 'embedded_option',
+          'shapes': [_f(sA, filled: fA), _f(sB, filled: !fA)],
+          'offset': off2,
+          'contains_target': false,
+        });
       }
 
-      final r = _pack(host, wrongs);
+      // If we couldn't get 3 unique pairs, fill remainder
+      while (wrongs.length < 3) {
+        wrongs.add({
+          'type': 'embedded_option',
+          'shapes': [_f(3, filled: false), _f(1, filled: true)],
+          'offset': 2,
+          'contains_target': false,
+        });
+      }
+
+      final pos = _r.nextInt(4);
+      final opts = List<Map<String, dynamic>>.from(wrongs)
+        ..insert(pos, correct);
+
       _markSeen(sigKey);
       return ReasoningQuestion(
         category: 'embedded',
         type: 'embedded',
-        puzzle: {'type': 'embedded', 'target': target, 'host': host},
-        options: r.opts,
-        correctIndex: r.idx,
+        puzzle: {'type': 'embedded', 'target': target},
+        options: opts,
+        correctIndex: pos,
       );
     }
-    final host = _f(1, lines: 2);
-    final r = _pack(host, [_f(2, lines: 1), _f(3, lines: 2), _f(4, lines: 1)]);
-    return ReasoningQuestion(category: 'embedded',
-        type: 'embedded',
-        puzzle: {'type': 'embedded', 'target': _f(1), 'host': host},
-        options: r.opts,
-        correctIndex: r.idx);
+    // Fallback
+    final target = _f(2, filled: false); // triangle
+    final pos = _r.nextInt(4);
+    final opts = <Map<String, dynamic>>[
+      {
+        'type': 'embedded_option',
+        'shapes': [_f(3, filled: false), _f(1, filled: true)],
+        'offset': 1,
+        'contains_target': false
+      },
+      {
+        'type': 'embedded_option',
+        'shapes': [_f(1, filled: false), _f(7, filled: true)],
+        'offset': 2,
+        'contains_target': false
+      },
+      {
+        'type': 'embedded_option',
+        'shapes': [_f(7, filled: false), _f(3, filled: true)],
+        'offset': 3,
+        'contains_target': false
+      },
+    ];
+    opts.insert(pos, {
+      'type': 'embedded_option',
+      'shapes': [target, _f(3, filled: true)],
+      'offset': 2,
+      'contains_target': true
+    });
+    return ReasoningQuestion(
+      category: 'embedded',
+      type: 'embedded',
+      puzzle: {'type': 'embedded', 'target': target},
+      options: opts,
+      correctIndex: pos,
+    );
   }
 }

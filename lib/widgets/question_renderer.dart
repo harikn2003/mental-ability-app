@@ -205,11 +205,58 @@ class QuestionRenderer extends StatelessWidget {
 
   // ── 6. Geo Completion ──────────────────────────────────────────────────────
   Widget _geoCompletion() {
-    final target = Map<String, dynamic>.from(puzzle['target'] as Map);
+    final cells = (puzzle['cells'] as List).cast<bool?>();
+    const cellSz = 60.0;
+    const gap = 4.0;
+
+    Widget cell(bool? filled) {
+      if (filled == null) {
+        // The "?" cell
+        return Container(
+          width: cellSz, height: cellSz,
+          decoration: BoxDecoration(
+            color: const Color(0xFFE2E8F0),
+            border: Border.all(color: const Color(0xFF94A3B8), width: 1.5),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Center(
+            child: Text('?', style: TextStyle(
+              fontSize: 22, fontWeight: FontWeight.bold, color: _subtle,
+            )),
+          ),
+        );
+      }
+      return Container(
+        width: cellSz, height: cellSz,
+        decoration: BoxDecoration(
+          color: filled ? const Color(0xFF1E293B) : Colors.white,
+          border: Border.all(color: const Color(0xFF94A3B8), width: 1.5),
+          borderRadius: BorderRadius.circular(6),
+        ),
+      );
+    }
+
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label('Which option completes this figure?'),
-      const SizedBox(height: 12),
-      _fig(target, size: 100),
+      _label(
+          'Which figure correctly fills the "?" cell to complete the pattern?'),
+      const SizedBox(height: 14),
+      // 2×2 grid: TL=0, TR=1, BL=2, BR=3
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            cell(cells[0]),
+            const SizedBox(width: gap),
+            cell(cells[1]),
+          ]),
+          const SizedBox(height: gap),
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            cell(cells[2]),
+            const SizedBox(width: gap),
+            cell(cells[3]),
+          ]),
+        ],
+      ),
     ]);
   }
 
@@ -261,16 +308,17 @@ class QuestionRenderer extends StatelessWidget {
   Widget _embedded() {
     final target = Map<String, dynamic>.from(puzzle['target'] as Map);
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label('Which option contains this shape hidden inside it?'),
+      _label('Find the option that contains this shape hidden inside it'),
       const SizedBox(height: 12),
+      // Show target with a highlight box
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: _blue.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _blue.withOpacity(0.4)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _blue, width: 2),
         ),
-        child: _fig(target, size: 56),
+        child: _fig(target, size: 72),
       ),
     ]);
   }
