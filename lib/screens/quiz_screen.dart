@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mental_ability_app/config/localization.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../engine/question_attempt.dart';
 import '../engine/question_generator.dart';
@@ -16,7 +17,8 @@ class QuizScreen extends StatefulWidget {
   final String mode;
   final int totalQuestions;
   final String timePerQuestion;
-  final bool biasEnabled; // ← NEW: wired from SessionConfigScreen
+  final bool biasEnabled;
+  final Map<String, int> initialWeights; // persisted from previous session
 
   const QuizScreen({
     super.key,
@@ -24,6 +26,7 @@ class QuizScreen extends StatefulWidget {
     required this.totalQuestions,
     required this.timePerQuestion,
     this.biasEnabled = true,
+    this.initialWeights = const {},
   });
 
   @override
@@ -47,6 +50,7 @@ class _QuizScreenState extends State<QuizScreen>
   int skippedCount = 0;
   bool _nextLocked = false; // true for 1.2s after wrong answer
   bool _showBiasChart = false; // coordinator toggle for bias weight chart
+  bool _timedOut = false; // true when timer expired on current question
 
   // ── Timer ─────────────────────────────────────────────────────────────────
   int remainingSeconds = 0;
@@ -62,22 +66,18 @@ class _QuizScreenState extends State<QuizScreen>
   Map<String, List<bool>> categoryPerformance = {};
 
   // ── Bias weights ──────────────────────────────────────────────────────────
-  // All start at 1 (equal probability).
-  // Wrong answer / skip → weight += 2 (up to max 10) — asked more often.
-  // Correct answer      → weight -= 1 (down to min 1) — asked less often.
-  // In non-bias mode these never change, so distribution stays flat.
-  Map<String, int> _weights = {
-    'pattern': 1,
-    'analogy': 1,
-    'odd_man': 1,
-    'mirror_shape': 1,
-    'figure_match': 1,
-    'figure_series': 1,
-    'geo_completion': 1,
-    'mirror_text': 1,
-    'punch_hole': 1,
-    'embedded': 1,
-  };
+  // Initialised from widget.initialWeights (loaded from SharedPreferences).
+  // Falls back to 1 for any category not yet in storage.
+  // Wrong answer / skip → weight += 2 (up to max 10)
+  // Correct answer      → weight -= 1 (down to min 1)
+  // Saved to SharedPreferences after every change via _saveWeights().
+  static const _kWeightsKey = 'bias_weights';
+  static const _allCategories = [
+    'pattern', 'analogy', 'odd_man', 'mirror_shape', 'figure_match',
+    'figure_series', 'geo_completion', 'mirror_text', 'punch_hole', 'embedded',
+  ];
+
+  late Map<String, int> _weights;
 
   // ── Constants ─────────────────────────────────────────────────────────────
   final String currentLang = 'EN';
@@ -103,6 +103,13 @@ class _QuizScreenState extends State<QuizScreen>
   @override
   void initState() {
     super.initState();
+
+    // Seed weights from persisted values — any category not in storage defaults to 1
+    _weights = {
+      for (final cat in _allCategories)
+        cat: widget.initialWeights[cat] ?? 1,
+    };
+
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -114,6 +121,24 @@ class _QuizScreenState extends State<QuizScreen>
     // Generate ONLY the first question — rest generated on-demand
     _generateNextQuestion();
     _startTimer();
+  }
+
+  // Write current weights to SharedPreferences — called after every answer
+  Future<void> _saveWeights() async {
+    if (!widget.biasEnabled) return;
+    final prefs = await SharedPreferences.getInstance();
+    // Only save categories that were seeded into this session.
+    // If initialWeights was a subset (e.g. weak-areas session), writing all
+    // 10 categories would reset the strong ones back to 1. Instead, only
+    // update the keys that this session actually knows about.
+    final sessionCats = widget.initialWeights.isNotEmpty
+        ? widget.initialWeights.keys.toSet()
+        : _weights.keys.toSet(); // full session — save everything
+    for (final entry in _weights.entries) {
+      if (sessionCats.contains(entry.key)) {
+        await prefs.setInt('${_kWeightsKey}_${entry.key}', entry.value);
+      }
+    }
   }
 
   @override
@@ -154,17 +179,18 @@ class _QuizScreenState extends State<QuizScreen>
 
   // ── Update bias weights after each answer ─────────────────────────────────
   void _updateWeights(String category, bool correct) {
-    if (!widget.biasEnabled) return; // toggle off → don't change anything
+    if (!widget.biasEnabled) return;
 
     setState(() {
       if (correct) {
-        // Student got it right → reduce weight (min 1)
         _weights[category] = max(1, (_weights[category] ?? 1) - 1);
       } else {
-        // Student got it wrong or skipped → increase weight (max 10)
         _weights[category] = min(10, (_weights[category] ?? 1) + 2);
       }
     });
+
+    // Persist immediately — fire-and-forget, doesn't block UI
+    _saveWeights();
   }
 
   // ── Timer ─────────────────────────────────────────────────────────────────
@@ -186,7 +212,10 @@ class _QuizScreenState extends State<QuizScreen>
         setState(() => remainingSeconds--);
       } else if (remainingSeconds == 0) {
         t.cancel();
-        if (!isAnswered) _recordAnswer(false, null);
+        if (!isAnswered) {
+          setState(() => _timedOut = true);
+          _recordAnswer(false, null);
+        }
       }
     });
   }
@@ -273,6 +302,7 @@ class _QuizScreenState extends State<QuizScreen>
               SessionSummaryScreen(
                 score: score,
                 totalQuestions: widget.totalQuestions,
+                skipped: skippedCount,
                 timeSpent: timeSpentPerQuestion,
                 categoryStats: categoryPerformance,
                 attempts: List.unmodifiable(_attempts),
@@ -290,6 +320,7 @@ class _QuizScreenState extends State<QuizScreen>
       isAnswered = false;
       selectedOption = null;
       isCorrect = false;
+      _timedOut = false;
       _startTimer();
     });
   }
@@ -532,12 +563,22 @@ class _QuizScreenState extends State<QuizScreen>
 
   // ── Options ───────────────────────────────────────────────────────────────
   Widget _buildOptions() {
+    // Punch hole and mirror text/shape options need taller cards — the painters
+    // use more vertical space than a simple shape.
+    final cat = _currentQ.category;
+    final double aspectRatio = (cat == 'punch_hole' || cat == 'mirror_text')
+        ? 0.85
+        : (cat == 'embedded')
+        ? 0.9
+        : 1.0;
+
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
       crossAxisSpacing: 14,
       mainAxisSpacing: 14,
+      childAspectRatio: aspectRatio,
       children: List.generate(4, _buildOptionCard),
     );
   }
@@ -625,7 +666,12 @@ class _QuizScreenState extends State<QuizScreen>
     IconData icon;
     String text;
 
-    if (isSkipped) {
+    if (_timedOut) {
+      bg = const Color(0xFFFFF3CD);
+      fg = const Color(0xFFB45309);
+      icon = Icons.timer_off_rounded;
+      text = "Time's up! Correct answer was Option $correctLetter";
+    } else if (isSkipped) {
       bg = Colors.grey.shade100;
       fg = Colors.grey.shade600;
       icon = Icons.skip_next_rounded;
@@ -923,7 +969,6 @@ class _PressScaleCardState extends State<_PressScaleCard> {
   void _onTapDown(_) => setState(() => _scale = 0.95);
 
   void _onTapUp(_) => setState(() => _scale = 1.0);
-
   void _onTapCancel() => setState(() => _scale = 1.0);
 
   @override

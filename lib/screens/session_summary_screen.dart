@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../engine/question_attempt.dart';
 import 'quiz_screen.dart';
@@ -10,6 +11,7 @@ import 'session_review_screen.dart';
 class SessionSummaryScreen extends StatelessWidget {
   final int score;
   final int totalQuestions;
+  final int skipped;
   final List<int> timeSpent;
   final Map<String, List<bool>> categoryStats;
   final List<QuestionAttempt> attempts;
@@ -18,6 +20,7 @@ class SessionSummaryScreen extends StatelessWidget {
     super.key,
     required this.score,
     required this.totalQuestions,
+    this.skipped = 0,
     required this.timeSpent,
     required this.categoryStats,
     required this.attempts,
@@ -58,14 +61,39 @@ class SessionSummaryScreen extends StatelessWidget {
   }
 
   // --- 1. HERO SECTION: SCORECARD & DONUT CHART ---
-  Widget _buildScorecardHero(
-    BuildContext context,
-    double accuracy,
-    int incorrect,
-  ) {
+  Widget _buildScorecardHero(BuildContext context,
+      double accuracy,
+      int incorrect,) {
+    // QW4: colour-coded accuracy badge
+    final Color badgeBg;
+    final Color badgeFg;
+    if (accuracy >= 70) {
+      badgeBg = Colors.green.shade100;
+      badgeFg = Colors.green.shade800;
+    } else if (accuracy >= 40) {
+      badgeBg = Colors.orange.shade100;
+      badgeFg = Colors.orange.shade900;
+    } else {
+      badgeBg = Colors.red.shade100;
+      badgeFg = Colors.red.shade800;
+    }
+
+    // QW3: average time per question
+    final int avgSecs = timeSpent.isNotEmpty
+        ? (timeSpent.reduce((a, b) => a + b) / timeSpent.length).round()
+        : 0;
+    final String avgStr = avgSecs >= 60
+        ? '${avgSecs ~/ 60}m ${(avgSecs % 60).toString().padLeft(2, '0')}s'
+        : '${avgSecs}s';
+
+    // Pie chart edge case: if both values are 0 show a grey placeholder
+    final double pieCorrect = score > 0 ? score.toDouble() : 0;
+    final double pieWrong = incorrect > 0 ? incorrect.toDouble() : 0;
+    final bool allZero = pieCorrect == 0 && pieWrong == 0;
+
     return Card(
       elevation: 0,
-      color: const Color(0xFF195DE6).withOpacity(0.1), // Primary color tinted
+      color: const Color(0xFF195DE6).withOpacity(0.1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -82,6 +110,16 @@ class SessionSummaryScreen extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  // Skipped count — only shown when > 0
+                  if (skipped > 0)
+                    Text(
+                      '$skipped skipped',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.orange.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   Text(
                     'Questions Correct',
                     style: TextStyle(
@@ -89,23 +127,41 @@ class SessionSummaryScreen extends StatelessWidget {
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade100,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '${accuracy.toStringAsFixed(0)}% Accuracy',
-                      style: TextStyle(
-                        color: Colors.green.shade800,
-                        fontWeight: FontWeight.bold,
+                  const SizedBox(height: 10),
+                  // Accuracy badge — colour reflects performance
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: badgeBg,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${accuracy.toStringAsFixed(0)}% Accuracy',
+                          style: TextStyle(
+                              color: badgeFg, fontWeight: FontWeight.bold),
+                        ),
                       ),
-                    ),
+                      // QW3: average time badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.blueGrey.shade100,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'Avg $avgStr / question',
+                          style: TextStyle(
+                              color: Colors.blueGrey.shade800,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -113,20 +169,28 @@ class SessionSummaryScreen extends StatelessWidget {
             SizedBox(
               height: 100,
               width: 100,
-              child: PieChart(
+              child: allZero
+                  ? Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                      color: Colors.grey.shade300, width: 6),
+                ),
+              )
+                  : PieChart(
                 PieChartData(
                   sectionsSpace: 4,
                   centerSpaceRadius: 30,
                   sections: [
                     PieChartSectionData(
                       color: const Color(0xFF10B981),
-                      value: score.toDouble(),
+                      value: pieCorrect,
                       title: '',
                       radius: 16,
                     ),
                     PieChartSectionData(
                       color: const Color(0xFFEF4444),
-                      value: incorrect.toDouble(),
+                      value: pieWrong,
                       title: '',
                       radius: 16,
                     ),
@@ -232,9 +296,8 @@ class SessionSummaryScreen extends StatelessWidget {
     );
   }
 
-  BarChartGroupData _makeBarGroup(
-    int x,
-    double y,
+  BarChartGroupData _makeBarGroup(int x,
+      double y,
       BuildContext context, {
         bool isTimeTrap = false,
       }) {
@@ -284,9 +347,21 @@ class SessionSummaryScreen extends StatelessWidget {
             color = Colors.blue;
           }
 
-          // Format category name string (capitalize)
-          String formattedName =
-              categoryName[0].toUpperCase() + categoryName.substring(1);
+          // Use readable label map — avoids "odd_man", "figure_series" etc.
+          const catLabels = {
+            'odd_man': 'Odd Man Out',
+            'figure_match': 'Figure Match',
+            'pattern': 'Pattern Completion',
+            'figure_series': 'Figure Series',
+            'analogy': 'Analogy',
+            'geo_completion': 'Geo Completion',
+            'mirror_shape': 'Mirror Shape',
+            'mirror_text': 'Mirror Text',
+            'punch_hole': 'Punch Hole',
+            'embedded': 'Embedded Figure',
+          };
+          final formattedName = catLabels[categoryName]
+              ?? (categoryName[0].toUpperCase() + categoryName.substring(1));
 
           return _buildMasteryTile(formattedName, status, percent, color);
         }).toList(),
@@ -294,12 +369,10 @@ class SessionSummaryScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMasteryTile(
-    String title,
-    String status,
+  Widget _buildMasteryTile(String title,
+      String status,
       double progress,
-    MaterialColor color,
-  ) {
+      MaterialColor color,) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Container(
@@ -339,30 +412,51 @@ class SessionSummaryScreen extends StatelessWidget {
     );
   }
 
-  // --- HELPER: weakest category label ---
-  String _weakestLabel() {
-    if (categoryStats.isEmpty) return 'Weak Areas';
-    final weakest = categoryStats.entries
-        .map((e) {
-          final correct = e.value.where((v) => v).length;
-          final pct = e.value.isEmpty ? 1.0 : correct / e.value.length;
-          return MapEntry(e.key, pct);
-        })
-        .reduce((a, b) => a.value <= b.value ? a : b)
-        .key;
-    const labels = {
-      'odd_man': 'Odd Man Out',
-      'figure_match': 'Figure Match',
-      'pattern': 'Pattern Completion',
-      'figure_series': 'Figure Series',
-      'analogy': 'Analogy',
-      'geo_completion': 'Geo Completion',
-      'mirror_shape': 'Mirror Shape',
-      'mirror_text': 'Mirror Text',
-      'punch_hole': 'Punch Hole',
-      'embedded': 'Embedded Figure',
-    };
-    return labels[weakest] ?? weakest;
+  // --- HELPERS ---
+
+  static const _labels = {
+    'odd_man': 'Odd Man Out',
+    'figure_match': 'Figure Match',
+    'pattern': 'Pattern',
+    'figure_series': 'Figure Series',
+    'analogy': 'Analogy',
+    'geo_completion': 'Geo Completion',
+    'mirror_shape': 'Mirror Shape',
+    'mirror_text': 'Mirror Text',
+    'punch_hole': 'Punch Hole',
+    'embedded': 'Embedded Figure',
+  };
+
+  // Build a weights map from this session's accuracy:
+  // accuracy < 50% → weight 6, 50-79% → weight 3, ≥80% → weight 1
+  // This lets us pass a meaningful initialWeights that biases
+  // the weak-areas session toward the worst categories.
+  Map<String, int> _sessionWeakWeights() {
+    if (categoryStats.isEmpty) return {};
+    final weights = <String, int>{};
+    for (final entry in categoryStats.entries) {
+      final correct = entry.value
+          .where((v) => v)
+          .length;
+      final pct = entry.value.isEmpty ? 1.0 : correct / entry.value.length;
+      if (pct < 0.5)
+        weights[entry.key] = 6;
+      else if (pct < 0.8) weights[entry.key] = 3;
+      // categories ≥ 80% are omitted — they won't appear in weak session
+    }
+    return weights;
+  }
+
+  // Human-readable summary of weak categories for button label
+  String _weakSummary() {
+    final ww = _sessionWeakWeights();
+    if (ww.isEmpty) return 'Weak Areas';
+    // Show up to 2 names, then "+N more"
+    final names = ww.keys
+        .map((k) => _labels[k] ?? k)
+        .toList();
+    if (names.length <= 2) return names.join(' & ');
+    return '${names.take(2).join(', ')} +${names.length - 2} more';
   }
 
   // --- 4. BOTTOM ACTION BUTTONS ---
@@ -389,50 +483,68 @@ class SessionSummaryScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        FilledButton(
-          onPressed: categoryStats.isEmpty
-              ? null
-              : () {
-                  // Find the weakest category (lowest accuracy)
-                  String weakest = categoryStats.entries
-                      .map((e) {
-                        final correct = e.value.where((v) => v).length;
-                        final pct = e.value.isEmpty
-                            ? 1.0
-                            : correct / e.value.length;
-                        return MapEntry(e.key, pct);
-                      })
-                      .reduce((a, b) => a.value <= b.value ? a : b)
-                      .key;
+        Builder(builder: (context) {
+          final weakWeights = _sessionWeakWeights();
+          final hasWeak = weakWeights.isNotEmpty;
+          return FilledButton.icon(
+            onPressed: !hasWeak ? null : () {
+              // Merge session weak weights with any previously saved weights:
+              // read SharedPreferences, boost categories that were weak this
+              // session, then launch a random session across all weak categories
+              SharedPreferences.getInstance().then((prefs) {
+                // Load persisted weights as base
+                const allCats = [
+                  'pattern', 'analogy', 'odd_man', 'mirror_shape',
+                  'figure_match', 'figure_series', 'geo_completion',
+                  'mirror_text', 'punch_hole', 'embedded',
+                ];
+                final merged = <String, int>{};
+                for (final cat in allCats) {
+                  final saved = prefs.getInt('bias_weights_$cat') ?? 1;
+                  final session = weakWeights[cat] ?? 0;
+                  // Take the higher of persisted or session weight
+                  final w = session > saved ? session : saved;
+                  if (w > 1) merged[cat] = w;
+                }
+                // If nothing is weak at all, fall back to equal weights
+                final weights = merged.isEmpty
+                    ? {for (final c in allCats) c: 1}
+                    : merged;
 
-                  // Pop summary, then push a new quiz session focused on that category
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => QuizScreen(
-                        mode: weakest,
-                        totalQuestions: 10,
-                        timePerQuestion: '2m',
-                        biasEnabled: false, // fixed category, no bias needed
-                      ),
-                    ),
-                  );
-                },
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF10B981),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(100),
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        QuizScreen(
+                          mode: 'random',
+                          totalQuestions: 10,
+                          timePerQuestion: '2m',
+                          biasEnabled: true,
+                          initialWeights: weights,
+                        ),
+                  ),
+                );
+              });
+            },
+            icon: const Icon(Icons.fitness_center_rounded),
+            label: Text(
+              hasWeak
+                  ? 'Practice Weak Areas: ${_weakSummary()}'
+                  : 'No Weak Areas This Session',
+              style: const TextStyle(fontSize: 15),
             ),
-          ),
-          child: Text(
-            categoryStats.isEmpty
-                ? 'Practice Weak Areas'
-                : 'Practice ${_weakestLabel()}',
-            style: const TextStyle(fontSize: 16),
-          ),
-        ),
+            style: FilledButton.styleFrom(
+              backgroundColor: hasWeak
+                  ? const Color(0xFFF97316)
+                  : Colors.grey.shade400,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(100),
+              ),
+            ),
+          );
+        }),
         const SizedBox(height: 12),
         OutlinedButton(
           onPressed: () => Navigator.pop(context),
