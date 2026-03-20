@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:mental_ability_app/data/hive_service.dart';
 
-import 'screens/session_config_screen.dart'; // 1. Import your file
+import 'screens/session_config_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await HiveService.init();
   runApp(const MyApp());
 }
 
@@ -16,9 +19,9 @@ class MyApp extends StatelessWidget {
       title: 'NplusPrep',
       theme: ThemeData(
         useMaterial3: true,
-        fontFamily: 'Lexend', // 2. Set default font (if using assets)
+        fontFamily: 'Lexend',
       ),
-      home: const SessionConfigScreen(), // 3. Set as Home to test immediately
+      home: const SessionConfigScreen(),
     );
   }
 }

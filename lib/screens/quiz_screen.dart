@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:mental_ability_app/config/localization.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/hive_service.dart';
+import '../data/session_record.dart';
 import '../engine/question_attempt.dart';
 import '../engine/question_generator.dart';
 import '../engine/reasoning_question.dart';
@@ -295,6 +297,30 @@ class _QuizScreenState extends State<QuizScreen>
   void _nextQuestion() {
     final isLast = currentQuestionIndex >= widget.totalQuestions - 1;
     if (isLast) {
+      // Persist session to Hive history
+      final catCorrect = <String, int>{};
+      final catTotal = <String, int>{};
+      for (final entry in categoryPerformance.entries) {
+        catCorrect[entry.key] = entry.value
+            .where((v) => v)
+            .length;
+        catTotal[entry.key] = entry.value.length;
+      }
+      final avgT = timeSpentPerQuestion.isNotEmpty
+          ? (timeSpentPerQuestion.reduce((a, b) => a + b) /
+          timeSpentPerQuestion.length).round()
+          : 0;
+      HiveService.saveSession(SessionRecord(
+        date: DateTime.now(),
+        score: score,
+        totalQuestions: widget.totalQuestions,
+        skipped: skippedCount,
+        mode: widget.mode,
+        categoryCorrect: catCorrect,
+        categoryTotal: catTotal,
+        avgTimeSeconds: avgT,
+      ));
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(

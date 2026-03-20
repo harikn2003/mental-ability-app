@@ -32,7 +32,12 @@ class _SessionReviewScreenState extends State<SessionReviewScreen> {
   static const _orange = Color(0xFFF97316);
 
   // ── Filter state ─────────────────────────────────────────────────────────
-  bool _showWrongOnly = false; // when true, collapse correct cards
+  bool _showWrongOnly = false;
+
+  // ── Navigation state ─────────────────────────────────────────────────────
+  // When non-null, the review is in "focused" mode showing one card at a time
+  // with Prev / Next buttons. Null = list mode.
+  int? _focusedIndex; // index into _filtered list
 
   List<QuestionAttempt> get _filtered =>
       _showWrongOnly
@@ -144,17 +149,119 @@ class _SessionReviewScreenState extends State<SessionReviewScreen> {
       ),
       body: filtered.isEmpty
           ? _buildEmpty()
-          : ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        itemCount: filtered.length,
-        itemBuilder: (_, i) =>
-            _QuestionReviewCard(
+          : _focusedIndex != null
+          ? _buildFocusedView(filtered)
+          : _buildListView(filtered),
+    );
+  }
+
+  Widget _buildListView(List<QuestionAttempt> filtered) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      itemCount: filtered.length,
+      itemBuilder: (_, i) =>
+          GestureDetector(
+            onTap: () => setState(() => _focusedIndex = i),
+            child: _QuestionReviewCard(
               attempt: filtered[i],
               number: widget.attempts.indexOf(filtered[i]) + 1,
-              // Auto-expand wrong/skipped cards; collapse correct ones
               initiallyExpanded: !filtered[i].isCorrect,
             ),
       ),
+    );
+  }
+
+  Widget _buildFocusedView(List<QuestionAttempt> filtered) {
+    final idx = _focusedIndex!.clamp(0, filtered.length - 1);
+    final attempt = filtered[idx];
+    final total = filtered.length;
+
+    return Column(
+      children: [
+        // Navigation bar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          color: _surface,
+          child: Row(
+            children: [
+              // Back to list
+              GestureDetector(
+                onTap: () => setState(() => _focusedIndex = null),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _bg,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.list_rounded, size: 16,
+                          color: Color(0xFF64748B)),
+                      SizedBox(width: 4),
+                      Text('List',
+                          style: TextStyle(
+                              fontSize: 12, color: Color(0xFF64748B))),
+                    ],
+                  ),
+                ),
+              ),
+              const Spacer(),
+              // Prev button
+              IconButton(
+                onPressed: idx > 0
+                    ? () => setState(() => _focusedIndex = idx - 1)
+                    : null,
+                icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
+                color: idx > 0 ? _primary : Colors.grey.shade300,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+              // Position indicator
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${idx + 1} / $total',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: _primary,
+                  ),
+                ),
+              ),
+              // Next button
+              IconButton(
+                onPressed: idx < total - 1
+                    ? () => setState(() => _focusedIndex = idx + 1)
+                    : null,
+                icon: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
+                color: idx < total - 1 ? _primary : Colors.grey.shade300,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+            ],
+          ),
+        ),
+        // The single expanded card
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+            child: _QuestionReviewCard(
+              attempt: attempt,
+              number: widget.attempts.indexOf(attempt) + 1,
+              initiallyExpanded: true,
+              alwaysExpanded: true, // no collapse in focused mode
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -209,11 +316,13 @@ class _QuestionReviewCard extends StatefulWidget {
   final QuestionAttempt attempt;
   final int number;
   final bool initiallyExpanded;
+  final bool alwaysExpanded; // true in focused mode — no collapse toggle
 
   const _QuestionReviewCard({
     required this.attempt,
     required this.number,
     this.initiallyExpanded = false,
+    this.alwaysExpanded = false,
   });
 
   @override
@@ -226,7 +335,7 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
   @override
   void initState() {
     super.initState();
-    _expanded = widget.initiallyExpanded;
+    _expanded = widget.initiallyExpanded || widget.alwaysExpanded;
   }
 
   static const _bg = Color(0xFFF6F6F8);
@@ -274,7 +383,9 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
         children: [
           // ── Header row ───────────────────────────────────────────────────
           GestureDetector(
-            onTap: () => setState(() => _expanded = !_expanded),
+            onTap: widget.alwaysExpanded
+                ? null
+                : () => setState(() => _expanded = !_expanded),
             behavior: HitTestBehavior.opaque,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
@@ -343,13 +454,14 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
                   ),
 
                   const SizedBox(width: 6),
-                  // Expand/collapse chevron
-                  Icon(
-                    _expanded
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.keyboard_arrow_down_rounded,
-                    color: _subtle, size: 20,
-                  ),
+                  // Expand/collapse chevron — hidden in focused mode
+                  if (!widget.alwaysExpanded)
+                    Icon(
+                      _expanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      color: _subtle, size: 20,
+                    ),
                 ],
               ),
             ),

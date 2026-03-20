@@ -3,6 +3,7 @@ import 'package:mental_ability_app/config/localization.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'quiz_screen.dart';
+import 'session_history_screen.dart';
 
 class SessionConfigScreen extends StatefulWidget {
   const SessionConfigScreen({super.key});
@@ -217,53 +218,146 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                   fontFamily: 'Lexend',
                 ),
               ),
-              GestureDetector(
-                onTap: () => setState(
-                      () => currentLang = currentLang == 'EN' ? 'MR' : 'EN',
-                ),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: surface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.translate, color: primary, size: 18),
-                      const SizedBox(width: 6),
-                      Text(
-                        currentLang,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: textMain,
+              Row(
+                children: [
+                  // History button
+                  GestureDetector(
+                    onTap: () =>
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const SessionHistoryScreen()),
                         ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border:
+                        Border.all(color: Colors.grey.withOpacity(0.3)),
                       ),
-                    ],
+                      child: const Icon(Icons.history_rounded,
+                          color: primary, size: 18),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  // Language toggle
+                  GestureDetector(
+                    onTap: () =>
+                        setState(
+                              () =>
+                          currentLang =
+                          currentLang == 'EN' ? 'MR' : 'EN',
+                        ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: Colors.grey.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.translate,
+                              color: primary, size: 18),
+                          const SizedBox(width: 6),
+                          Text(
+                            currentLang,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: textMain,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
           const SizedBox(height: 20),
 
-          // Setting 1: Total Questions
-          _buildSettingRow(
-            icon: Icons.format_list_numbered,
-            label: AppLocale.get(currentLang, 'total_questions'),
-            children: [10, 20, 50]
-                .map(
-                  (val) => _buildChip(
-                    label: val.toString(),
-                    isSelected: selectedCount == val,
-                    onTap: () => setState(() => selectedCount = val),
+          // Setting 1: Total Questions — slider from 10 to 50, step 10
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.format_list_numbered, size: 18, color: primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    AppLocale.get(currentLang, 'total_questions').toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.bold,
+                      color: textSubtle,
+                    ),
                   ),
-            )
-                .toList(),
+                  const Spacer(),
+                  // Current value badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: primary,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '$selectedCount questions',
+                      style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  activeTrackColor: primary,
+                  inactiveTrackColor: Colors.grey.shade200,
+                  thumbColor: primary,
+                  overlayColor: primary.withOpacity(0.1),
+                  trackHeight: 4,
+                  showValueIndicator: ShowValueIndicator.never,
+                ),
+                child: Slider(
+                  min: 10,
+                  max: 50,
+                  divisions: 4,
+                  // 10, 20, 30, 40, 50
+                  value: selectedCount.toDouble(),
+                  onChanged: (v) =>
+                      setState(() => selectedCount = v.round()),
+                ),
+              ),
+              // Tick labels
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: ['10', '20', '30', '40', '50']
+                      .map((l) =>
+                      Text(l,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: selectedCount == int.parse(l)
+                                ? primary
+                                : textSubtle,
+                            fontWeight: selectedCount == int.parse(l)
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          )))
+                      .toList(),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
 
