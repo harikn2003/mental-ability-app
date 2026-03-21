@@ -595,7 +595,11 @@ class _QuizScreenState extends State<QuizScreen>
     final double aspectRatio = (cat == 'punch_hole' || cat == 'mirror_text')
         ? 0.85
         : (cat == 'embedded')
-        ? 0.9
+        ? 0.95
+        : (cat == 'mirror_shape')
+        ? 1.1 // mirror shape options need slightly more height
+        : (cat == 'geo_completion')
+        ? 1.0 // geo now uses shape figures like pattern
         : 1.0;
 
     return GridView.count(

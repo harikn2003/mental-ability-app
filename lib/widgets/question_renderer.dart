@@ -105,46 +105,10 @@ class QuestionRenderer extends StatelessWidget {
 
   // ── 3. Pattern Completion (3×3 matrix) ────────────────────────────────────
   Widget _matrix() {
-    final cells = (puzzle['cells'] as List).cast<Map<String, dynamic>>();
-    final missing = puzzle['missing'] as int? ?? 8;
-    const cellSize = 54.0;
-
     return Column(mainAxisSize: MainAxisSize.min, children: [
       _label('Find the missing figure to complete the pattern'),
       const SizedBox(height: 12),
-      Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300, width: 1.5),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(3, (row) =>
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: List.generate(3, (col) {
-                  final idx = row * 3 + col;
-                  final cell = cells[idx];
-                  final isQ = idx == missing;
-                  return Container(
-                    width: cellSize, height: cellSize,
-                    decoration: BoxDecoration(
-                      color: isQ ? const Color(0xFFE2E8F0) : Colors.white,
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: isQ
-                        ? const Center(child: Text('?',
-                        style: TextStyle(fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: _subtle)))
-                        : (cell['empty'] == true
-                        ? const SizedBox()
-                        : Center(child: _fig(cell, size: 38))),
-                  );
-                }),
-              )),
-        ),
-      ),
+      _buildMatrix(),
     ]);
   }
 
@@ -204,74 +168,95 @@ class QuestionRenderer extends StatelessWidget {
   }
 
   // ── 6. Geo Completion ──────────────────────────────────────────────────────
+  // Geo completion now uses the same 3×3 matrix layout as pattern completion.
+  // The puzzle['type'] emitted by the generator is 'matrix' so this method
+  // just delegates to _matrix() with a different instruction label.
   Widget _geoCompletion() {
-    final cells = (puzzle['cells'] as List).cast<bool?>();
-    const cellSz = 60.0;
-    const gap = 4.0;
-
-    Widget cell(bool? filled) {
-      if (filled == null) {
-        // The "?" cell
-        return Container(
-          width: cellSz, height: cellSz,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE2E8F0),
-            border: Border.all(color: const Color(0xFF94A3B8), width: 1.5),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: const Center(
-            child: Text('?', style: TextStyle(
-              fontSize: 22, fontWeight: FontWeight.bold, color: _subtle,
-            )),
-          ),
-        );
-      }
-      return Container(
-        width: cellSz, height: cellSz,
-        decoration: BoxDecoration(
-          color: filled ? const Color(0xFF1E293B) : Colors.white,
-          border: Border.all(color: const Color(0xFF94A3B8), width: 1.5),
-          borderRadius: BorderRadius.circular(6),
-        ),
-      );
-    }
-
+    // Override the label — the matrix renderer uses a generic one
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label(
-          'Which figure correctly fills the "?" cell to complete the pattern?'),
-      const SizedBox(height: 14),
-      // 2×2 grid: TL=0, TR=1, BL=2, BR=3
-      Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            cell(cells[0]),
-            const SizedBox(width: gap),
-            cell(cells[1]),
-          ]),
-          const SizedBox(height: gap),
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            cell(cells[2]),
-            const SizedBox(width: gap),
-            cell(cells[3]),
-          ]),
-        ],
-      ),
+      _label('Complete the geometric pattern — find the missing figure'),
+      const SizedBox(height: 10),
+      _buildMatrix(), // same 3×3 grid as pattern completion
     ]);
+  }
+
+  // Extracted matrix builder so both _matrix() and _geoCompletion() can use it
+  Widget _buildMatrix() {
+    final cells = (puzzle['cells'] as List).cast<Map<String, dynamic>>();
+    final missing = puzzle['missing'] as int? ?? 8;
+    const cellSize = 54.0;
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300, width: 1.5),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(3, (row) =>
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(3, (col) {
+                final idx = row * 3 + col;
+                final cell = cells[idx];
+                final isQ = idx == missing;
+                return Container(
+                  width: cellSize, height: cellSize,
+                  decoration: BoxDecoration(
+                    color: isQ ? const Color(0xFFE2E8F0) : Colors.white,
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: isQ
+                      ? const Center(child: Text('?',
+                      style: TextStyle(fontSize: 20,
+                          fontWeight: FontWeight.bold, color: _subtle)))
+                      : (cell['empty'] == true
+                      ? const SizedBox()
+                      : Center(child: _fig(cell, size: 38))),
+                );
+              }),
+            )),
+      ),
+    );
   }
 
   // ── 7. Mirror Shape ────────────────────────────────────────────────────────
   Widget _mirrorShape() {
     final target = Map<String, dynamic>.from(puzzle['target'] as Map);
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label('Find the left-right mirror image'),
+      _label('Find the mirror image — the figure reflected across the line'),
       const SizedBox(height: 14),
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        _fig(target, size: 80),
-        const SizedBox(width: 20),
-        _mirrorLine(),
-        const SizedBox(width: 20),
-        _qBox(size: 80),
+        // Show the shape larger so mirror difference is clearly visible
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _blue.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _blue.withOpacity(0.2)),
+          ),
+          child: _fig(target, size: 88),
+        ),
+        const SizedBox(width: 16),
+        // Mirror line with arrows indicating reflection direction
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.keyboard_arrow_right_rounded, size: 16,
+                color: _blue.withOpacity(0.7)),
+            Container(
+              width: 3, height: 70,
+              decoration: BoxDecoration(
+                color: _blue.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Icon(Icons.keyboard_arrow_left_rounded, size: 16,
+                color: _blue.withOpacity(0.7)),
+          ],
+        ),
+        const SizedBox(width: 16),
+        _qBox(size: 88),
       ]),
     ]);
   }
