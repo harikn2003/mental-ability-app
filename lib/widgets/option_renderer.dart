@@ -39,7 +39,6 @@ class OptionRenderer extends StatelessWidget {
 class _GeoCell extends StatelessWidget {
   final Map<String, dynamic> data;
   final double size;
-
   const _GeoCell({required this.data, required this.size});
 
   @override
@@ -80,9 +79,7 @@ class _GeoCell extends StatelessWidget {
 
 class _CrossPainter extends CustomPainter {
   final Color color;
-
   const _CrossPainter(this.color);
-
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()
@@ -92,7 +89,6 @@ class _CrossPainter extends CustomPainter {
     canvas.drawLine(Offset(0, 0), Offset(size.width, size.height), p);
     canvas.drawLine(Offset(size.width, 0), Offset(0, size.height), p);
   }
-
   @override bool shouldRepaint(covariant CustomPainter _) => false;
 }
 
@@ -103,16 +99,38 @@ class _CrossPainter extends CustomPainter {
 class _EmbeddedOption extends StatelessWidget {
   final Map<String, dynamic> data;
   final double size;
-
   const _EmbeddedOption({required this.data, required this.size});
 
   @override
   Widget build(BuildContext context) {
     final shapes = (data['shapes'] as List).cast<Map<String, dynamic>>();
-    final offset = data['offset'] as int? ?? 1;
-    final s = size * 0.48; // each sub-shape size
+    final s = size * 0.42; // each sub-shape at ~42% of card size
 
-    // offset 1=TR, 2=BR, 3=BL, 4=TL — where shape B sits relative to A
+    // 3-shape layout: triangle arrangement
+    //   shape[0] — top-left
+    //   shape[1] — top-right
+    //   shape[2] — bottom-centre
+    // This makes the target genuinely harder to find — no obvious "A or B" layout
+    if (shapes.length >= 3) {
+      return SizedBox(
+        width: size, height: size,
+        child: Stack(
+          children: [
+            Positioned(
+                top: 0, left: 0, child: FigureWidget(data: shapes[0], size: s)),
+            Positioned(top: 0,
+                right: 0,
+                child: FigureWidget(data: shapes[1], size: s)),
+            Positioned(bottom: 0,
+                left: size / 2 - s / 2,
+                child: FigureWidget(data: shapes[2], size: s)),
+          ],
+        ),
+      );
+    }
+
+    // Fallback for legacy 2-shape options
+    final offset = data['offset'] as int? ?? 1;
     final Alignment alignA;
     final Alignment alignB;
     switch (offset) {
@@ -132,19 +150,14 @@ class _EmbeddedOption extends StatelessWidget {
         alignA = Alignment.bottomRight;
         alignB = Alignment.topLeft;
     }
-
     return SizedBox(
       width: size, height: size,
       child: Stack(
         children: [
           Align(
-            alignment: alignA,
-            child: FigureWidget(data: shapes[0], size: s),
-          ),
+              alignment: alignA, child: FigureWidget(data: shapes[0], size: s)),
           Align(
-            alignment: alignB,
-            child: FigureWidget(data: shapes[1], size: s),
-          ),
+              alignment: alignB, child: FigureWidget(data: shapes[1], size: s)),
         ],
       ),
     );
