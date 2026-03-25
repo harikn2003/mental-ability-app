@@ -1,30 +1,34 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:mental_ability_app/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
+  testWidgets('App launches and shows session config screen', (
+      WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
-
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // App title is correct
+    expect(find.text('New Session'), findsOneWidget);
+
+    // Core UI elements are present
+    expect(find.text('Random Mix'), findsOneWidget);
+    expect(find.byType(ElevatedButton), findsOneWidget);
+  });
+
+  testWidgets('Language toggle switches between EN and MR', (
+      WidgetTester tester) async {
+    await tester.pumpWidget(const MyApp());
+    await tester.pump();
+
+    // EN is the default
+    expect(find.text('New Session'), findsOneWidget);
+
+    // Tap the language toggle
+    await tester.tap(find.text('EN'));
+    await tester.pump();
+
+    // Should now show Marathi title
+    expect(find.text('नवीन सत्र'), findsOneWidget);
   });
 }
