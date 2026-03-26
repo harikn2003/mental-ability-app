@@ -120,6 +120,9 @@ class _QuizScreenState extends State<QuizScreen>
     _pulseAnim = Tween<double>(begin: 1.0, end: 1.18).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+    // Clear generator history so this session gets fresh questions
+    QuestionGenerator.resetSession();
+
     // Generate ONLY the first question — rest generated on-demand
     _generateNextQuestion();
     _startTimer();

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../painters/figure_painter.dart';
@@ -22,6 +24,12 @@ class OptionRenderer extends StatelessWidget {
     }
     if (type == 'punch_hole') {
       return CustomPaint(size: Size(size, size), painter: PunchPainter(data));
+    }
+    if (type == 'geo_piece') {
+      return CustomPaint(
+        size: Size(size, size),
+        painter: _GeoPieceOptionPainter(data),
+      );
     }
     if (type == 'geo_cell') {
       return _GeoCell(data: data, size: size);
@@ -162,4 +170,250 @@ class _EmbeddedOption extends StatelessWidget {
       ),
     );
   }
+}
+
+
+// ── Geo piece option painter (reuses same logic as question renderer) ─────────
+class _GeoPieceOptionPainter extends CustomPainter {
+  final Map<String, dynamic> data;
+  static const Color _ink = Color(0xFF1E293B);
+  static const Color _fill = Color(0xFFE2E8F0);
+
+  const _GeoPieceOptionPainter(this.data);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final int shape = (data['shape'] as num?)?.toInt() ?? 0;
+    final int cut = (data['cut'] as num?)?.toInt() ?? 0;
+    final int piece = (data['piece'] as num?)?.toInt() ?? 1;
+
+    final stroke = Paint()
+      ..color = _ink
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round;
+    final fill = Paint()
+      ..color = _fill
+      ..style = PaintingStyle.fill;
+
+    final m = size.width * 0.1;
+    final l = m;
+    final t = m;
+    final r = size.width - m;
+    final b = size.height - m;
+    final cx = (l + r) / 2;
+    final cy = (t + b) / 2;
+    final rad = (r - l) / 2;
+
+    Path path;
+    switch (shape) {
+      case 0:
+        path = _sq(
+            l,
+            t,
+            r,
+            b,
+            cx,
+            cy,
+            cut,
+            piece);
+        break;
+      case 1:
+        path = _tr(
+            l,
+            t,
+            r,
+            b,
+            cx,
+            cy,
+            cut,
+            piece);
+        break;
+      default:
+        path = _ci(cx, cy, rad, cut, piece);
+        break;
+    }
+    canvas.drawPath(path, fill);
+    canvas.drawPath(path, stroke);
+  }
+
+  static Path _sq(double l, double t, double r, double b, double cx, double cy,
+      int cut, int piece) {
+    switch (cut) {
+      case 0:
+        return piece == 0 ? (Path()
+          ..moveTo(l, t)
+          ..lineTo(cx, t)..lineTo(cx, b)..lineTo(l, b)
+          ..close()) : (Path()
+          ..moveTo(cx, t)
+          ..lineTo(r, t)..lineTo(r, b)..lineTo(cx, b)
+          ..close());
+      case 1:
+        return piece == 0 ? (Path()
+          ..moveTo(l, t)
+          ..lineTo(r, t)..lineTo(r, cy)..lineTo(l, cy)
+          ..close()) : (Path()
+          ..moveTo(l, cy)
+          ..lineTo(r, cy)..lineTo(r, b)..lineTo(l, b)
+          ..close());
+      case 2:
+        return piece == 0 ? (Path()
+          ..moveTo(l, t)
+          ..lineTo(r, t)..lineTo(r, b)
+          ..close()) : (Path()
+          ..moveTo(l, t)
+          ..lineTo(r, b)..lineTo(l, b)
+          ..close());
+      case 3:
+        return piece == 0 ? (Path()
+          ..moveTo(l, t)
+          ..lineTo(r, t)..lineTo(l, b)
+          ..close()) : (Path()
+          ..moveTo(r, t)
+          ..lineTo(r, b)..lineTo(l, b)
+          ..close());
+      case 4:
+        {
+          final sx = l + (r - l) * 0.6;
+          final sy = t + (b - t) * 0.4;
+          return piece == 0 ? (Path()
+            ..moveTo(l, t)
+            ..lineTo(sx, t)..lineTo(sx, sy)..lineTo(r, sy)..lineTo(
+                r, b)..lineTo(l, b)
+            ..close()) : (Path()
+            ..moveTo(sx, t)
+            ..lineTo(r, t)..lineTo(r, sy)..lineTo(sx, sy)
+            ..close());
+        }
+      case 5:
+        {
+          final sx = l + (r - l) * 0.6;
+          final sy = t + (b - t) * 0.6;
+          return piece == 0 ? (Path()
+            ..moveTo(l, t)
+            ..lineTo(r, t)..lineTo(r, sy)..lineTo(sx, sy)..lineTo(
+                sx, b)..lineTo(l, b)
+            ..close()) : (Path()
+            ..moveTo(sx, sy)
+            ..lineTo(r, sy)..lineTo(r, b)..lineTo(sx, b)
+            ..close());
+        }
+      case 6:
+        {
+          final sx = l + (r - l) * 0.4;
+          final sy = t + (b - t) * 0.6;
+          return piece == 0 ? (Path()
+            ..moveTo(l, sy)
+            ..lineTo(sx, sy)..lineTo(sx, t)..lineTo(r, t)..lineTo(r, b)..lineTo(
+                l, b)
+            ..close()) : (Path()
+            ..moveTo(l, sy)
+            ..lineTo(sx, sy)..lineTo(sx, b)..lineTo(l, b)
+            ..close());
+        }
+      default:
+        {
+          final sx = l + (r - l) * 0.4;
+          final sy = t + (b - t) * 0.4;
+          return piece == 0 ? (Path()
+            ..moveTo(l, sy)
+            ..lineTo(sx, sy)..lineTo(sx, t)..lineTo(r, t)..lineTo(r, b)..lineTo(
+                l, b)
+            ..close()) : (Path()
+            ..moveTo(l, t)
+            ..lineTo(sx, t)..lineTo(sx, sy)..lineTo(l, sy)
+            ..close());
+        }
+    }
+  }
+
+  static Path _tr(double l, double t, double r, double b, double cx, double cy,
+      int cut, int piece) {
+    switch (cut) {
+      case 0:
+        {
+          final my = t + (b - t) * 0.5;
+          final mll = l + (my - t) / (b - t) * (cx - l);
+          final mlr = cx + (my - t) / (b - t) * (r - cx);
+          return piece == 0 ? (Path()
+            ..moveTo(cx, t)
+            ..lineTo(mlr, my)..lineTo(mll, my)
+            ..close()) : (Path()
+            ..moveTo(mll, my)
+            ..lineTo(mlr, my)..lineTo(r, b)..lineTo(l, b)
+            ..close());
+        }
+      case 1:
+        return piece == 0 ? (Path()
+          ..moveTo(cx, t)
+          ..lineTo(cx, b)..lineTo(l, b)
+          ..close()) : (Path()
+          ..moveTo(cx, t)
+          ..lineTo(r, b)..lineTo(cx, b)
+          ..close());
+      case 2:
+        {
+          final mx = (cx + r) / 2;
+          final my = (t + b) / 2;
+          return piece == 0 ? (Path()
+            ..moveTo(l, b)
+            ..lineTo(cx, t)..lineTo(mx, my)
+            ..close()) : (Path()
+            ..moveTo(l, b)
+            ..lineTo(mx, my)..lineTo(r, b)
+            ..close());
+        }
+      default:
+        {
+          final mx = (cx + l) / 2;
+          final my = (t + b) / 2;
+          return piece == 0 ? (Path()
+            ..moveTo(r, b)
+            ..lineTo(cx, t)..lineTo(mx, my)
+            ..close()) : (Path()
+            ..moveTo(r, b)
+            ..lineTo(mx, my)..lineTo(l, b)
+            ..close());
+        }
+    }
+  }
+
+  static Path _ci(double cx, double cy, double r, int cut, int piece) {
+    final rect = Rect.fromCircle(center: Offset(cx, cy), radius: r);
+    final p = Path();
+    switch (cut) {
+      case 0:
+        p.moveTo(cx, cy - r);
+        p.arcTo(rect, -pi / 2, piece == 0 ? -pi : pi, false);
+        p.close();
+        return p;
+      case 1:
+        p.moveTo(cx - r, cy);
+        p.arcTo(rect, pi, piece == 0 ? -pi : pi, false);
+        p.close();
+        return p;
+      case 2:
+        p.moveTo(cx, cy);
+        if (piece == 0) {
+          p.arcTo(rect, 0, 3 * pi / 2, false);
+        } else {
+          p.arcTo(rect, -pi / 2, pi / 2, false);
+        }
+        p.close();
+        return p;
+      default:
+        p.moveTo(cx, cy);
+        if (piece == 0) {
+          p.arcTo(rect, pi / 2, 3 * pi / 2, false);
+        } else {
+          p.arcTo(rect, 0, pi / 2, false);
+        }
+        p.close();
+        return p;
+    }
+  }
+
+  @override bool shouldRepaint(covariant _GeoPieceOptionPainter old) =>
+      old.data != data;
 }
