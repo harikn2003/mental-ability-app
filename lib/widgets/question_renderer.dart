@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../config/localization.dart';
 import '../painters/figure_painter.dart';
 import '../painters/mirror_text_painter.dart';
 import '../painters/punch_painter.dart';
@@ -83,15 +84,14 @@ class QuestionRenderer extends StatelessWidget {
   Widget _oddMan() =>
       Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
-        child: _label(
-            'One figure is different from the other three.\nFind the odd one out.'),
+        child: _label(AppLocale.s('find_odd')),
       );
 
   // ── 2. Figure Match ────────────────────────────────────────────────────────
   Widget _figureMatch() {
     final target = Map<String, dynamic>.from(puzzle['target'] as Map);
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label('Find the exact match'),
+      _label(AppLocale.s('instr_match')),
       const SizedBox(height: 12),
       Container(
         padding: const EdgeInsets.all(14),
@@ -109,8 +109,8 @@ class QuestionRenderer extends StatelessWidget {
   Widget _matrix() {
     return Column(mainAxisSize: MainAxisSize.min, children: [
       _label(puzzle['category'] == 'geo_completion'
-          ? 'Complete the geometric pattern — find the missing figure'
-          : 'Find the missing figure to complete the pattern'),
+          ? AppLocale.s('instr_geo')
+          : AppLocale.s('instr_pattern')),
       const SizedBox(height: 12),
       _buildMatrix(),
     ]);
@@ -120,7 +120,7 @@ class QuestionRenderer extends StatelessWidget {
   Widget _series() {
     final seq = (puzzle['sequence'] as List).cast<Map<String, dynamic>>();
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label('What comes next in the series?'),
+      _label(AppLocale.s('instr_series')),
       const SizedBox(height: 12),
       SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -145,7 +145,7 @@ class QuestionRenderer extends StatelessWidget {
   // ── 5. Analogy ─────────────────────────────────────────────────────────────
   Widget _analogy() {
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label('A : B :: C : ?'),
+      _label(AppLocale.s('instr_analogy')),
       const SizedBox(height: 12),
       SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -180,7 +180,7 @@ class QuestionRenderer extends StatelessWidget {
     // Guard: old generator sent 4-element bool lists for geo_completion.
     // If we get a non-9-element list, show a safe fallback rather than crashing.
     if (rawCells.length != 9) {
-      return _label('Question format updating — please skip this question.');
+      return _label(AppLocale.s('instr_error'));
     }
     final cells = rawCells.map((e) =>
     (e == null || e is! Map) ? <String, dynamic>{'empty': true} : Map<
@@ -227,8 +227,7 @@ class QuestionRenderer extends StatelessWidget {
   Widget _geoJigsaw() {
     final piece = Map<String, dynamic>.from(puzzle['piece'] as Map);
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label(
-          'Which piece completes this shape to form a full square, triangle, or circle?'),
+      _label(AppLocale.s('instr_geo')),
       const SizedBox(height: 16),
       Container(
         padding: const EdgeInsets.all(16),
@@ -249,7 +248,7 @@ class QuestionRenderer extends StatelessWidget {
   Widget _mirrorShape() {
     final target = Map<String, dynamic>.from(puzzle['target'] as Map);
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label('Find the mirror image — the figure reflected across the line'),
+      _label(AppLocale.s('instr_mirror')),
       const SizedBox(height: 14),
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [
         // Show the shape larger so mirror difference is clearly visible
@@ -293,7 +292,7 @@ class QuestionRenderer extends StatelessWidget {
       ..['mirror_v'] = false
       ..['type'] = 'mirror_text';
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label('Find the mirror image'),
+      _label(AppLocale.s('instr_mirror')),
       const SizedBox(height: 14),
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [
         CustomPaint(size: const Size(80, 80), painter: MirrorTextPainter(orig)),
@@ -308,8 +307,7 @@ class QuestionRenderer extends StatelessWidget {
   // ── 9. Punch Hole ──────────────────────────────────────────────────────────
   Widget _punchHole() =>
       Column(mainAxisSize: MainAxisSize.min, children: [
-        _label(
-            'The paper is folded and a hole is punched.\nWhich shows the unfolded result?'),
+        _label(AppLocale.s('find_unfolded')),
         const SizedBox(height: 14),
         CustomPaint(size: const Size(120, 120), painter: PunchPainter(puzzle)),
       ]);
@@ -318,7 +316,7 @@ class QuestionRenderer extends StatelessWidget {
   Widget _embedded() {
     final target = Map<String, dynamic>.from(puzzle['target'] as Map);
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label('Find the option that contains this shape hidden inside it'),
+      _label(AppLocale.s('instr_embedded')),
       const SizedBox(height: 12),
       // Show target with a highlight box
       Container(

@@ -90,7 +90,7 @@ class _QuizScreenState extends State<QuizScreen>
   static const Color error = Color(0xFFEF4444);
   static const Color warning = Color(0xFFF97316);
 
-  bool get _hasTimer => widget.timePerQuestion != 'Unlimited';
+  bool get _hasTimer => widget.timePerQuestion != 'unlimited';
 
   int get _totalSeconds {
     if (widget.timePerQuestion == '30s') return 30;
@@ -358,19 +358,19 @@ class _QuizScreenState extends State<QuizScreen>
   // UI helpers
   // ═══════════════════════════════════════════════════════════════════════════
   String _getTopicLabel(String category) {
-    const labels = {
-      'pattern': 'PATTERN COMPLETION',
-      'mirror_shape': 'MIRROR IMAGE',
-      'mirror_text': 'MIRROR IMAGE',
-      'odd_man': 'ODD MAN OUT',
-      'analogy': 'ANALOGY',
-      'figure_match': 'FIGURE MATCH',
-      'figure_series': 'FIGURE SERIES',
-      'geo_completion': 'GEO COMPLETION',
-      'punch_hole': 'PUNCH HOLE',
-      'embedded': 'EMBEDDED FIGURE',
+    final labels = {
+      'pattern': AppLocale.get(currentLang, 'topic_pattern'),
+      'mirror_shape': AppLocale.get(currentLang, 'topic_mirror'),
+      'mirror_text': AppLocale.get(currentLang, 'topic_mirror'),
+      'odd_man': AppLocale.get(currentLang, 'topic_odd'),
+      'analogy': AppLocale.get(currentLang, 'topic_analogy'),
+      'figure_match': AppLocale.get(currentLang, 'topic_figmatch'),
+      'figure_series': AppLocale.get(currentLang, 'topic_series'),
+      'geo_completion': AppLocale.get(currentLang, 'topic_geo'),
+      'punch_hole': AppLocale.get(currentLang, 'topic_punch'),
+      'embedded': AppLocale.get(currentLang, 'topic_embedded'),
     };
-    return labels[category] ?? 'MENTAL ABILITY';
+    return labels[category] ?? AppLocale.get(currentLang, 'topic_odd');
   }
 
   String _formatTime(int seconds) {
@@ -506,10 +506,10 @@ class _QuizScreenState extends State<QuizScreen>
     String tooltip;
     if (weight <= 3) {
       dotColor = warning;
-      tooltip = 'Reviewing';
+      tooltip = AppLocale.get(currentLang, 'reviewing');
     } else {
       dotColor = error;
-      tooltip = 'Weak area';
+      tooltip = AppLocale.get(currentLang, 'weak_area');
     }
 
     return Tooltip(
@@ -703,7 +703,7 @@ class _QuizScreenState extends State<QuizScreen>
       bg = const Color(0xFFFFF3CD);
       fg = const Color(0xFFB45309);
       icon = Icons.timer_off_rounded;
-      text = "Time's up! Correct answer was Option $correctLetter";
+      text = "${AppLocale.get(currentLang, 'times_up')} $correctLetter";
     } else if (isSkipped) {
       bg = Colors.grey.shade100;
       fg = Colors.grey.shade600;
@@ -713,7 +713,7 @@ class _QuizScreenState extends State<QuizScreen>
       bg = success.withOpacity(0.1);
       fg = success;
       icon = Icons.check_circle_outline_rounded;
-      text = 'Correct! Well done.';
+      text = AppLocale.get(currentLang, 'correct_msg');
     } else {
       bg = error.withOpacity(0.1);
       fg = error;
@@ -752,8 +752,8 @@ class _QuizScreenState extends State<QuizScreen>
                 const SizedBox(width: 4),
                 Text(
                   _showBiasChart
-                      ? 'Hide bias chart'
-                      : 'Coordinator: show bias chart',
+                      ? AppLocale.get(currentLang, 'hide_bias')
+                      : AppLocale.get(currentLang, 'show_bias'),
                   style: const TextStyle(
                     fontSize: 11,
                     color: Color(0xFF94A3B8),
@@ -812,8 +812,8 @@ class _QuizScreenState extends State<QuizScreen>
               const Icon(
                   Icons.analytics_outlined, size: 13, color: Color(0xFF64748B)),
               const SizedBox(width: 5),
-              const Text(
-                'BIAS WEIGHTS',
+              Text(
+                AppLocale.get(currentLang, 'bias_weights'),
                 style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
                     color: Color(0xFF64748B), letterSpacing: 0.8),
               ),
@@ -894,7 +894,8 @@ class _QuizScreenState extends State<QuizScreen>
                   Icon(Icons.skip_next_rounded, size: 16,
                       color: Colors.grey.shade600),
                   const SizedBox(width: 4),
-                  Text('$skippedCount skipped',
+                  Text('$skippedCount ${AppLocale.get(
+                      currentLang, "skipped_count")}',
                       style: TextStyle(fontSize: 12,
                           color: Colors.grey.shade600,
                           fontWeight: FontWeight.w600)),
@@ -922,8 +923,8 @@ class _QuizScreenState extends State<QuizScreen>
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Text(
-                      'Look at Option...',
+                    Text(
+                      AppLocale.get(currentLang, 'look_at'),
                       style: TextStyle(color: Colors.white70,
                           fontWeight: FontWeight.bold,
                           fontSize: 14),
@@ -933,7 +934,7 @@ class _QuizScreenState extends State<QuizScreen>
                       Text(
                         currentQuestionIndex < widget.totalQuestions - 1
                             ? AppLocale.get(currentLang, 'next_question')
-                            : 'Finish',
+                            : AppLocale.get(currentLang, 'finish'),
                         style: const TextStyle(color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 15),
@@ -973,7 +974,8 @@ class _QuizScreenState extends State<QuizScreen>
               Icon(Icons.skip_next_rounded, size: 18,
                   color: Colors.grey.shade600),
               const SizedBox(width: 6),
-              Text('Skip', style: TextStyle(fontSize: 14,
+              Text(AppLocale.get(currentLang, 'skip'), style: TextStyle(
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Colors.grey.shade600)),
             ],

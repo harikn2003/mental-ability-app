@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:mental_ability_app/config/localization.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../engine/question_attempt.dart';
@@ -35,8 +36,8 @@ class SessionSummaryScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text(
-          'Session Summary',
+        title: Text(
+          AppLocale.s('report_title'),
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
@@ -113,7 +114,7 @@ class SessionSummaryScreen extends StatelessWidget {
                   // Skipped count — only shown when > 0
                   if (skipped > 0)
                     Text(
-                      '$skipped skipped',
+                      '$skipped ${AppLocale.s("skipped_count")}',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.orange.shade700,
@@ -121,7 +122,7 @@ class SessionSummaryScreen extends StatelessWidget {
                       ),
                     ),
                   Text(
-                    'Questions Correct',
+                    AppLocale.s('questions_correct'),
                     style: TextStyle(
                       fontSize: 14,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -141,7 +142,8 @@ class SessionSummaryScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          '${accuracy.toStringAsFixed(0)}% Accuracy',
+                          '${accuracy.toStringAsFixed(0)}% ${AppLocale.s(
+                              "accuracy")}',
                           style: TextStyle(
                               color: badgeFg, fontWeight: FontWeight.bold),
                         ),
@@ -155,7 +157,8 @@ class SessionSummaryScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          'Avg $avgStr / question',
+                          '${AppLocale.s("avg_per_q")} $avgStr ${AppLocale.s(
+                              "per_question")}',
                           style: TextStyle(
                               color: Colors.blueGrey.shade800,
                               fontWeight: FontWeight.bold),
@@ -217,8 +220,8 @@ class SessionSummaryScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Time Per Question',
+        Text(
+          AppLocale.s('time_per_q'),
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
@@ -321,8 +324,8 @@ class SessionSummaryScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Category Breakdown',
+        Text(
+          AppLocale.s('category_breakdown'),
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
@@ -336,29 +339,29 @@ class SessionSummaryScreen extends StatelessWidget {
               ? correctCount / results.length
               : 0;
 
-          String status = 'Weak';
+          String status = AppLocale.s('weak');
           MaterialColor color = Colors.red;
 
           if (percent >= 0.8) {
-            status = 'Strong';
+            status = AppLocale.s('strong');
             color = Colors.green;
           } else if (percent >= 0.5) {
-            status = 'Good';
+            status = AppLocale.s('good');
             color = Colors.blue;
           }
 
           // Use readable label map — avoids "odd_man", "figure_series" etc.
-          const catLabels = {
-            'odd_man': 'Odd Man Out',
-            'figure_match': 'Figure Match',
-            'pattern': 'Pattern Completion',
-            'figure_series': 'Figure Series',
-            'analogy': 'Analogy',
-            'geo_completion': 'Geo Completion',
-            'mirror_shape': 'Mirror Shape',
-            'mirror_text': 'Mirror Text',
-            'punch_hole': 'Punch Hole',
-            'embedded': 'Embedded Figure',
+          final catLabels = {
+            'odd_man': AppLocale.s('cat_odd_man'),
+            'figure_match': AppLocale.s('cat_fig_match'),
+            'pattern': AppLocale.s('cat_pattern'),
+            'figure_series': AppLocale.s('cat_fig_series'),
+            'analogy': AppLocale.s('cat_analogy'),
+            'geo_completion': AppLocale.s('cat_geo'),
+            'mirror_shape': AppLocale.s('cat_mirror_shape'),
+            'mirror_text': AppLocale.s('cat_mirror_text'),
+            'punch_hole': AppLocale.s('cat_punch'),
+            'embedded': AppLocale.s('cat_embedded'),
           };
           final formattedName = catLabels[categoryName]
               ?? (categoryName[0].toUpperCase() + categoryName.substring(1));
@@ -414,17 +417,18 @@ class SessionSummaryScreen extends StatelessWidget {
 
   // --- HELPERS ---
 
-  static const _labels = {
-    'odd_man': 'Odd Man Out',
-    'figure_match': 'Figure Match',
-    'pattern': 'Pattern',
-    'figure_series': 'Figure Series',
-    'analogy': 'Analogy',
-    'geo_completion': 'Geo Completion',
-    'mirror_shape': 'Mirror Shape',
-    'mirror_text': 'Mirror Text',
-    'punch_hole': 'Punch Hole',
-    'embedded': 'Embedded Figure',
+  static Map<String, String> get _labels =>
+      {
+        'odd_man': AppLocale.s('cat_odd_man'),
+        'figure_match': AppLocale.s('cat_fig_match'),
+        'pattern': AppLocale.s('cat_pattern'),
+        'figure_series': AppLocale.s('cat_fig_series'),
+        'analogy': AppLocale.s('cat_analogy'),
+        'geo_completion': AppLocale.s('cat_geo'),
+        'mirror_shape': AppLocale.s('cat_mirror_shape'),
+        'mirror_text': AppLocale.s('cat_mirror_text'),
+        'punch_hole': AppLocale.s('cat_punch'),
+        'embedded': AppLocale.s('cat_embedded'),
   };
 
   // Build a weights map from this session's accuracy:
@@ -450,7 +454,7 @@ class SessionSummaryScreen extends StatelessWidget {
   // Human-readable summary of weak categories for button label
   String _weakSummary() {
     final ww = _sessionWeakWeights();
-    if (ww.isEmpty) return 'Weak Areas';
+    if (ww.isEmpty) return AppLocale.s('weak_areas');
     // Show up to 2 names, then "+N more"
     final names = ww.keys
         .map((k) => _labels[k] ?? k)
@@ -473,7 +477,8 @@ class SessionSummaryScreen extends StatelessWidget {
             ),
           ),
           icon: const Icon(Icons.rate_review_rounded),
-          label: const Text('Review Answers', style: TextStyle(fontSize: 16)),
+          label: Text(
+              AppLocale.s('review_answers'), style: TextStyle(fontSize: 16)),
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF195DE6),
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -531,7 +536,7 @@ class SessionSummaryScreen extends StatelessWidget {
             label: Text(
               hasWeak
                   ? 'Practice Weak Areas: ${_weakSummary()}'
-                  : 'No Weak Areas This Session',
+                  : AppLocale.s('no_weak_session'),
               style: const TextStyle(fontSize: 15),
             ),
             style: FilledButton.styleFrom(
@@ -554,7 +559,8 @@ class SessionSummaryScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(100),
             ),
           ),
-          child: const Text('Return to Home', style: TextStyle(fontSize: 16)),
+          child: Text(
+              AppLocale.s('return_home'), style: TextStyle(fontSize: 16)),
         ),
       ],
     );
