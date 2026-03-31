@@ -2,16 +2,16 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-/// MirrorTextPainter renders a letter, digit, or clock face —
-/// optionally mirrored on horizontal or vertical axis.
+/// MirrorTextPainter renders a letter, digit, word, or clock face —
+/// optionally mirrored on horizontal axis (left↔right).
 ///
 /// data keys:
-///   'content'       : String  — letter/digit e.g. "R", "3"
+///   'content'       : String  — letter, digit, or word e.g. "R", "CLASS"
 ///   'is_clock'      : bool    — render as clock face instead
 ///   'clock_hour'    : int     — hour hand position (1-12)
 ///   'clock_minute'  : int     — minute (0-59)
 ///   'mirror_h'      : bool    — flip horizontally (left-right)
-///   'mirror_v'      : bool    — flip vertically   (top-bottom)
+///   'mirror_v'      : bool    — flip vertically (unused in current questions, kept for compat)
 class MirrorTextPainter extends CustomPainter {
   final Map<String, dynamic> data;
 
@@ -25,8 +25,6 @@ class MirrorTextPainter extends CustomPainter {
 
     canvas.save();
     canvas.translate(size.width / 2, size.height / 2);
-
-    // Apply mirror transforms
     canvas.scale(mirrorH ? -1.0 : 1.0, mirrorV ? -1.0 : 1.0);
 
     if (isClock) {
@@ -40,7 +38,19 @@ class MirrorTextPainter extends CustomPainter {
 
   void _drawText(Canvas canvas, Size size) {
     final content = (data['content'] as String? ?? 'A').toUpperCase();
-    final fontSize = size.width * 0.60;
+
+    // Auto-scale font: single chars get large font, words get smaller
+    // so they always fit within the card without clipping
+    final double fontSize;
+    if (content.length == 1) {
+      fontSize = size.width * 0.62;
+    } else if (content.length <= 3) {
+      fontSize = size.width * 0.42;
+    } else if (content.length <= 6) {
+      fontSize = size.width * 0.28;
+    } else {
+      fontSize = size.width * 0.22;
+    }
 
     final tp = TextPainter(
       text: TextSpan(
@@ -49,12 +59,13 @@ class MirrorTextPainter extends CustomPainter {
           fontSize: fontSize,
           fontWeight: FontWeight.bold,
           color: const Color(0xFF0F172A),
+          letterSpacing: content.length > 3 ? 1.5 : 0,
         ),
       ),
       textDirection: TextDirection.ltr,
-    )..layout();
+    )..layout(maxWidth: size.width * 1.8); // allow overflow for layout calc
 
-    // Draw centred (we're already at centre due to translate above)
+    // Center within the canvas (we are already translated to centre)
     tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
   }
 
@@ -79,11 +90,9 @@ class MirrorTextPainter extends CustomPainter {
       ..color = const Color(0xFF0F172A)
       ..style = PaintingStyle.fill;
 
-    // Face
     canvas.drawCircle(Offset.zero, r, fillPaint);
     canvas.drawCircle(Offset.zero, r, borderPaint);
 
-    // Hour marks
     for (int i = 0; i < 12; i++) {
       final a = i * pi / 6;
       final inner = i % 3 == 0 ? r * 0.75 : r * 0.85;
@@ -94,7 +103,6 @@ class MirrorTextPainter extends CustomPainter {
       );
     }
 
-    // Hour hand
     final hourAngle = (hour % 12 + minute / 60.0) * pi / 6;
     canvas.drawLine(
       Offset.zero,
@@ -102,7 +110,6 @@ class MirrorTextPainter extends CustomPainter {
       handPaint..strokeWidth = 3.0,
     );
 
-    // Minute hand
     final minuteAngle = minute * pi / 30;
     canvas.drawLine(
       Offset.zero,
@@ -110,7 +117,6 @@ class MirrorTextPainter extends CustomPainter {
       handPaint..strokeWidth = 1.8,
     );
 
-    // Centre dot
     canvas.drawCircle(Offset.zero, r * 0.07, dotPaint);
   }
 

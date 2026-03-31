@@ -42,17 +42,18 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
     'figure_series', 'geo_completion', 'mirror_text', 'punch_hole', 'embedded',
   ];
 
-  static const _categoryLabels = {
-    'pattern': 'Pattern',
-    'analogy': 'Analogy',
-    'odd_man': 'Odd Man Out',
-    'mirror_shape': 'Mirror Shape',
-    'figure_match': 'Figure Match',
-    'figure_series': 'Figure Series',
-    'geo_completion': 'Geo Completion',
-    'mirror_text': 'Mirror Text',
-    'punch_hole': 'Punch Hole',
-    'embedded': 'Embedded Figure',
+  Map<String, String> get _categoryLabels =>
+      {
+        'pattern': AppLocale.get(currentLang, 'cat_pattern'),
+        'analogy': AppLocale.get(currentLang, 'cat_analogy'),
+        'odd_man': AppLocale.get(currentLang, 'cat_odd_man'),
+        'mirror_shape': AppLocale.get(currentLang, 'cat_mirror_shape'),
+        'figure_match': AppLocale.get(currentLang, 'cat_fig_match'),
+        'figure_series': AppLocale.get(currentLang, 'cat_fig_series'),
+        'geo_completion': AppLocale.get(currentLang, 'cat_geo'),
+        'mirror_text': AppLocale.get(currentLang, 'cat_mirror_text'),
+        'punch_hole': AppLocale.get(currentLang, 'cat_punch'),
+        'embedded': AppLocale.get(currentLang, 'cat_embedded'),
   };
 
   // Categories with weight > 1 are considered weak
@@ -154,7 +155,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                             icon: Icons.texture,
                             color: accentEmerald),
                         _buildTopicCard(id: 'figure_series',
-                            title: 'Figure Series',
+                            title: AppLocale.get(currentLang, 'figure_series'),
                             icon: Icons.trending_flat,
                             color: accentPurple),
                         _buildTopicCard(id: 'analogy',
@@ -162,23 +163,23 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                             icon: Icons.compare_arrows,
                             color: const Color(0xFF14B8A6)),
                         _buildTopicCard(id: 'geo_completion',
-                            title: 'Geo Completion',
+                            title: AppLocale.get(currentLang, 'geo_completion'),
                             icon: Icons.change_history,
                             color: const Color(0xFFF59E0B)),
                         _buildTopicCard(id: 'mirror_shape',
-                            title: 'Mirror Shape',
+                            title: AppLocale.get(currentLang, 'mirror_shape'),
                             icon: Icons.flip,
                             color: const Color(0xFFF43F5E)),
                         _buildTopicCard(id: 'mirror_text',
-                            title: 'Mirror Text/Clock',
+                            title: AppLocale.get(currentLang, 'mirror_text'),
                             icon: Icons.text_fields,
                             color: accentOrange),
                         _buildTopicCard(id: 'punch_hole',
-                            title: 'Punch Hole',
+                            title: AppLocale.get(currentLang, 'punch_hole'),
                             icon: Icons.radio_button_unchecked,
                             color: accentEmerald),
                         _buildTopicCard(id: 'embedded',
-                            title: 'Embedded Figure',
+                            title: AppLocale.get(currentLang, 'embedded'),
                             icon: Icons.center_focus_strong,
                             color: const Color(0xFF14B8A6)),
                       ],
@@ -245,11 +246,10 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                   // Language toggle
                   GestureDetector(
                     onTap: () =>
-                        setState(
-                              () =>
-                          currentLang =
-                          currentLang == 'EN' ? 'MR' : 'EN',
-                        ),
+                        setState(() {
+                          currentLang = AppLocale.nextLang(currentLang);
+                          AppLocale.setLang(currentLang);
+                        }),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -267,7 +267,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                               color: primary, size: 18),
                           const SizedBox(width: 6),
                           Text(
-                            currentLang,
+                            AppLocale.langLabel(currentLang),
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -309,7 +309,8 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      '$selectedCount questions',
+                      '$selectedCount ${AppLocale.get(
+                          currentLang, "questions_label")}',
                       style: const TextStyle(
                         fontSize: 12, fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -365,10 +366,12 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
           _buildSettingRow(
             icon: Icons.timer_outlined,
             label: AppLocale.get(currentLang, 'time_per_question'),
-            children: ['30s', '2m', 'Unlimited']
+            children: ['30s', '2m', 'unlimited']
                 .map(
                   (val) => _buildChip(
-                    label: val,
+                    label: val == 'unlimited'
+                        ? AppLocale.get(currentLang, 'time_unlimited')
+                        : val,
                     isSelected: selectedTime == val,
                     onTap: () => setState(() => selectedTime = val),
                   ),
@@ -398,23 +401,20 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
           context: context,
           builder: (_) =>
               AlertDialog(
-                title: const Text('Reset progress?'),
-                content: const Text(
-                  'This will clear all saved bias weights and start fresh. '
-                      'Your weak area history will be lost.',
-                ),
+                title: Text(AppLocale.get(currentLang, 'reset_title')),
+                content: Text(AppLocale.get(currentLang, 'reset_body')),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
+                    child: Text(AppLocale.get(currentLang, 'cancel')),
                   ),
                   TextButton(
                     onPressed: () {
                       Navigator.pop(context);
                       _resetWeights();
                     },
-                    child: const Text(
-                      'Reset',
+                    child: Text(
+                      AppLocale.get(currentLang, 'reset'),
                       style: TextStyle(color: Color(0xFFEF4444)),
                     ),
                   ),
@@ -467,8 +467,8 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                 children: [
                   Row(
                     children: [
-                      const Text(
-                        'Practice Weak Areas',
+                      Text(
+                        AppLocale.get(currentLang, 'practice_weak_card'),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -485,7 +485,8 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          '${weak.length} topic${weak.length > 1 ? "s" : ""}',
+                          '${weak.length} ${AppLocale.get(
+                              currentLang, "weak_topics")}',
                           style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -546,7 +547,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Hold to reset progress',
+                    AppLocale.get(currentLang, 'hold_reset'),
                     style: TextStyle(
                       fontSize: 10,
                       color: Colors.grey.shade500,
@@ -894,7 +895,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                 selectedMode == 'random'
                     ? AppLocale.get(currentLang, 'start_random')
                     : selectedMode == 'weak_areas'
-                    ? 'Start Weak Area Practice'
+                    ? AppLocale.get(currentLang, 'start_weak')
                     : AppLocale.get(currentLang, 'start_linear'),
                 style: const TextStyle(
                   fontSize: 16,

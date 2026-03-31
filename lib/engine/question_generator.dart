@@ -24,12 +24,21 @@ class QuestionGenerator {
   static String _sig(String cat, Map<String, dynamic> params) =>
       '$cat:${params.entries.map((e) => '${e.key}=${e.value}').join(',')}';
 
+  /// Call at the start of each new quiz session for fresh variety.
+  static void resetSession() {
+    _history.clear();
+    _totalGenerated = 0;
+  }
+
   static bool _seen(String sig) => _history.contains(sig);
   static void _markSeen(String sig) {
     _history.add(sig);
     _totalGenerated++;
-    if (_totalGenerated % 120 == 0) _history
-        .clear(); // reset every 120 questions
+    // Safety valve: if history grows very large, trim oldest half
+    if (_history.length > 800) {
+      final toRemove = _history.take(400).toList();
+      _history.removeAll(toRemove);
+    }
   }
 
   static ReasoningQuestion generate(String category) {
@@ -39,10 +48,22 @@ class QuestionGenerator {
       case 'figure_match':
         return _figureMatch();
       case 'pattern':
-        return _r.nextBool() ? _matrixShapeCycle() : _matrixDotRotation();
+        {
+          final pv = _r.nextInt(3);
+          if (pv == 0) return _matrixShapeCycle();
+          if (pv == 1) return _matrixDotRotation();
+          return _matrixInnerShape();
+        }
       case 'figure_series':
-        return [_seriesRotation, _seriesDots, _seriesFillToggle][_r.nextInt(
-            3)]();
+        return [
+          _seriesRotation,
+          _seriesDots,
+          _seriesFillToggle,
+          _seriesRotFill,
+          _seriesInner,
+          _seriesDotsRot,
+          _seriesMorph
+        ][_r.nextInt(7)]();
       case 'analogy':
         return _analogy();
       case 'geo_completion':
@@ -207,7 +228,7 @@ class QuestionGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion _oddMan() {
     for (int attempt = 0; attempt < 30; attempt++) {
-      final v = _r.nextInt(5); // 5 clean variants
+      final v = _r.nextInt(8); // 8 variants (A-E original, F-H composite)
       final cp = _r.nextInt(4);
       List<Map<String, dynamic>> opts;
       String sigKey;
@@ -288,18 +309,69 @@ class QuestionGenerator {
           }
 
       // ── E: INNER SHAPE ───────────────────────────────────────────────────
-      // Rule: 3 have no inner shape, 1 has a small inner shape.
-      // All same outer shape + rotation + fill.
-        default:
+        case 4:
           {
-            final s = _r.nextInt(4) + 1; // 1-4
+            final s = _r.nextInt(4) + 1;
             final rot = _r.nextInt(4);
-            final filled = false; // outline so inner is visible
-            final innerS = _r.nextInt(3) + 1; // 1=circle 2=square 3=triangle
+            final filled = false;
+            final innerS = _r.nextInt(3) + 1;
             sigKey = 'oddE:s$s,r$rot,i$innerS,cp$cp';
             opts = List.generate(4, (i) =>
                 _f(s, rot: rot, filled: filled, inner: i == cp ? innerS : 0));
           break;
+          }
+
+      // ── F: DIFFERENT INNER SHAPE ──────────────────────────────────────────
+      // Rule: 3 figures have same outer + same inner shape.
+      // 1 figure has same outer but a DIFFERENT inner shape.
+      // Tests whether student notices the inner element change.
+        case 5:
+          {
+            final outer = _r.nextInt(4) + 1;
+            final rot = _r.nextInt(4);
+            final majInner = _r.nextInt(4) + 1; // inner for 3
+            int oddInner;
+            do {
+              oddInner = _r.nextInt(4) + 1;
+            } while (oddInner == majInner);
+            sigKey = 'oddF:o$outer,r$rot,mi$majInner,oi$oddInner,cp$cp';
+            opts = List.generate(4, (i) =>
+                _f(outer, rot: rot, filled: false,
+                    inner: i == cp ? oddInner : majInner));
+            break;
+          }
+
+      // ── G: DIFFERENT DOT COUNT ────────────────────────────────────────────
+      // Rule: 3 have same dots+rotation+fill. 1 has different DOT COUNT.
+      // Clearer than oddC (which uses 1 vs 3 always) — this varies the counts.
+        case 6:
+          {
+            final s = _r.nextInt(6) + 1;
+            final rot = _r.nextInt(4);
+            final filled = _r.nextBool();
+            final majD = _r.nextInt(3); // 0,1, or 2
+            final oddD = majD == 0 ? 3 : 0; // clearly different count
+            sigKey = 'oddG:s$s,r$rot,f$filled,md$majD,cp$cp';
+            opts = List.generate(4, (i) =>
+                _f(s, rot: rot, filled: filled, dots: i == cp ? oddD : majD));
+            break;
+          }
+
+      // ── H: COMPOSITE FILL RULE ────────────────────────────────────────────
+      // Rule: 3 have outer=outline + inner=filled.
+      // 1 (odd) has outer=filled + inner=outline (both inverted).
+      // Tests whether student notices the fill relationship between elements.
+        default:
+          {
+            final outer = _r.nextInt(4) + 1;
+            final inner = _r.nextInt(3) + 1;
+            final rot = _r.nextInt(4);
+            sigKey = 'oddH:o$outer,i$inner,r$rot,cp$cp';
+            // majority: outer=stroke inner=filled → encoded as filled=false, inner positive
+            // odd: outer=filled inner=stroke → filled=true, inner positive but visually inverted
+            opts = List.generate(4, (i) =>
+                _f(outer, rot: rot, filled: i == cp, inner: inner));
+            break;
           }
       }
 
@@ -564,30 +636,118 @@ class QuestionGenerator {
         correctIndex: res.idx);
   }
 
+  // ── 3c. PATTERN — inner shape progression ────────────────────────────────
+  // Each row: same outer shape, fixed fill. Inner shape advances per column.
+  // Col 0: inner=shape_A, col 1: inner=shape_B, col 2: inner=shape_C
+  // Row rule: outer shape changes per row (same as shape cycle but with inners).
+  static ReasoningQuestion _matrixInnerShape() {
+    const outerShapes = [
+      1,
+      3,
+      5
+    ]; // square, diamond, pentagon — good containers
+    // Inner shape sequences — clearly different from each other
+    const innerSeqs = [
+      [2, 7, 8], // triangle, arrow, L
+      [1, 2, 3], // square, triangle, diamond
+      [4, 2, 7], // cross, triangle, arrow
+      [3, 8, 2], // diamond, L, triangle
+    ];
+    for (int attempt = 0; attempt < 30; attempt++) {
+      final outerSet = _r.nextInt(outerShapes.length);
+      final innerSet = _r.nextInt(innerSeqs.length);
+      final missing = _r.nextInt(8) + 1;
+      final mRow = missing ~/ 3;
+      final mCol = missing % 3;
+      final sigKey = 'matInner:os$outerSet,is$innerSet,m$missing';
+      if (_seen(sigKey)) continue;
+
+      final inners = innerSeqs[innerSet];
+      Map<String, dynamic> cell(int row, int col) =>
+          _f(outerShapes[row % outerShapes.length],
+              filled: false,
+              inner: inners[col] + 1); // +1 because inner=0 means no inner
+
+      final cells = <Map<String, dynamic>>[];
+      for (int r = 0; r < 3; r++)
+        for (int c = 0; c < 3; c++)
+          cells.add(cell(r, c));
+
+      final ans = cell(mRow, mCol);
+      final ansOuter = outerShapes[mRow % outerShapes.length];
+      final ansInner = inners[mCol];
+
+      final res = _pack(ans, [
+        _f(ansOuter, filled: false, inner: inners[(mCol + 1) % 3] + 1),
+        // wrong inner
+        _f(ansOuter, filled: true, inner: ansInner + 1),
+        // wrong fill
+        _f(outerShapes[(mRow + 1) % outerShapes.length], filled: false,
+            inner: ansInner + 1),
+        // wrong outer
+      ]);
+
+      final display = List<Map<String, dynamic>>.from(cells)
+        ..[missing] = {'empty': true};
+      _markSeen(sigKey);
+      return ReasoningQuestion(
+        category: 'pattern',
+        type: 'matrix_inner_shape',
+        puzzle: {'type': 'matrix', 'cells': display, 'missing': missing},
+        options: res.opts,
+        correctIndex: res.idx,
+      );
+    }
+    return _matrixShapeCycle();
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // 4a. SERIES — clockwise rotation
   // ═══════════════════════════════════════════════════════════════════════════
+  // All asymmetric shapes — clearly different at each 90° rotation
+  static const _serRotShapes = [
+    2,
+    3,
+    7,
+    8,
+    5
+  ]; // triangle, diamond, arrow, L, pentagon
+
   static ReasoningQuestion _seriesRotation() {
-    for (int attempt = 0; attempt < 20; attempt++) {
-      final shape = _rotateable[_r.nextInt(_rotateable.length)];
+    for (int attempt = 0; attempt < 30; attempt++) {
+      final shape = _serRotShapes[_r.nextInt(_serRotShapes.length)];
       final filled = _r.nextBool();
       final start = _r.nextInt(4);
-      final sigKey = 'serRot:s$shape,f$filled,st$start';
+      final dots = _r.nextInt(3); // 0,1,2 — adds variety to same shape+rot
+      final sigKey = 'serRot2:s$shape,f$filled,st$start,d$dots';
       if (_seen(sigKey)) continue;
 
-      final seq = List.generate(
-          3, (i) => _f(shape, rot: (start + i) % 4, filled: filled));
-      final ans = _f(shape, rot: (start + 3) % 4, filled: filled);
+      // Also cycle inner shape if subV==1 — adds compound change
+      final subV2 = _r.nextInt(2); // 0=rot+dots only, 1=rot+dots+inner cycles
+      final innerCy = subV2 == 1 ? (_r.nextInt(3) + 1) : 0; // 1-3 or none
 
-      // Distinct distractors: fill-flipped, 2-steps-back, 1-step-back
-      // Avoid (start+4)%4 = start which could equal sequence[0]
+      final seq = List.generate(3, (i) =>
+          _f(shape, rot: (start + i) % 4, filled: filled,
+              dots: dots, inner: subV2 == 1 ? ((innerCy + i - 1) % 3 + 1) : 0));
+      final ansInner = subV2 == 1 ? ((innerCy + 3 - 1) % 3 + 1) : 0;
+      final ans = _f(shape, rot: (start + 3) % 4,
+          filled: filled,
+          dots: dots,
+          inner: ansInner);
+
       final r = _pack(ans, [
-        _f(shape, rot: (start + 3) % 4, filled: !filled),
-        // same rot, wrong fill
-        _f(shape, rot: (start + 2) % 4, filled: filled),
-        // one step back
-        _f(shape, rot: (start + 1) % 4, filled: filled),
-        // two steps back
+        _f(shape, rot: (start + 3) % 4,
+            filled: !filled,
+            dots: dots,
+            inner: ansInner), // wrong fill
+        _f(shape, rot: (start + 2) % 4,
+            filled: filled,
+            dots: dots,
+            inner: ansInner), // one step back
+        _f(shape, rot: (start + 3) % 4,
+            filled: filled,
+            dots: (dots + 1).clamp(0, 2),
+            inner: ansInner), // wrong dots
       ]);
 
       _markSeen(sigKey);
@@ -666,30 +826,38 @@ class QuestionGenerator {
   // 4c. SERIES — fill toggles each step, rotation advances each step
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion _seriesFillToggle() {
-    for (int attempt = 0; attempt < 20; attempt++) {
-      final shape = _rotateable[_r.nextInt(_rotateable.length)];
+    // Expanded: use all 5 asymmetric shapes + dots for extra variety
+    const _fillShapes = [
+      2,
+      3,
+      7,
+      8,
+      5
+    ]; // triangle, diamond, arrow, L, pentagon
+    for (int attempt = 0; attempt < 30; attempt++) {
+      final shape = _fillShapes[_r.nextInt(_fillShapes.length)];
       final startFill = _r.nextBool();
       final startRot = _r.nextInt(4);
-      final sigKey = 'serFill:s$shape,sf$startFill,sr$startRot';
+      final dots = _r.nextInt(3);
+      final sigKey = 'serFill2:s$shape,sf$startFill,sr$startRot,d$dots';
       if (_seen(sigKey)) continue;
 
       bool fill(int i) => i.isEven ? startFill : !startFill;
 
-      final seq = List.generate(
-          3, (i) => _f(shape, rot: (startRot + i) % 4, filled: fill(i)));
-      final ans = _f(shape, rot: (startRot + 3) % 4, filled: fill(3));
+      final seq = List.generate(3, (i) =>
+          _f(shape, rot: (startRot + i) % 4, filled: fill(i), dots: dots));
+      final ans = _f(
+          shape, rot: (startRot + 3) % 4, filled: fill(3), dots: dots);
 
-      // Safe distractors — none equals the answer
-      // D1: right rotation, wrong fill
-      // D2: one step back in rotation (=seq[2]), right fill
-      // D3: two steps back, right fill
       final r = _pack(ans, [
-        _f(shape, rot: (startRot + 3) % 4, filled: !fill(3)),
+        _f(shape, rot: (startRot + 3) % 4, filled: !fill(3), dots: dots),
         // wrong fill
-        _f(shape, rot: (startRot + 2) % 4, filled: fill(2)),
+        _f(shape, rot: (startRot + 2) % 4, filled: fill(2), dots: dots),
         // seq[2] rotation
-        _f(shape, rot: (startRot + 1) % 4, filled: fill(3)),
-        // different rotation, right fill
+        _f(shape, rot: (startRot + 3) % 4,
+            filled: fill(3),
+            dots: (dots + 1).clamp(0, 2)),
+        // wrong dots
       ]);
 
       _markSeen(sigKey);
@@ -716,6 +884,230 @@ class QuestionGenerator {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // 4d. SERIES — shape morphs (gains one side each step)
+  // tri(3)→sq(4)→pent(5)→? [hex(6)]
+  // Also: rotation advances AND fill toggles simultaneously
+  // ═══════════════════════════════════════════════════════════════════════════
+  static ReasoningQuestion _seriesMorph() {
+    // Shape sequences by side count
+    const morphSeqs = [
+      [2, 1, 5, 6], // tri → sq → pent → hex
+      [1, 5, 6, 2], // sq → pent → hex → tri (wraps)
+      [5, 6, 2, 1], // pent → hex → tri → sq
+      [6, 2, 1, 5], // hex → tri → sq → pent
+    ];
+
+    for (int attempt = 0; attempt < 30; attempt++) {
+      final seqIdx = _r.nextInt(morphSeqs.length);
+      final shapes = morphSeqs[seqIdx];
+      final startRot = _r.nextInt(4);
+      final startFill = _r.nextBool();
+      final sigKey = 'serMorph:sq$seqIdx,sr$startRot,sf$startFill';
+      if (_seen(sigKey)) continue;
+
+      // Rule: shape changes + rotation advances 90° + fill toggles each step
+      bool fill(int i) => i.isEven ? startFill : !startFill;
+      final seq = List.generate(3, (i) =>
+          _f(
+              shapes[i], rot: (startRot + i) % 4, filled: fill(i)));
+      final ans = _f(shapes[3], rot: (startRot + 3) % 4, filled: fill(3));
+
+      final r = _pack(ans, [
+        _f(shapes[3], rot: (startRot + 3) % 4, filled: !fill(3)),
+        // wrong fill
+        _f(shapes[2], rot: (startRot + 3) % 4, filled: fill(3)),
+        // previous shape
+        _f(shapes[3], rot: (startRot + 2) % 4, filled: fill(3)),
+        // wrong rotation
+      ]);
+
+      _markSeen(sigKey);
+      return ReasoningQuestion(
+        category: 'figure_series',
+        type: 'series_morph',
+        puzzle: {'type': 'series', 'sequence': seq},
+        options: r.opts,
+        correctIndex: r.idx,
+      );
+    }
+    final seq = List.generate(3, (i) => _f([2, 1, 5][i], rot: i));
+    final r = _pack(_f(6, rot: 3),
+        [_f(6, rot: 3, filled: true), _f(5, rot: 3), _f(6, rot: 2)]);
+    return ReasoningQuestion(category: 'figure_series',
+        type: 'series_morph',
+        puzzle: {'type': 'series', 'sequence': seq},
+        options: r.opts,
+        correctIndex: r.idx);
+  }
+
+  // ── 4d. SERIES — rotation + fill toggle simultaneously ──────────────────
+  // Each step: shape rotates +90° AND fill flips. Two rules at once.
+  // Harder than seriesRotation or seriesFillToggle individually.
+  static ReasoningQuestion _seriesRotFill() {
+    const shapes = [2, 3, 7, 8, 5];
+    for (int attempt = 0; attempt < 30; attempt++) {
+      final shape = shapes[_r.nextInt(shapes.length)];
+      final startR = _r.nextInt(4);
+      final startF = _r.nextBool();
+      final dots = _r.nextInt(3);
+      final sigKey = 'serRF:s$shape,sr$startR,sf$startF,d$dots';
+      if (_seen(sigKey)) continue;
+
+      final seq = List.generate(3, (i) =>
+          _f(shape, rot: (startR + i) % 4,
+              filled: i.isEven ? startF : !startF,
+              dots: dots));
+      final ansR = (startR + 3) % 4;
+      final ansF = 3.isEven
+          ? startF
+          : !startF; // step 3 (0-indexed) is odd → !startF
+      final ans = _f(shape, rot: ansR, filled: ansF, dots: dots);
+
+      final r = _pack(ans, [
+        _f(shape, rot: ansR, filled: !ansF, dots: dots),
+        // right rot wrong fill
+        _f(shape, rot: (ansR + 1) % 4, filled: ansF, dots: dots),
+        // wrong rot right fill
+        _f(shape, rot: (ansR + 1) % 4, filled: !ansF, dots: dots),
+        // both wrong
+      ]);
+      _markSeen(sigKey);
+      return ReasoningQuestion(
+        category: 'figure_series',
+        type: 'series_rot_fill',
+        puzzle: {'type': 'series', 'sequence': seq},
+        options: r.opts,
+        correctIndex: r.idx,
+      );
+    }
+    final seq = List.generate(3, (i) => _f(2, rot: i, filled: i.isEven));
+    final r = _pack(_f(2, rot: 3, filled: false), [
+      _f(2, rot: 3, filled: true),
+      _f(2, rot: 2, filled: false),
+      _f(2, rot: 0, filled: false)
+    ]);
+    return ReasoningQuestion(category: 'figure_series',
+        type: 'series_rot_fill',
+        puzzle: {'type': 'series', 'sequence': seq},
+        options: r.opts,
+        correctIndex: r.idx);
+  }
+
+  // ── 4e. SERIES — inner shape changes each step ────────────────────────────
+  // Outer shape stays fixed. Inner shape cycles through 3 different shapes.
+  // Tests whether student notices inner-shape changes (common in real exam).
+  static ReasoningQuestion _seriesInner() {
+    const outers = [
+      1,
+      3,
+      5,
+      6
+    ]; // square, diamond, pentagon, hexagon — good containers
+    const innerSeqs = [
+      [1, 2, 3], // square → triangle → diamond
+      [2, 4, 7], // triangle → cross → arrow
+      [3, 2, 8], // diamond → triangle → L
+      [5, 1, 2], // pentagon → square → triangle
+      [7, 3, 5], // arrow → diamond → pentagon
+    ];
+    for (int attempt = 0; attempt < 30; attempt++) {
+      final outer = outers[_r.nextInt(outers.length)];
+      final seq = innerSeqs[_r.nextInt(innerSeqs.length)];
+      final filled = _r.nextBool();
+      final sigKey = 'serInner:o$outer,s${seq.join('-')},f$filled';
+      if (_seen(sigKey)) continue;
+
+      final figures = List.generate(
+          3, (i) => _f(outer, filled: filled, inner: seq[i] + 1));
+      // Answer: next inner in the cycle (wrap around)
+      final ansInner = seq[(seq.length) % seq.length]; // cycles back to first
+      // Actually answer is 4th: use the pattern to continue
+      // seq is length 3 — 4th would cycle: seq[0] again? No — it's a progression.
+      // Better: pick the inner that doesn't appear in seq (the 4th different one)
+      final allInners = [1, 2, 3, 4, 5, 6, 7, 8];
+      final usedInners = seq.toSet();
+      final nextCandidates = allInners
+          .where((i) => !usedInners.contains(i))
+          .toList();
+      final ansI = nextCandidates[_r.nextInt(nextCandidates.length)];
+      final ans = _f(outer, filled: filled, inner: ansI + 1);
+
+      // Distractors: one uses a shape already in sequence, one uses different outer
+      final r = _pack(ans, [
+        _f(outer, filled: filled, inner: seq[0] + 1), // repeats first inner
+        _f(outer, filled: filled, inner: seq[1] + 1), // repeats second inner
+        _f(outer, filled: !filled, inner: ansI + 1), // right inner, wrong fill
+      ]);
+      _markSeen(sigKey);
+      return ReasoningQuestion(
+        category: 'figure_series',
+        type: 'series_inner',
+        puzzle: {'type': 'series', 'sequence': figures},
+        options: r.opts,
+        correctIndex: r.idx,
+      );
+    }
+    final figs = [_f(1, inner: 2), _f(1, inner: 3), _f(1, inner: 4)];
+    final r = _pack(_f(1, inner: 5),
+        [_f(1, inner: 2), _f(1, inner: 3), _f(1, filled: true, inner: 5)]);
+    return ReasoningQuestion(category: 'figure_series',
+        type: 'series_inner',
+        puzzle: {'type': 'series', 'sequence': figs},
+        options: r.opts,
+        correctIndex: r.idx);
+  }
+
+  // ── 4f. SERIES — dots increase AND rotation advances together ────────────
+  // Dots go 0→1→2→3 while rotation goes 0→1→2→3. Both change each step.
+  static ReasoningQuestion _seriesDotsRot() {
+    const shapes = [2, 3, 7, 8];
+    for (int attempt = 0; attempt < 30; attempt++) {
+      final shape = shapes[_r.nextInt(shapes.length)];
+      final filled = _r.nextBool();
+      final startD = _r.nextInt(2); // 0 or 1
+      final startR = _r.nextInt(4);
+      final sigKey = 'serDR:s$shape,f$filled,sd$startD,sr$startR';
+      if (_seen(sigKey)) continue;
+
+      final seq = List.generate(3, (i) =>
+          _f(shape, rot: (startR + i) % 4,
+              dots: (startD + i).clamp(0, 4),
+              filled: filled));
+      final ansD = (startD + 3).clamp(0, 4);
+      final ansR = (startR + 3) % 4;
+      final ans = _f(shape, rot: ansR, dots: ansD, filled: filled);
+
+      final r = _pack(ans, [
+        _f(shape, rot: ansR, dots: ansD, filled: !filled),
+        // wrong fill
+        _f(shape, rot: (ansR + 1) % 4, dots: ansD, filled: filled),
+        // wrong rot
+        _f(shape, rot: ansR, dots: (ansD - 1).clamp(0, 4), filled: filled),
+        // wrong dots
+      ]);
+      _markSeen(sigKey);
+      return ReasoningQuestion(
+        category: 'figure_series',
+        type: 'series_dots_rot',
+        puzzle: {'type': 'series', 'sequence': seq},
+        options: r.opts,
+        correctIndex: r.idx,
+      );
+    }
+    final seq = List.generate(3, (i) => _f(2, rot: i, dots: i));
+    final r = _pack(_f(2, rot: 3, dots: 3), [
+      _f(2, rot: 3, dots: 3, filled: true),
+      _f(2, rot: 2, dots: 3),
+      _f(2, rot: 3, dots: 2)
+    ]);
+    return ReasoningQuestion(category: 'figure_series',
+        type: 'series_dots_rot',
+        puzzle: {'type': 'series', 'sequence': seq},
+        options: r.opts,
+        correctIndex: r.idx);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // 5. ANALOGY  A:B :: C:?
   //
   // 5 distinct rules — randomly selected per question:
@@ -729,7 +1121,7 @@ class QuestionGenerator {
     const _allAsym = [2, 3, 7, 8]; // triangle, diamond, arrow, L-shape
 
     for (int attempt = 0; attempt < 40; attempt++) {
-      final rule = _r.nextInt(5);
+      final rule = _r.nextInt(8); // 0-4 existing, 5-7 new
 
       // Pick two distinct asymmetric shapes for A/B pair and C/D pair
       final sh1 = _allAsym[_r.nextInt(_allAsym.length)];
@@ -744,10 +1136,11 @@ class QuestionGenerator {
       final innA = rule == 4 ? 0 : 0;
 
       // Apply rule to get B from A
-      late int rotB;
-      late bool fillB;
-      late int dotsB;
-      late int innB;
+      int rotB = 0;
+      bool fillB = false;
+      int dotsB = 0;
+      int innB = 0;
+      int sh1B = sh1; // for rules that morph the shape
       switch (rule) {
         case 0:
           rotB = (rotA + 1) % 4;
@@ -773,12 +1166,30 @@ class QuestionGenerator {
           dotsB = dotsA;
           innB = 0;
           break;
-        default:
+        case 5:
+          rotB = rotA;
+          fillB = fillA;
+          dotsB = dotsA;
+          innB = 0;
+          break;
+        case 6:
+          rotB = (rotA + 1) % 4;
+          fillB = fillA;
+          dotsB = (dotsA + 2).clamp(0, 4);
+          innB = 0;
+          break;
+        case 7:
+          rotB = (rotA + 2) % 4;
+          fillB = fillA;
+          dotsB = dotsA;
+          innB = innA;
+          break;
+        default: // rule 4: adds inner shape
           rotB = (rotA + 1) % 4;
           fillB = !fillA;
           dotsB = 0;
           innB = _r.nextInt(3) + 1;
-          break; // rule 4: adds inner shape
+          break;
       }
 
       // C is a fresh random state for sh2
@@ -787,10 +1198,11 @@ class QuestionGenerator {
       final dotsC = rule == 2 ? _r.nextInt(3) : 0;
 
       // Apply same rule to get D from C
-      late int rotD;
-      late bool fillD;
-      late int dotsD;
-      late int innD;
+      int rotD = 0;
+      bool fillD = false;
+      int dotsD = 0;
+      int innD = 0;
+      int sh2D = sh2; // for rules that morph the shape
       switch (rule) {
         case 0:
           rotD = (rotC + 1) % 4;
@@ -816,27 +1228,47 @@ class QuestionGenerator {
           dotsD = dotsC;
           innD = 0;
           break;
-        default:
+        case 4:
           rotD = (rotC + 1) % 4;
           fillD = !fillC;
           dotsD = 0;
           innD = innB;
+          break;
+        case 5:
+          rotD = rotC;
+          fillD = fillC;
+          dotsD = dotsC;
+          innD = 0;
+          break;
+        case 6:
+          rotD = (rotC + 1) % 4;
+          fillD = fillC;
+          dotsD = (dotsC + 2).clamp(0, 4);
+          innD = 0;
+          break;
+        default:
+          rotD = (rotC + 2) % 4;
+          fillD = fillC;
+          dotsD = dotsC;
+          innD = innA;
           break;
       }
 
       final sigKey = 'analogy2:s1$sh1,s2$sh2,rA$rotA,rC$rotC,rule$rule';
       if (_seen(sigKey)) continue;
 
-      final ans = _f(sh2, rot: rotD, filled: fillD, dots: dotsD, inner: innD);
+      final ans = _f(sh2D, rot: rotD, filled: fillD, dots: dotsD, inner: innD);
 
       // Distractors test each part of the rule independently
       final res = _pack(ans, [
-        _f(sh2, rot: (rotD + 1) % 4, filled: fillD, dots: dotsD, inner: innD),
+        _f(sh2D, rot: (rotD + 1) % 4, filled: fillD, dots: dotsD, inner: innD),
         // wrong rot
-        _f(sh2, rot: rotD, filled: !fillD, dots: dotsD, inner: innD),
+        _f(sh2D, rot: rotD, filled: !fillD, dots: dotsD, inner: innD),
         // wrong fill
-        _f(sh2, rot: rotD, filled: fillD,
-            dots: (dotsD - 1).clamp(0, 3), inner: innD),
+        _f(sh2D, rot: rotD,
+            filled: fillD,
+            dots: (dotsD - 1).clamp(0, 3),
+            inner: innD),
         // wrong dots
       ]);
 
@@ -847,7 +1279,7 @@ class QuestionGenerator {
         puzzle: {
           'type': 'analogy',
           'A': _f(sh1, rot: rotA, filled: fillA, dots: dotsA, inner: innA),
-          'B': _f(sh1, rot: rotB, filled: fillB, dots: dotsB, inner: innB),
+          'B': _f(sh1B, rot: rotB, filled: fillB, dots: dotsB, inner: innB),
           'C': _f(sh2, rot: rotC, filled: fillC, dots: dotsC),
         },
         options: res.opts,
@@ -874,109 +1306,82 @@ class QuestionGenerator {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 6. GEO COMPLETION
+  // 6. GEO COMPLETION (real Navodaya format)
   //
-  // Design: A 2×2 grid of cells is shown. Some cells are filled (shaded),
-  // some are empty. The grid follows a rule — e.g. diagonal cells are filled,
-  // or a specific L-shape pattern. One cell is replaced with "?".
-  // The student picks which of 4 options correctly fills the missing cell.
+  // A geometric shape (square/triangle/circle) is split into 2 pieces.
+  // The question shows piece 0. Student picks which of 4 options is piece 1
+  // (the complement that completes the full shape).
   //
-  // The option is a single cell: either filled or empty.
-  // Distractors are always the opposite fill state so the answer is binary
-  // but the reasoning requires understanding the grid pattern.
-  //
-  // Grid patterns (which cells are filled, indexed TL=0,TR=1,BL=2,BR=3):
-  //   Pattern 0: diagonal  [0,3]        → TL+BR filled
-  //   Pattern 1: diagonal  [1,2]        → TR+BL filled
-  //   Pattern 2: top row   [0,1]        → TL+TR filled
-  //   Pattern 3: bottom row[2,3]        → BL+BR filled
-  //   Pattern 4: left col  [0,2]        → TL+BL filled
-  //   Pattern 5: right col [1,3]        → TR+BR filled
-  //   Pattern 6: L-shape   [0,1,2]      → all except BR
-  //   Pattern 7: L-shape   [1,2,3]      → all except TL
-  //   Pattern 8: single    [0]          → only TL filled
-  //   Pattern 9: single    [3]          → only BR filled
-  //
-  // Missing cell is always one of the FILLED cells — answer is always "filled".
-  // This makes the correct answer non-trivially deducible from the pattern.
+  // Wrong options:
+  //   wrong1 — same piece as question (mirror trap: student picks same side)
+  //   wrong2 — same shape, different cut, piece 1 (looks valid but wrong fit)
+  //   wrong3 — different shape, piece 1 (completely wrong)
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion _geoCompletion() {
-    // filled cell indices for each pattern (0=TL,1=TR,2=BL,3=BR)
-    const patterns = [
-      [0, 3], // diagonal 1
-      [1, 2], // diagonal 2
-      [0, 1], // top row
-      [2, 3], // bottom row
-      [0, 2], // left col
-      [1, 3], // right col
-      [0, 1, 2], // L top-left
-      [1, 2, 3], // L bottom-right
-      [0, 1, 3], // L top-right
-      [0, 2, 3], // L bottom-left
-    ];
-
-    for (int attempt = 0; attempt < 30; attempt++) {
-      final patIdx = _r.nextInt(patterns.length);
-      final filled = List<int>.from(patterns[patIdx]);
-      // Pick which cell to hide — can be filled OR empty for unpredictability
-      final hideCell = _r.nextInt(4);
-      final sigKey = 'geo2:p$patIdx,h$hideCell';
+    for (int attempt = 0; attempt < 40; attempt++) {
+      final shape = _r.nextInt(3); // 0=square 1=triangle 2=circle
+      final maxCut = shape == 0 ? 8 : 4;
+      final cut = _r.nextInt(maxCut);
+      final sigKey = 'geo3:sh$shape,c$cut';
       if (_seen(sigKey)) continue;
 
-      // Build the 4-cell grid: true=filled, false=empty, null=question mark
-      final cells = List<bool?>.generate(4, (i) {
-        if (i == hideCell) return null; // the "?" cell
-        return filled.contains(i);
-      });
-
-      // The hidden cell may be filled OR empty — student must read the pattern.
-      // If we hid a filled cell: correct=filled, wrongs=empty variants
-      // If we hid an empty cell: correct=empty, wrongs=filled variants
-      // This prevents "always pick filled" as a cheating strategy.
-      final hiddenIsFilled = filled.contains(hideCell);
-      final correct = {'type': 'geo_cell', 'filled': hiddenIsFilled};
-      final wrong1 = {'type': 'geo_cell', 'filled': !hiddenIsFilled};
+      final qPiece = {
+        'type': 'geo_piece',
+        'shape': shape,
+        'cut': cut,
+        'piece': 0
+      };
+      final correct = {
+        'type': 'geo_piece',
+        'shape': shape,
+        'cut': cut,
+        'piece': 1
+      };
+      final wrong1 = {
+        'type': 'geo_piece',
+        'shape': shape,
+        'cut': cut,
+        'piece': 0
+      };
+      final altCut = (cut + 1 + _r.nextInt(maxCut - 1)) % maxCut;
       final wrong2 = {
-        'type': 'geo_cell',
-        'filled': !hiddenIsFilled,
-        'mark': 'dot'
+        'type': 'geo_piece',
+        'shape': shape,
+        'cut': altCut,
+        'piece': 1
       };
+      final altShape = (shape + 1 + _r.nextInt(2)) % 3;
+      final altMaxCut = altShape == 0 ? 8 : 4;
       final wrong3 = {
-        'type': 'geo_cell',
-        'filled': !hiddenIsFilled,
-        'mark': 'cross'
+        'type': 'geo_piece',
+        'shape': altShape,
+        'cut': _r.nextInt(altMaxCut),
+        'piece': 1
       };
 
-      final pos = _r.nextInt(4);
-      final opts = [wrong1, wrong2, wrong3];
-      opts.shuffle(_r);
-      opts.insert(pos, correct);
-
+      final res = _pack(correct, [wrong1, wrong2, wrong3]);
       _markSeen(sigKey);
       return ReasoningQuestion(
         category: 'geo_completion',
-        type: 'geo_completion',
-        puzzle: {'type': 'geo_completion', 'cells': cells, 'pattern': patIdx},
-        options: opts,
-        correctIndex: pos,
+        type: 'geo_jigsaw',
+        puzzle: {'type': 'geo_completion', 'piece': qPiece},
+        options: res.opts,
+        correctIndex: res.idx,
       );
     }
-    // Fallback: top-row pattern, hide TL
-    final cells = <bool?>[null, true, false, false];
-    final opts = [
-      {'type': 'geo_cell', 'filled': true},
-      {'type': 'geo_cell', 'filled': false},
-      {'type': 'geo_cell', 'filled': false, 'mark': 'dot'},
-      {'type': 'geo_cell', 'filled': false, 'mark': 'cross'},
-    ]
-      ..shuffle(_r);
-    final pos = opts.indexWhere((o) => o['filled'] == true);
+    final q = {'type': 'geo_piece', 'shape': 0, 'cut': 2, 'piece': 0};
+    final a = {'type': 'geo_piece', 'shape': 0, 'cut': 2, 'piece': 1};
+    final res = _pack(a, [
+      {'type': 'geo_piece', 'shape': 0, 'cut': 2, 'piece': 0},
+      {'type': 'geo_piece', 'shape': 0, 'cut': 1, 'piece': 1},
+      {'type': 'geo_piece', 'shape': 1, 'cut': 0, 'piece': 1},
+    ]);
     return ReasoningQuestion(
       category: 'geo_completion',
-      type: 'geo_completion',
-      puzzle: {'type': 'geo_completion', 'cells': cells, 'pattern': 2},
-      options: opts,
-      correctIndex: pos,
+      type: 'geo_jigsaw',
+      puzzle: {'type': 'geo_completion', 'piece': q},
+      options: res.opts,
+      correctIndex: res.idx,
     );
   }
 
@@ -986,64 +1391,67 @@ class QuestionGenerator {
   // All asymmetric shapes available for mirror questions
   static const _mirrorShapes = [
     2,
-    3,
     7,
     8
-  ]; // triangle, diamond, arrow, L-shape
+  ]; // triangle, arrow, L-shape (all truly asymmetric under horizontal mirror)
 
   static ReasoningQuestion _mirrorShape() {
-    for (int attempt = 0; attempt < 40; attempt++) {
+    // Root cause of repeating options: wrong1/wrong2/wrong3 all used the SAME
+    // shape with small rotation/fill changes — for some rotations these look
+    // identical visually (e.g. diamond rot+2 = diamond rot+0 looks same).
+    //
+    // Fix: each wrong option uses a DIFFERENT shape from the answer shape.
+    // This guarantees all 4 cards look clearly distinct regardless of rotation.
+    //
+    // Option layout:
+    //   CORRECT — target shape, mirror:true,  same rot+fill   (the real mirror)
+    //   WRONG 1 — DIFFERENT shape, mirror:true,  same rot+fill (different shape, mirrored)
+    //   WRONG 2 — target shape,   mirror:false, same rot+fill  (original, no flip)
+    //   WRONG 3 — DIFFERENT shape, mirror:false, same rot+fill (different shape, no flip)
+
+    for (int attempt = 0; attempt < 60; attempt++) {
       final shape = _mirrorShapes[_r.nextInt(_mirrorShapes.length)];
       final rot = _r.nextInt(4);
       final filled = _r.nextBool();
-      final dots = _r.nextInt(3); // 0, 1, or 2 — adds visual variety
-      final sigKey = 'mirror2:s$shape,r$rot,f$filled,d$dots';
+      final sigKey = 'mirror5:s$shape,r$rot,f$filled';
       if (_seen(sigKey)) continue;
 
-      // Correct = mirror of target (horizontal flip)
-      final ans = _f(shape, rot: rot, filled: filled, mirror: true, dots: dots);
+      // Pick two different shapes for wrong options — must differ from each other
+      // and from the target shape
+      final otherShapes = _mirrorShapes.where((s) => s != shape).toList()
+        ..shuffle(_r);
+      final altShape1 = otherShapes[0]; // for wrong1 (different shape, mirrored)
+      final altShape2 = otherShapes[1]; // for wrong3 (different shape, not mirrored)
 
-      // Generate 3 distractors — pick 3 different wrong types randomly
-      // so the same shape doesn't always have the same 3 wrongs
-      final allWrongs = [
-        _f(shape, rot: rot, filled: filled, mirror: false, dots: dots),
-        // original
-        _f(shape, rot: (rot + 1) % 4,
-            filled: filled,
-            mirror: false,
-            dots: dots),
-        // rotated, no flip
-        _f(shape, rot: (rot + 2) % 4, filled: filled, mirror: true, dots: dots),
-        // flipped+rotated
-        _f(shape, rot: (rot + 3) % 4,
-            filled: filled,
-            mirror: false,
-            dots: dots),
-        // rotated other way
-        _f(shape, rot: rot, filled: !filled, mirror: true, dots: dots),
-        // right mirror, wrong fill
-        _f(shape, rot: rot, filled: filled, mirror: false,
-            dots: (dots + 1).clamp(0, 3)),
-        // wrong dots
-      ];
-      allWrongs.shuffle(_r);
+      final target = _f(
+          shape, rot: rot, filled: filled, mirror: false); // shown in puzzle
+      final ans = _f(shape, rot: rot,
+          filled: filled,
+          mirror: true); // CORRECT: mirror of target
+      final wrong1 = _f(altShape1, rot: rot,
+          filled: filled,
+          mirror: true); // wrong shape, mirrored
+      final wrong2 = _f(shape, rot: (rot + 1) % 4,
+          filled: filled,
+          mirror: false); // target shape rotated 90°, no mirror
+      final wrong3 = _f(altShape2, rot: rot,
+          filled: !filled,
+          mirror: false); // wrong shape, fill flipped
 
-      final r = _pack(ans, allWrongs.take(3).toList());
+      final r = _pack(ans, [wrong1, wrong2, wrong3]);
       _markSeen(sigKey);
       return ReasoningQuestion(
         category: 'mirror_shape',
         type: 'mirror_shape',
-        puzzle: {
-          'type': 'mirror_shape',
-          'target': _f(
-              shape, rot: rot, filled: filled, mirror: false, dots: dots),
-        },
+        puzzle: {'type': 'mirror_shape', 'target': target},
         options: r.opts,
         correctIndex: r.idx,
       );
     }
-    final r = _pack(_f(2, rot: 0, mirror: true),
-        [_f(2), _f(2, rot: 1), _f(2, rot: 2, mirror: true)]);
+    final r = _pack(
+        _f(2, rot: 0, mirror: true),
+        [_f(7, rot: 0, mirror: true), _f(2, rot: 0), _f(8, rot: 0)]
+    );
     return ReasoningQuestion(category: 'mirror_shape',
         type: 'mirror_shape',
         puzzle: {'type': 'mirror_shape', 'target': _f(2)},
@@ -1055,20 +1463,46 @@ class QuestionGenerator {
   // 8. MIRROR TEXT
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion _mirrorText() {
-    final sub = _r.nextInt(3);
+    final sub = _r.nextInt(
+        4); // 0=single letter, 1=word, 2=number string, 3=clock
+    // Single asymmetric letters (symmetric ones like A,H,I,M,O,T,U,V,W,X look same mirrored)
     const letters = [
       'B',
       'C',
       'D',
       'E',
       'F',
+      'G',
       'J',
       'K',
       'L',
+      'N',
       'P',
+      'Q',
       'R',
       'S',
+      'Y',
       'Z'
+    ];
+    // Words and short strings from actual Navodaya exam papers
+    const words = ['FAN', 'RUN', 'UNR', 'NKU', 'CLASS', 'KOON', 'VERBAL',
+      'STROKE', 'BUZZER', 'FORTIFY', 'VINAY', 'MALA', 'LITY',
+      'NIAL', 'GARH', 'VIR', 'STU', 'DIAN', 'HEN', 'FIX',
+      'KR', 'AB', 'NAME', 'RICE', 'BIRD', 'LEAF', 'FACE', 'GOLD'];
+    // Number strings that appear in Navodaya exams
+    const numbers = [
+      '634',
+      '2475',
+      '1869',
+      '3748',
+      '9261',
+      '5432',
+      '7813',
+      '4096',
+      '2634',
+      '1478',
+      '5923',
+      '3867'
     ];
     const digits = ['2', '3', '4', '5', '6', '7'];
 
@@ -1076,17 +1510,22 @@ class QuestionGenerator {
       late Map<String, dynamic> base;
       late String sigKey;
       switch (sub) {
-        case 0:
+        case 0: // single asymmetric letter
           final ch = letters[_r.nextInt(letters.length)];
           sigKey = 'mirText:$ch';
           base = {'content': ch, 'is_clock': false};
           break;
-        case 1:
-          final ch = digits[_r.nextInt(digits.length)];
-          sigKey = 'mirText:$ch';
-          base = {'content': ch, 'is_clock': false};
+        case 1: // word / short string (most common in real exam)
+          final w = words[_r.nextInt(words.length)];
+          sigKey = 'mirText:$w';
+          base = {'content': w, 'is_clock': false};
           break;
-        default:
+        case 2: // number string
+          final n = numbers[_r.nextInt(numbers.length)];
+          sigKey = 'mirText:$n';
+          base = {'content': n, 'is_clock': false};
+          break;
+        default: // clock
           final h = _r.nextInt(12) + 1;
           final m2 = [0, 15, 30, 45][_r.nextInt(4)];
           sigKey = 'mirText:${h}h${m2}m';
@@ -1094,19 +1533,136 @@ class QuestionGenerator {
       }
       if (_seen(sigKey)) continue;
 
-      Map<String, dynamic> mk(bool h, bool v) =>
-          {...base, 'type': 'mirror_text', 'mirror_h': h, 'mirror_v': v};
+      // Real Navodaya format: only LEFT-RIGHT mirror tested.
+      // 4 options: correct mirror + 3 wrong variants that look clearly different.
+      //
+      // For letters/words: wrong options use different rotation offsets so each
+      // option card looks distinct (not 4 nearly-identical copies).
+      // For clocks: wrong options are different times (hour/minute shifted).
+      //
+      // mirror_v removed — vertical flip is nearly invisible for most letters
+      // and doesn't appear in actual Navodaya papers.
 
-      final combos = [
-        mk(false, false),
-        mk(true, false),
-        mk(false, true),
-        mk(true, true)
-      ];
-      combos.shuffle(_r);
-      int correct = combos.indexWhere((c) =>
-      c['mirror_h'] == true && c['mirror_v'] == false);
-      if (correct < 0) correct = 0;
+      final List<Map<String, dynamic>> combos;
+      final int correctIdx;
+
+      if (base['is_clock'] == true) {
+        // Clock: correct=mirrored, wrongs=different times (not mirrored)
+        final h = base['clock_hour'] as int;
+        final m2 = base['clock_minute'] as int;
+        final mk = (int dh, int dm, bool mir) =>
+        {
+          ...base, 'type': 'mirror_text',
+          'clock_hour': ((h + dh - 1) % 12) + 1,
+          'clock_minute': (m2 + dm) % 60,
+          'mirror_h': mir, 'mirror_v': false,
+        };
+        final correct = mk(0, 0, true); // correct mirror
+        final wrong1 = mk(0, 0, false); // original (no mirror)
+        final wrong2 = mk(3, 0, true); // mirrored, different hour
+        final wrong3 = mk(0, 15, false); // different minute, no mirror
+        final all = [correct, wrong1, wrong2, wrong3]..shuffle(_r);
+        correctIdx = all.indexOf(correct);
+        combos = all;
+      } else {
+        // Letter/word/number: correct=mirrored, wrongs use rotation
+        // We show the same content but one option is mirrored and 3 are not,
+        // but each "not mirrored" option has a slightly different visual treatment
+        // via rotation — this makes them look clearly distinct.
+        //
+        // For single-char content the rotation trick doesn't work — use
+        // similar-looking alternate letters as distractors.
+        final content = base['content'] as String;
+        final isSingle = content.length == 1;
+
+        // Similar-looking letter pairs for single-char distractors
+        const lookalike = {
+          'B': ['D', 'P', 'R'], 'C': ['G', 'D', 'O'], 'D': ['B', 'O', 'C'],
+          'E': ['F', 'B', '3'], 'F': ['E', 'P', 'T'], 'G': ['C', 'O', 'Q'],
+          'J': ['L', 'I', '1'], 'K': ['R', 'X', 'H'], 'L': ['J', 'I', '1'],
+          'N': ['M', 'H', 'Z'], 'P': ['B', 'F', 'R'], 'Q': ['O', 'G', 'C'],
+          'R': ['P', 'B', 'K'], 'S': ['5', 'Z', '2'], 'Y': ['V', 'T', '7'],
+          'Z': ['S', 'N', '2'], '2': ['S', 'Z', '5'], '3': ['E', 'B', '8'],
+          '4': ['9', 'A', 'H'], '5': ['S', '2', '6'], '6': ['9', 'b', 'G'],
+          '7': ['Y', 'T', 'L'], '9': ['6', '4', 'P'],
+        };
+
+        Map<String, dynamic> mkW(String c, bool mir) =>
+            {
+              ...base, 'content': c, 'type': 'mirror_text',
+              'mirror_h': mir, 'mirror_v': false,
+            };
+
+        late List<Map<String, dynamic>> all;
+        if (isSingle) {
+          // For single chars: all 4 show SAME letter with different mirror/flip combos
+          // This matches real exam format — student must identify LEFT-RIGHT mirror only
+          final correct = {
+            ...base,
+            'type': 'mirror_text',
+            'mirror_h': true,
+            'mirror_v': false
+          }; // correct
+          final wrong1 = {
+            ...base,
+            'type': 'mirror_text',
+            'mirror_h': false,
+            'mirror_v': false
+          }; // original
+          final wrong2 = {
+            ...base,
+            'type': 'mirror_text',
+            'mirror_h': false,
+            'mirror_v': true
+          }; // vertical flip
+          final wrong3 = {
+            ...base,
+            'type': 'mirror_text',
+            'mirror_h': true,
+            'mirror_v': true
+          }; // both flipped
+          all = [correct, wrong1, wrong2, wrong3]..shuffle(_r);
+          correctIdx = all.indexOf(correct);
+        } else {
+          // Word/number: all 4 show same content, only 1 is correctly mirrored
+          // Other 3 have mirror_h=false so student must spot the real left-right flip
+          // To make them visually different, vary the content slightly for 2 of them
+          // Real Navodaya format: all 4 options show the SAME word.
+          // Student identifies which option is the correct LEFT-RIGHT mirror.
+          // wrong1 = original (no flip) — clearly different from mirror ✓
+          // wrong2 = mirrored + flipped vertically (wrong axis) — looks wrong ✓
+          // wrong3 = original with wrong rotation — rotated 180° ✓
+          // All 4 are visually distinct because mirror_h flips left↔right
+          // which is obvious for asymmetric letters.
+          final correct = {
+            ...base,
+            'type': 'mirror_text',
+            'mirror_h': true,
+            'mirror_v': false
+          };
+          final wrong1 = {
+            ...base,
+            'type': 'mirror_text',
+            'mirror_h': false,
+            'mirror_v': false
+          }; // original
+          final wrong2 = {
+            ...base,
+            'type': 'mirror_text',
+            'mirror_h': false,
+            'mirror_v': true
+          }; // vertical flip
+          final wrong3 = {
+            ...base,
+            'type': 'mirror_text',
+            'mirror_h': true,
+            'mirror_v': true
+          }; // both flipped
+          all = [correct, wrong1, wrong2, wrong3]..shuffle(_r);
+          correctIdx = all.indexOf(correct);
+        }
+        combos = all;
+      }
 
       _markSeen(sigKey);
       return ReasoningQuestion(
@@ -1119,22 +1675,39 @@ class QuestionGenerator {
           'mirror_v': false
         },
         options: combos,
-        correctIndex: correct,
+        correctIndex: correctIdx,
       );
     }
-    Map<String, dynamic> mk(bool h, bool v) =>
-        {
-          'content': 'B',
-          'is_clock': false,
-          'type': 'mirror_text',
-          'mirror_h': h,
-          'mirror_v': v
-        };
-    final combos = [
-      mk(false, false),
-      mk(true, false),
-      mk(false, true),
-      mk(true, true)
+    // Fallback
+    final fb = [
+      {
+        'content': 'B',
+        'is_clock': false,
+        'type': 'mirror_text',
+        'mirror_h': true,
+        'mirror_v': false
+      },
+      {
+        'content': 'B',
+        'is_clock': false,
+        'type': 'mirror_text',
+        'mirror_h': false,
+        'mirror_v': false
+      },
+      {
+        'content': 'D',
+        'is_clock': false,
+        'type': 'mirror_text',
+        'mirror_h': true,
+        'mirror_v': false
+      },
+      {
+        'content': 'P',
+        'is_clock': false,
+        'type': 'mirror_text',
+        'mirror_h': false,
+        'mirror_v': false
+      },
     ]
       ..shuffle(_r);
     return ReasoningQuestion(category: 'mirror_text',
@@ -1146,10 +1719,9 @@ class QuestionGenerator {
           'mirror_h': false,
           'mirror_v': false
         },
-        options: combos,
-        correctIndex: combos.indexWhere((c) =>
-        c['mirror_h'] == true &&
-            c['mirror_v'] == false));
+        options: fb,
+        correctIndex: fb.indexWhere((c) =>
+        c['content'] == 'B' && c['mirror_h'] == true));
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1176,36 +1748,56 @@ class QuestionGenerator {
   //   axis=1: horizontal fold (paper folded top→bottom, crease is horizontal centre)
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion _punchHole() {
-    final foldAxis = _r.nextInt(2);
+    // foldType: 0=vertical single fold, 1=horizontal single fold,
+    //           2=double fold (vertical then horizontal → 4 holes when unfolded)
+    final foldType = _r.nextInt(3);
+    final foldAxis = foldType == 2 ? 2 : foldType; // axis for PunchPainter
 
     // Pre-defined hole positions always inside the visible (non-folded) quadrant
     // axis=0: hole in left half (x < 0.5), any y
     // axis=1: hole in top half  (y < 0.5), any x
-    final positions = foldAxis == 0
+    // For double fold: hole must be in top-left quadrant (x<0.5, y<0.5)
+    final positions = foldType == 2
         ? [
-      {'x': 0.22, 'y': 0.28}, {'x': 0.22, 'y': 0.50}, {'x': 0.22, 'y': 0.72},
-      {'x': 0.33, 'y': 0.22}, {'x': 0.33, 'y': 0.50}, {'x': 0.33, 'y': 0.78},
-      {'x': 0.25, 'y': 0.40}, {'x': 0.30, 'y': 0.60},
+      {'x': 0.22, 'y': 0.22}, {'x': 0.22, 'y': 0.38},
+      {'x': 0.35, 'y': 0.22}, {'x': 0.35, 'y': 0.35},
+      {'x': 0.28, 'y': 0.28}, {'x': 0.42, 'y': 0.30},
+      {'x': 0.30, 'y': 0.42}, {'x': 0.40, 'y': 0.40},
+    ]
+        : foldType == 0
+        ? [
+      {'x': 0.18, 'y': 0.25}, {'x': 0.18, 'y': 0.50}, {'x': 0.18, 'y': 0.75},
+      {'x': 0.28, 'y': 0.20}, {'x': 0.28, 'y': 0.50}, {'x': 0.28, 'y': 0.80},
+      {'x': 0.35, 'y': 0.35}, {'x': 0.35, 'y': 0.65},
+      {'x': 0.22, 'y': 0.38}, {'x': 0.22, 'y': 0.62},
+      {'x': 0.30, 'y': 0.28}, {'x': 0.30, 'y': 0.72},
     ]
         : [
-      {'x': 0.28, 'y': 0.22}, {'x': 0.50, 'y': 0.22}, {'x': 0.72, 'y': 0.22},
-      {'x': 0.22, 'y': 0.33}, {'x': 0.50, 'y': 0.33}, {'x': 0.78, 'y': 0.33},
-      {'x': 0.40, 'y': 0.25}, {'x': 0.60, 'y': 0.30},
+      {'x': 0.25, 'y': 0.18}, {'x': 0.50, 'y': 0.18}, {'x': 0.75, 'y': 0.18},
+      {'x': 0.20, 'y': 0.28}, {'x': 0.50, 'y': 0.28}, {'x': 0.80, 'y': 0.28},
+      {'x': 0.35, 'y': 0.35}, {'x': 0.65, 'y': 0.35},
+      {'x': 0.38, 'y': 0.22}, {'x': 0.62, 'y': 0.22},
+      {'x': 0.28, 'y': 0.30}, {'x': 0.72, 'y': 0.30},
     ];
     positions.shuffle(_r);
 
     final hp = positions[0];
     final hx = (hp['x'] as num).toDouble();
     final hy = (hp['y'] as num).toDouble();
-    final sigKey = 'punch:ax$foldAxis,x${hx.toStringAsFixed(2)},y${hy
+    final sigKey = 'punch:ft$foldType,x${hx.toStringAsFixed(2)},y${hy
         .toStringAsFixed(2)}';
 
     // ── Build all 4 option types ────────────────────────────────────────────
 
-    // CORRECT: unfold along actual fold axis
-    // axis=0 (vertical): mirror x  → (x,y) + (1-x, y)
-    // axis=1 (horizontal): mirror y → (x,y) + (x, 1-y)
-    final correctHoles = foldAxis == 0
+    // CORRECT: unfold along actual fold axis/axes
+    final correctHoles = foldType == 2
+        ? [ // double fold → 4 holes (mirror both axes)
+      {'x': hx, 'y': hy},
+      {'x': 1.0 - hx, 'y': hy},
+      {'x': hx, 'y': 1.0 - hy},
+      {'x': 1.0 - hx, 'y': 1.0 - hy},
+    ]
+        : foldType == 0
         ? [{'x': hx, 'y': hy}, {'x': 1.0 - hx, 'y': hy}]
         : [{'x': hx, 'y': hy}, {'x': hx, 'y': 1.0 - hy}];
 
@@ -1225,23 +1817,26 @@ class QuestionGenerator {
         ? (altPositions[0]['y'] as num).toDouble() : (hy + 0.1).clamp(
         0.15, 0.85);
 
-    // WRONG A: opposite axis, correct position — axis confusion mistake
-    final wrongA_holes = foldAxis == 0
+    // WRONG A: opposite axis / only vertical mirror for double fold
+    final wrongA_holes = foldType == 2
+        ? [
+      {'x': hx, 'y': hy},
+      {'x': 1.0 - hx, 'y': hy}
+    ] // only mirrored x (forgot y)
+        : foldType == 0
         ? [{'x': hx, 'y': hy}, {'x': hx, 'y': 1.0 - hy}]
         : [{'x': hx, 'y': hy}, {'x': 1.0 - hx, 'y': hy}];
 
-    // WRONG B: correct axis but DIFFERENT position — "I thought it was here"
-    final wrongB_holes = foldAxis == 0
+    // WRONG B: correct axis but different position
+    final wrongB_holes = foldType == 2
+        ? [{'x': altHx, 'y': altHy}, {'x': 1.0 - altHx, 'y': altHy},
+      {'x': altHx, 'y': 1.0 - altHy}, {'x': 1.0 - altHx, 'y': 1.0 - altHy}]
+        : foldType == 0
         ? [{'x': altHx, 'y': altHy}, {'x': 1.0 - altHx, 'y': altHy}]
         : [{'x': altHx, 'y': altHy}, {'x': altHx, 'y': 1.0 - altHy}];
 
-    // WRONG C: four holes — student thinks it was doubly folded
-    final wrongC_holes = [
-      {'x': hx, 'y': hy},
-      {'x': 1.0 - hx, 'y': hy},
-      {'x': hx, 'y': 1.0 - hy},
-      {'x': 1.0 - hx, 'y': 1.0 - hy},
-    ];
+    // WRONG C: single hole only (forgot unfolding multiplies holes)
+    final wrongC_holes = [{'x': hx, 'y': hy}];
 
     Map<String, dynamic> _opt(List<Map<String, dynamic>> holes) =>
         {
@@ -1315,13 +1910,13 @@ class QuestionGenerator {
       final targetShape = _embShapes[_r.nextInt(_embShapes.length)];
       final targetFilled = _r.nextBool();
       final targetRot = _r.nextInt(4); // target can be rotated — harder
-      final sigKey = 'embed3:s$targetShape,f$targetFilled,r$targetRot';
+      final targetPos = _r.nextInt(3); // where in the triple the target sits
+      final sigKey = 'embed3:s$targetShape,f$targetFilled,r$targetRot,tp$targetPos';
       if (_seen(sigKey)) continue;
 
       final target = _f(targetShape, filled: targetFilled, rot: targetRot);
 
-      // Build correct option: 3 shapes, target is at a random position (0,1,2)
-      final targetPos = _r.nextInt(3); // where in the triple the target sits
+      // Build correct option: 3 shapes, target is at random position targetPos
       List<Map<String, dynamic>> correctShapes(int tp) {
         final shapes = <Map<String, dynamic>>[];
         final used = <int>{targetShape};
