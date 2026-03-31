@@ -3,6 +3,7 @@ import 'package:mental_ability_app/config/localization.dart';
 
 import '../data/hive_service.dart';
 import '../data/session_record.dart';
+import 'session_detail_screen.dart';
 
 class SessionHistoryScreen extends StatefulWidget {
   const SessionHistoryScreen({super.key});
@@ -83,7 +84,17 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       itemCount: _sessions.length,
-      itemBuilder: (_, i) => _SessionCard(session: _sessions[i]),
+      itemBuilder: (_, i) =>
+          GestureDetector(
+            onTap: () =>
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => SessionDetailScreen(session: _sessions[i]),
+                  ),
+                ),
+            child: _SessionCard(session: _sessions[i]),
+          ),
     );
   }
 

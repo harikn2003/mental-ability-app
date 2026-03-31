@@ -1,8 +1,10 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
-// Written manually to avoid build_runner dependency.
-// Must stay in sync with session_record.dart field indices.
 
 part of 'session_record.dart';
+
+// **************************************************************************
+// TypeAdapterGenerator
+// **************************************************************************
 
 class SessionRecordAdapter extends TypeAdapter<SessionRecord> {
   @override
@@ -23,33 +25,34 @@ class SessionRecordAdapter extends TypeAdapter<SessionRecord> {
       categoryCorrect: (fields[5] as Map).cast<String, int>(),
       categoryTotal: (fields[6] as Map).cast<String, int>(),
       avgTimeSeconds: fields[7] as int,
+      attemptSnapshots: fields[8] == null
+          ? []
+          : (fields[8] as List).cast<Map<dynamic, dynamic>>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, SessionRecord obj) {
-    writer
-      ..writeByte(8)
-      ..writeByte(0)
-      ..write(obj.date)
-      ..writeByte(1)
-      ..write(obj.score)
-      ..writeByte(2)
-      ..write(obj.totalQuestions)
-      ..writeByte(3)
-      ..write(obj.skipped)
-      ..writeByte(4)
-      ..write(obj.mode)
-      ..writeByte(5)
-      ..write(obj.categoryCorrect)
-      ..writeByte(6)
-      ..write(obj.categoryTotal)
-      ..writeByte(7)
-      ..write(obj.avgTimeSeconds);
+    writer.writeByte(9);
+    writer.writeByte(0);
+    writer.write(obj.date);
+    writer.writeByte(1);
+    writer.write(obj.score);
+    writer.writeByte(2);
+    writer.write(obj.totalQuestions);
+    writer.writeByte(3);
+    writer.write(obj.skipped);
+    writer.writeByte(4);
+    writer.write(obj.mode);
+    writer.writeByte(5);
+    writer.write(obj.categoryCorrect);
+    writer.writeByte(6);
+    writer.write(obj.categoryTotal);
+    writer.writeByte(7);
+    writer.write(obj.avgTimeSeconds);
+    writer.writeByte(8);
+    writer.write(obj.attemptSnapshots);
   }
-
-  @override
-  int get hashCode => typeId.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -57,4 +60,7 @@ class SessionRecordAdapter extends TypeAdapter<SessionRecord> {
       other is SessionRecordAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
+
+  @override
+  int get hashCode => typeId.hashCode;
 }

@@ -313,6 +313,20 @@ class _QuizScreenState extends State<QuizScreen>
           ? (timeSpentPerQuestion.reduce((a, b) => a + b) /
           timeSpentPerQuestion.length).round()
           : 0;
+      // Serialize attempts into plain maps for Hive storage
+      final snapshots = _attempts.map((a) =>
+      <dynamic, dynamic>{
+        'category': a.question.category,
+        'type': a.question.type,
+        'puzzle': a.question.puzzle,
+        'options': a.question.options,
+        'correctIndex': a.question.correctIndex,
+        'selectedIndex': a.selectedIndex,
+        'timeSpentSeconds': a.timeSpentSeconds,
+        'isCorrect': a.isCorrect,
+        'wasSkipped': a.wasSkipped,
+      }).toList();
+
       HiveService.saveSession(SessionRecord(
         date: DateTime.now(),
         score: score,
@@ -322,6 +336,7 @@ class _QuizScreenState extends State<QuizScreen>
         categoryCorrect: catCorrect,
         categoryTotal: catTotal,
         avgTimeSeconds: avgT,
+        attemptSnapshots: snapshots,
       ));
 
       Navigator.pushReplacement(

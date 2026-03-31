@@ -20,6 +20,11 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
   bool isBiasEnabled = true;
   String currentLang = 'EN';
 
+  // Pull-to-refresh + auto-scroll
+  final _refreshKey = GlobalKey<RefreshIndicatorState>();
+  final _scrollCtrl = ScrollController();
+  bool _pendingScrollToWeak = false; // set true when returning from a session
+
   // --- THEME COLORS ---
   static const Color primary = Color(0xFF195DE6);
   static const Color primaryDark = Color(0xFF144AC0);
@@ -66,7 +71,32 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
   @override
   void initState() {
     super.initState();
+    currentLang = AppLocale.current; // sync with global lang on entry
     _loadSavedWeights();
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  // Called when returning from QuizScreen/SummaryScreen via Navigator.pop chain.
+  // Reloads weights so the weak areas card appears immediately.
+  Future<void> _onReturn() async {
+    await _loadSavedWeights();
+    if (_weakCategories.isNotEmpty && _pendingScrollToWeak) {
+      _pendingScrollToWeak = false;
+      // Short delay so the card has rendered before we scroll
+      await Future.delayed(const Duration(milliseconds: 350));
+      if (mounted && _scrollCtrl.hasClients) {
+        _scrollCtrl.animateTo(
+          0, // weak card is just below random card — top of scroll area
+          duration: const Duration(milliseconds: 450),
+          curve: Curves.easeOut,
+        );
+      }
+    }
   }
 
   Future<void> _loadSavedWeights() async {
@@ -103,89 +133,93 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
 
             // 2. SCROLLABLE CONTENT
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 24,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      AppLocale.get(currentLang, 'select_mode'),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: textSubtle,
-                        letterSpacing: 1.0,
+              child: RefreshIndicator(
+                key: _refreshKey,
+                color: primary,
+                onRefresh: () async {
+                  await _loadSavedWeights();
+                  setState(() => currentLang = AppLocale.current);
+                },
+                child: SingleChildScrollView(
+                  controller: _scrollCtrl,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 24,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppLocale.get(currentLang, 'select_mode'),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: textSubtle,
+                          letterSpacing: 1.0,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // RANDOM MIX CARD (Hero)
-                    _buildRandomCard(),
-
-                    // WEAK AREAS CARD — only shown when student has weak spots
-                    if (_weakCategories.isNotEmpty) ...[
                       const SizedBox(height: 12),
-                      _buildWeakAreasCard(),
-                    ],
 
-                    const SizedBox(height: 16),
+                      // RANDOM MIX CARD (Hero)
+                      _buildRandomCard(),
 
-                    // TOPIC GRID — all 10 topics
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 1.1,
-                      children: [
-                        _buildTopicCard(id: 'odd_man',
-                            title: AppLocale.get(currentLang, 'odd_man'),
-                            icon: Icons.grid_view,
-                            color: primary),
-                        _buildTopicCard(id: 'figure_match',
-                            title: AppLocale.get(currentLang, 'fig_match'),
-                            icon: Icons.join_inner,
-                            color: accentOrange),
-                        _buildTopicCard(id: 'pattern',
-                            title: AppLocale.get(currentLang, 'pattern'),
-                            icon: Icons.texture,
-                            color: accentEmerald),
-                        _buildTopicCard(id: 'figure_series',
-                            title: AppLocale.get(currentLang, 'figure_series'),
-                            icon: Icons.trending_flat,
-                            color: accentPurple),
-                        _buildTopicCard(id: 'analogy',
-                            title: AppLocale.get(currentLang, 'analogy'),
-                            icon: Icons.compare_arrows,
-                            color: const Color(0xFF14B8A6)),
-                        _buildTopicCard(id: 'geo_completion',
-                            title: AppLocale.get(currentLang, 'geo_completion'),
-                            icon: Icons.change_history,
-                            color: const Color(0xFFF59E0B)),
-                        _buildTopicCard(id: 'mirror_shape',
-                            title: AppLocale.get(currentLang, 'mirror_shape'),
-                            icon: Icons.flip,
-                            color: const Color(0xFFF43F5E)),
-                        _buildTopicCard(id: 'mirror_text',
-                            title: AppLocale.get(currentLang, 'mirror_text'),
-                            icon: Icons.text_fields,
-                            color: accentOrange),
-                        _buildTopicCard(id: 'punch_hole',
-                            title: AppLocale.get(currentLang, 'punch_hole'),
-                            icon: Icons.radio_button_unchecked,
-                            color: accentEmerald),
-                        _buildTopicCard(id: 'embedded',
-                            title: AppLocale.get(currentLang, 'embedded'),
-                            icon: Icons.center_focus_strong,
-                            color: const Color(0xFF14B8A6)),
+                      // WEAK AREAS CARD — only shown when student has weak spots
+                      if (_weakCategories.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _buildWeakAreasCard(),
                       ],
-                    ),
-                    const SizedBox(height: 100), // Spacing for sticky footer
-                  ],
+
+                      const SizedBox(height: 16),
+
+                      // TOPIC GRID — all 10 topics
+                      GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1.1,
+                        children: [
+                          _buildTopicCard(id: 'odd_man',
+                              title: AppLocale.get(currentLang, 'odd_man'),
+                              icon: Icons.grid_view,
+                              color: primary),
+                          _buildTopicCard(id: 'figure_match', title: AppLocale
+                              .get(currentLang, 'fig_match'), icon: Icons
+                              .join_inner, color: accentOrange),
+                          _buildTopicCard(id: 'pattern',
+                              title: AppLocale.get(currentLang, 'pattern'),
+                              icon: Icons.texture,
+                              color: accentEmerald),
+                          _buildTopicCard(id: 'figure_series', title: AppLocale
+                              .get(currentLang, 'figure_series'), icon: Icons
+                              .trending_flat, color: accentPurple),
+                          _buildTopicCard(id: 'analogy', title: AppLocale.get(
+                              currentLang, 'analogy'), icon: Icons
+                              .compare_arrows, color: const Color(0xFF14B8A6)),
+                          _buildTopicCard(id: 'geo_completion', title: AppLocale
+                              .get(currentLang, 'geo_completion'), icon: Icons
+                              .change_history, color: const Color(0xFFF59E0B)),
+                          _buildTopicCard(id: 'mirror_shape', title: AppLocale
+                              .get(currentLang, 'mirror_shape'), icon: Icons
+                              .flip, color: const Color(0xFFF43F5E)),
+                          _buildTopicCard(id: 'mirror_text', title: AppLocale
+                              .get(currentLang, 'mirror_text'), icon: Icons
+                              .text_fields, color: accentOrange),
+                          _buildTopicCard(id: 'punch_hole', title: AppLocale
+                              .get(currentLang, 'punch_hole'), icon: Icons
+                              .radio_button_unchecked, color: accentEmerald),
+                          _buildTopicCard(id: 'embedded', title: AppLocale.get(
+                              currentLang, 'embedded'), icon: Icons
+                              .center_focus_strong, color: const Color(
+                              0xFF14B8A6)),
+                        ],
+                      ),
+                      const SizedBox(height: 100),
+                      // Spacing for sticky footer
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -851,6 +885,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
               final weakWeights = <String, int>{
                 for (final e in _weakCategories) e.key: e.value,
               };
+              setState(() => _pendingScrollToWeak = true);
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -863,9 +898,10 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                         initialWeights: weakWeights,
                       ),
                 ),
-              );
+              ).then((_) => _onReturn());
               return;
             }
+            setState(() => _pendingScrollToWeak = true);
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -877,7 +913,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                   initialWeights: isBiasEnabled ? _savedWeights : {},
                 ),
               ),
-            );
+            ).then((_) => _onReturn());
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: primary,

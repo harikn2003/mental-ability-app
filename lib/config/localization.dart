@@ -115,6 +115,9 @@ class AppLocale {
       'find_embedded': 'FIND THE EMBEDDED SHAPE',
       'find_unfolded': 'FIND THE UNFOLDED RESULT',
       'find_odd': 'FIND THE ODD ONE OUT',
+      'no_detail_data': 'No question data for this session',
+      'no_detail_data_sub':
+          'Complete a new session to see full question review here.',
       // ── Category full names (summary/history) ────────────────────────────
       'cat_odd_man': 'Odd Man Out',
       'cat_fig_match': 'Figure Match',
@@ -271,6 +274,8 @@ class AppLocale {
       'find_embedded': 'अंतर्भूत आकृती शोधा',
       'find_unfolded': 'उघडलेली आकृती शोधा',
       'find_odd': 'वेगळी आकृती शोधा',
+      'no_detail_data': 'या सत्रासाठी प्रश्नांचा डेटा उपलब्ध नाही',
+      'no_detail_data_sub': 'पूर्ण प्रश्न पुनरावलोकनासाठी नवीन सत्र पूर्ण करा.',
       // ── Category full names ───────────────────────────────────────────────
       'cat_odd_man': 'वेगळे पद',
       'cat_fig_match': 'समान आकृती',
