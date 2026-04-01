@@ -12,7 +12,6 @@ import '../widgets/question_renderer.dart';
 /// but driven by serialized snapshots rather than live QuestionAttempt objects.
 class SessionDetailScreen extends StatefulWidget {
   final SessionRecord session;
-
   const SessionDetailScreen({super.key, required this.session});
 
   @override
@@ -34,21 +33,19 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
   int _focusedIdx = 0;
   bool _wrongOnly = false;
 
-  List<Map<dynamic, dynamic>> get _snapshots => widget.session.attemptSnapshots;
+  List<Map<dynamic, dynamic>> get _snapshots =>
+      widget.session.attemptSnapshots;
 
-  List<Map<dynamic, dynamic>> get _filtered => _wrongOnly
-      ? _snapshots.where((s) => s['isCorrect'] != true).toList()
-      : _snapshots;
+  List<Map<dynamic, dynamic>> get _filtered =>
+      _wrongOnly
+          ? _snapshots.where((s) => s['isCorrect'] != true).toList()
+          : _snapshots;
 
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
     final acc = session.accuracy;
-    final accColor = acc >= 0.70
-        ? _green
-        : acc >= 0.40
-        ? _orange
-        : _red;
+    final accColor = acc >= 0.70 ? _green : acc >= 0.40 ? _orange : _red;
 
     return Scaffold(
       backgroundColor: _bg,
@@ -62,10 +59,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
             Text(
               session.modeLabel,
               style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: _ink,
-              ),
+                  fontSize: 15, fontWeight: FontWeight.bold, color: _ink),
             ),
             Text(
               _formatDate(session.date),
@@ -88,12 +82,11 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
             ),
             child: Text(
               '${session.score}/${session.totalQuestions} · '
-              '${(acc * 100).toStringAsFixed(0)}%',
+                  '${(acc * 100).toStringAsFixed(0)}%',
               style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: accColor,
-              ),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: accColor),
             ),
           ),
         ],
@@ -113,20 +106,16 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.history_edu_rounded,
-            size: 64,
-            color: Colors.grey.shade300,
-          ),
+          Icon(Icons.history_edu_rounded,
+              size: 64, color: Colors.grey.shade300),
           const SizedBox(height: 16),
           Text(
             AppLocale.s('no_detail_data'),
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: _ink,
-            ),
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: _ink),
           ),
           const SizedBox(height: 8),
           Text(
@@ -150,27 +139,29 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         Expanded(
           child: items.isEmpty
               ? Center(
-                  child: Text(
-                    AppLocale.s('all_correct'),
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: _green,
-                    ),
-                  ),
-                )
+            child: Text(
+              AppLocale.s('all_correct'),
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: _green),
+            ),
+          )
               : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                  itemCount: items.length,
-                  itemBuilder: (_, i) => _SnapshotCard(
-                    snapshot: items[i],
-                    number: _snapshots.indexOf(items[i]) + 1,
-                    onTap: () => setState(() {
-                      _focusedIdx = i;
-                      _focusedMode = true;
-                    }),
-                  ),
+            padding:
+            const EdgeInsets.fromLTRB(16, 12, 16, 32),
+            itemCount: items.length,
+            itemBuilder: (_, i) =>
+                _SnapshotCard(
+                  snapshot: items[i],
+                  number: _snapshots.indexOf(items[i]) + 1,
+                  onTap: () =>
+                      setState(() {
+                        _focusedIdx = i;
+                        _focusedMode = true;
+                      }),
                 ),
+          ),
         ),
       ],
     );
@@ -180,23 +171,18 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
   Widget _buildFocused() {
     final items = _filtered;
     if (items.isEmpty) {
-      return Column(
-        children: [
-          _buildFilterBar(0),
-          Expanded(
-            child: Center(
-              child: Text(
-                AppLocale.s('all_correct'),
+      return Column(children: [
+        _buildFilterBar(0),
+        Expanded(
+          child: Center(
+            child: Text(AppLocale.s('all_correct'),
                 style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: _green,
-                ),
-              ),
-            ),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: _green)),
           ),
-        ],
-      );
+        ),
+      ]);
     }
 
     final idx = _focusedIdx.clamp(0, items.length - 1);
@@ -208,7 +194,8 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         // Nav bar
         Container(
           color: _surface,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
               IconButton(
@@ -228,24 +215,26 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
               Text(
                 '${idx + 1} / ${items.length}',
                 style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: _ink,
-                ),
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: _ink),
               ),
               IconButton(
                 icon: const Icon(Icons.chevron_right_rounded),
                 onPressed: idx < items.length - 1
                     ? () => setState(() => _focusedIdx = idx + 1)
                     : null,
-                color: idx < items.length - 1 ? _ink : Colors.grey.shade300,
+                color: idx < items.length - 1
+                    ? _ink
+                    : Colors.grey.shade300,
               ),
             ],
           ),
         ),
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+            padding:
+            const EdgeInsets.fromLTRB(16, 12, 16, 32),
             child: _SnapshotCard(
               snapshot: snap,
               number: _snapshots.indexOf(snap) + 1,
@@ -259,19 +248,22 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
   }
 
   Widget _buildFilterBar(int count) {
-    final wrongCount = _snapshots.where((s) => s['isCorrect'] != true).length;
+    final wrongCount =
+        _snapshots
+            .where((s) => s['isCorrect'] != true)
+            .length;
     return Container(
       color: _surface,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding:
+      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
           Text(
             '$count ${AppLocale.s("questions_label")}',
             style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: _subtle,
-            ),
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: _subtle),
           ),
           const Spacer(),
           if (wrongCount > 0)
@@ -282,9 +274,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
               }),
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
+                    horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: _wrongOnly
                       ? _red.withOpacity(0.1)
@@ -315,18 +305,8 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
 
   String _formatDate(DateTime d) {
     final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return '${d.day} ${months[d.month - 1]} ${d.year}, '
         '${d.hour.toString().padLeft(2, '0')}:'
@@ -377,11 +357,7 @@ class _SnapshotCardState extends State<_SnapshotCard> {
     final timeSecs = snap['timeSpentSeconds'] as int? ?? 0;
     final category = snap['category'] as String? ?? '';
 
-    final statusColor = wasSkipped
-        ? _orange
-        : isCorrect
-        ? _green
-        : _red;
+    final statusColor = wasSkipped ? _orange : isCorrect ? _green : _red;
     final statusIcon = wasSkipped
         ? Icons.skip_next_rounded
         : isCorrect
@@ -389,9 +365,9 @@ class _SnapshotCardState extends State<_SnapshotCard> {
         : Icons.cancel_rounded;
 
     // Reconstruct puzzle and options from snapshot
-    final puzzle = (snap['puzzle'] as Map).cast<String, dynamic>();
+    final puzzle = Map<String, dynamic>.from(snap['puzzle'] as Map);
     final options = (snap['options'] as List)
-        .map((o) => (o as Map).cast<String, dynamic>())
+        .map((o) => Map<String, dynamic>.from(o as Map))
         .toList();
     final rq = ReasoningQuestion(
       category: category,
@@ -402,8 +378,7 @@ class _SnapshotCardState extends State<_SnapshotCard> {
     );
 
     return GestureDetector(
-      onTap:
-          widget.onTap ??
+      onTap: widget.onTap ??
           (widget.alwaysExpanded
               ? null
               : () => setState(() => _expanded = !_expanded)),
@@ -432,9 +407,7 @@ class _SnapshotCardState extends State<_SnapshotCard> {
                   // Q number + category
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
+                        horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(6),
@@ -453,10 +426,9 @@ class _SnapshotCardState extends State<_SnapshotCard> {
                     child: Text(
                       AppLocale.s(_categoryKey(category)),
                       style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _subtle,
-                      ),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _subtle),
                     ),
                   ),
                   // Time
@@ -492,8 +464,7 @@ class _SnapshotCardState extends State<_SnapshotCard> {
                     color: const Color(0xFFF8FAFF),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: const Color(0xFF195DE6).withOpacity(0.12),
-                    ),
+                        color: const Color(0xFF195DE6).withOpacity(0.12)),
                   ),
                   child: QuestionRenderer(puzzle: rq.puzzle),
                 ),
@@ -532,27 +503,25 @@ class _SnapshotCardState extends State<_SnapshotCard> {
                       ),
                       child: Stack(
                         children: [
-                          Center(child: OptionRenderer(data: options[i])),
+                          Center(
+                            child: OptionRenderer(data: options[i]),
+                          ),
                           // Corner badges
                           if (isCorr)
                             Positioned(
-                              top: 6,
-                              right: 6,
+                              top: 6, right: 6,
                               child: Icon(
-                                Icons.check_circle_rounded,
-                                size: 14,
-                                color: _green,
-                              ),
+                                  Icons.check_circle_rounded,
+                                  size: 14,
+                                  color: _green),
                             ),
                           if (isSel && !isCorr)
                             Positioned(
-                              top: 6,
-                              right: 6,
+                              top: 6, right: 6,
                               child: Icon(
-                                Icons.cancel_rounded,
-                                size: 14,
-                                color: _red,
-                              ),
+                                  Icons.cancel_rounded,
+                                  size: 14,
+                                  color: _red),
                             ),
                         ],
                       ),
@@ -566,9 +535,7 @@ class _SnapshotCardState extends State<_SnapshotCard> {
                 padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
+                      horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.06),
                     borderRadius: BorderRadius.circular(10),

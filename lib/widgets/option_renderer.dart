@@ -111,7 +111,9 @@ class _EmbeddedOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shapes = (data['shapes'] as List).cast<Map<String, dynamic>>();
+    final shapes = (data['shapes'] as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
     final s = size * 0.42; // each sub-shape at ~42% of card size
 
     // 3-shape layout: triangle arrangement
@@ -178,7 +180,6 @@ class _GeoPieceOptionPainter extends CustomPainter {
   final Map<String, dynamic> data;
   static const Color _ink = Color(0xFF1E293B);
   static const Color _fill = Color(0xFFE2E8F0);
-
   const _GeoPieceOptionPainter(this.data);
 
   @override

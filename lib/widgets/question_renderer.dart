@@ -118,7 +118,9 @@ class QuestionRenderer extends StatelessWidget {
 
   // ── 4. Figure Series ───────────────────────────────────────────────────────
   Widget _series() {
-    final seq = (puzzle['sequence'] as List).cast<Map<String, dynamic>>();
+    final seq = (puzzle['sequence'] as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
     return Column(mainAxisSize: MainAxisSize.min, children: [
       _label(AppLocale.s('instr_series')),
       const SizedBox(height: 12),

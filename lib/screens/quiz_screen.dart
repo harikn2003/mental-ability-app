@@ -82,7 +82,8 @@ class _QuizScreenState extends State<QuizScreen>
   late Map<String, int> _weights;
 
   // ── Constants ─────────────────────────────────────────────────────────────
-  final String currentLang = 'EN';
+  String get currentLang =>
+      AppLocale.current; // always reflects the globally selected language
   static const Color primary = Color(0xFF195DE6);
   static const Color background = Color(0xFFF6F6F8);
   static const Color surface = Colors.white;
@@ -800,16 +801,16 @@ class _QuizScreenState extends State<QuizScreen>
   Widget _buildWeightPreview() {
     final maxW = _weights.values.reduce(max).toDouble();
     final shortLabels = {
-      'pattern': 'Pat',
-      'analogy': 'Ana',
-      'odd_man': 'Odd',
-      'mirror_shape': 'Mir',
-      'figure_match': 'Fig',
-      'figure_series': 'Ser',
-      'geo_completion': 'Geo',
-      'mirror_text': 'Txt',
-      'punch_hole': 'Pnc',
-      'embedded': 'Emb',
+      'pattern': AppLocale.get(currentLang, 'short_pattern'),
+      'analogy': AppLocale.get(currentLang, 'short_analogy'),
+      'odd_man': AppLocale.get(currentLang, 'short_odd'),
+      'mirror_shape': AppLocale.get(currentLang, 'short_mirshape'),
+      'figure_match': AppLocale.get(currentLang, 'short_fig'),
+      'figure_series': AppLocale.get(currentLang, 'short_series'),
+      'geo_completion': AppLocale.get(currentLang, 'short_geo'),
+      'mirror_text': AppLocale.get(currentLang, 'short_mirtext'),
+      'punch_hole': AppLocale.get(currentLang, 'short_punch'),
+      'embedded': AppLocale.get(currentLang, 'short_embedded'),
     };
 
     return Container(
