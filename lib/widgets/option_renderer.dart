@@ -18,9 +18,15 @@ class OptionRenderer extends StatelessWidget {
   Widget build(BuildContext context) {
     final type = data['type'] as String? ?? '';
 
+    if (type == 'symbol_grid') {
+      final symbols = (data['symbols'] as List).cast<String>();
+      return _SymbolGridOption(symbols: symbols, size: size);
+    }
     if (type == 'mirror_text') {
       return CustomPaint(
-          size: Size(size, size), painter: MirrorTextPainter(data));
+        size: Size(size, size),
+        painter: MirrorTextPainter(data),
+      );
     }
     if (type == 'punch_hole') {
       return CustomPaint(size: Size(size, size), painter: PunchPainter(data));
@@ -73,13 +79,15 @@ class _GeoCell extends StatelessWidget {
     final s = size * 0.28;
     if (mark == 'dot') {
       return Container(
-        width: s, height: s,
+        width: s,
+        height: s,
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       );
     }
     // cross
     return SizedBox(
-      width: s, height: s,
+      width: s,
+      height: s,
       child: CustomPaint(painter: _CrossPainter(color)),
     );
   }
@@ -97,7 +105,9 @@ class _CrossPainter extends CustomPainter {
     canvas.drawLine(Offset(0, 0), Offset(size.width, size.height), p);
     canvas.drawLine(Offset(size.width, 0), Offset(0, size.height), p);
   }
-  @override bool shouldRepaint(covariant CustomPainter _) => false;
+
+  @override
+  bool shouldRepaint(covariant CustomPainter _) => false;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -123,17 +133,25 @@ class _EmbeddedOption extends StatelessWidget {
     // This makes the target genuinely harder to find — no obvious "A or B" layout
     if (shapes.length >= 3) {
       return SizedBox(
-        width: size, height: size,
+        width: size,
+        height: size,
         child: Stack(
           children: [
             Positioned(
-                top: 0, left: 0, child: FigureWidget(data: shapes[0], size: s)),
-            Positioned(top: 0,
-                right: 0,
-                child: FigureWidget(data: shapes[1], size: s)),
-            Positioned(bottom: 0,
-                left: size / 2 - s / 2,
-                child: FigureWidget(data: shapes[2], size: s)),
+              top: 0,
+              left: 0,
+              child: FigureWidget(data: shapes[0], size: s),
+            ),
+            Positioned(
+              top: 0,
+              right: 0,
+              child: FigureWidget(data: shapes[1], size: s),
+            ),
+            Positioned(
+              bottom: 0,
+              left: size / 2 - s / 2,
+              child: FigureWidget(data: shapes[2], size: s),
+            ),
           ],
         ),
       );
@@ -161,19 +179,23 @@ class _EmbeddedOption extends StatelessWidget {
         alignB = Alignment.topLeft;
     }
     return SizedBox(
-      width: size, height: size,
+      width: size,
+      height: size,
       child: Stack(
         children: [
           Align(
-              alignment: alignA, child: FigureWidget(data: shapes[0], size: s)),
+            alignment: alignA,
+            child: FigureWidget(data: shapes[0], size: s),
+          ),
           Align(
-              alignment: alignB, child: FigureWidget(data: shapes[1], size: s)),
+            alignment: alignB,
+            child: FigureWidget(data: shapes[1], size: s),
+          ),
         ],
       ),
     );
   }
 }
-
 
 // ── Geo piece option painter (reuses same logic as question renderer) ─────────
 class _GeoPieceOptionPainter extends CustomPainter {
@@ -210,26 +232,10 @@ class _GeoPieceOptionPainter extends CustomPainter {
     Path path;
     switch (shape) {
       case 0:
-        path = _sq(
-            l,
-            t,
-            r,
-            b,
-            cx,
-            cy,
-            cut,
-            piece);
+        path = _sq(l, t, r, b, cx, cy, cut, piece);
         break;
       case 1:
-        path = _tr(
-            l,
-            t,
-            r,
-            b,
-            cx,
-            cy,
-            cut,
-            piece);
+        path = _tr(l, t, r, b, cx, cy, cut, piece);
         break;
       default:
         path = _ci(cx, cy, rad, cut, piece);
@@ -239,143 +245,224 @@ class _GeoPieceOptionPainter extends CustomPainter {
     canvas.drawPath(path, stroke);
   }
 
-  static Path _sq(double l, double t, double r, double b, double cx, double cy,
-      int cut, int piece) {
+  static Path _sq(
+    double l,
+    double t,
+    double r,
+    double b,
+    double cx,
+    double cy,
+    int cut,
+    int piece,
+  ) {
     switch (cut) {
       case 0:
-        return piece == 0 ? (Path()
-          ..moveTo(l, t)
-          ..lineTo(cx, t)..lineTo(cx, b)..lineTo(l, b)
-          ..close()) : (Path()
-          ..moveTo(cx, t)
-          ..lineTo(r, t)..lineTo(r, b)..lineTo(cx, b)
-          ..close());
+        return piece == 0
+            ? (Path()
+                ..moveTo(l, t)
+                ..lineTo(cx, t)
+                ..lineTo(cx, b)
+                ..lineTo(l, b)
+                ..close())
+            : (Path()
+                ..moveTo(cx, t)
+                ..lineTo(r, t)
+                ..lineTo(r, b)
+                ..lineTo(cx, b)
+                ..close());
       case 1:
-        return piece == 0 ? (Path()
-          ..moveTo(l, t)
-          ..lineTo(r, t)..lineTo(r, cy)..lineTo(l, cy)
-          ..close()) : (Path()
-          ..moveTo(l, cy)
-          ..lineTo(r, cy)..lineTo(r, b)..lineTo(l, b)
-          ..close());
+        return piece == 0
+            ? (Path()
+                ..moveTo(l, t)
+                ..lineTo(r, t)
+                ..lineTo(r, cy)
+                ..lineTo(l, cy)
+                ..close())
+            : (Path()
+                ..moveTo(l, cy)
+                ..lineTo(r, cy)
+                ..lineTo(r, b)
+                ..lineTo(l, b)
+                ..close());
       case 2:
-        return piece == 0 ? (Path()
-          ..moveTo(l, t)
-          ..lineTo(r, t)..lineTo(r, b)
-          ..close()) : (Path()
-          ..moveTo(l, t)
-          ..lineTo(r, b)..lineTo(l, b)
-          ..close());
+        return piece == 0
+            ? (Path()
+                ..moveTo(l, t)
+                ..lineTo(r, t)
+                ..lineTo(r, b)
+                ..close())
+            : (Path()
+                ..moveTo(l, t)
+                ..lineTo(r, b)
+                ..lineTo(l, b)
+                ..close());
       case 3:
-        return piece == 0 ? (Path()
-          ..moveTo(l, t)
-          ..lineTo(r, t)..lineTo(l, b)
-          ..close()) : (Path()
-          ..moveTo(r, t)
-          ..lineTo(r, b)..lineTo(l, b)
-          ..close());
+        return piece == 0
+            ? (Path()
+                ..moveTo(l, t)
+                ..lineTo(r, t)
+                ..lineTo(l, b)
+                ..close())
+            : (Path()
+                ..moveTo(r, t)
+                ..lineTo(r, b)
+                ..lineTo(l, b)
+                ..close());
       case 4:
         {
           final sx = l + (r - l) * 0.6;
           final sy = t + (b - t) * 0.4;
-          return piece == 0 ? (Path()
-            ..moveTo(l, t)
-            ..lineTo(sx, t)..lineTo(sx, sy)..lineTo(r, sy)..lineTo(
-                r, b)..lineTo(l, b)
-            ..close()) : (Path()
-            ..moveTo(sx, t)
-            ..lineTo(r, t)..lineTo(r, sy)..lineTo(sx, sy)
-            ..close());
+          return piece == 0
+              ? (Path()
+                  ..moveTo(l, t)
+                  ..lineTo(sx, t)
+                  ..lineTo(sx, sy)
+                  ..lineTo(r, sy)
+                  ..lineTo(r, b)
+                  ..lineTo(l, b)
+                  ..close())
+              : (Path()
+                  ..moveTo(sx, t)
+                  ..lineTo(r, t)
+                  ..lineTo(r, sy)
+                  ..lineTo(sx, sy)
+                  ..close());
         }
       case 5:
         {
           final sx = l + (r - l) * 0.6;
           final sy = t + (b - t) * 0.6;
-          return piece == 0 ? (Path()
-            ..moveTo(l, t)
-            ..lineTo(r, t)..lineTo(r, sy)..lineTo(sx, sy)..lineTo(
-                sx, b)..lineTo(l, b)
-            ..close()) : (Path()
-            ..moveTo(sx, sy)
-            ..lineTo(r, sy)..lineTo(r, b)..lineTo(sx, b)
-            ..close());
+          return piece == 0
+              ? (Path()
+                  ..moveTo(l, t)
+                  ..lineTo(r, t)
+                  ..lineTo(r, sy)
+                  ..lineTo(sx, sy)
+                  ..lineTo(sx, b)
+                  ..lineTo(l, b)
+                  ..close())
+              : (Path()
+                  ..moveTo(sx, sy)
+                  ..lineTo(r, sy)
+                  ..lineTo(r, b)
+                  ..lineTo(sx, b)
+                  ..close());
         }
       case 6:
         {
           final sx = l + (r - l) * 0.4;
           final sy = t + (b - t) * 0.6;
-          return piece == 0 ? (Path()
-            ..moveTo(l, sy)
-            ..lineTo(sx, sy)..lineTo(sx, t)..lineTo(r, t)..lineTo(r, b)..lineTo(
-                l, b)
-            ..close()) : (Path()
-            ..moveTo(l, sy)
-            ..lineTo(sx, sy)..lineTo(sx, b)..lineTo(l, b)
-            ..close());
+          return piece == 0
+              ? (Path()
+                  ..moveTo(l, sy)
+                  ..lineTo(sx, sy)
+                  ..lineTo(sx, t)
+                  ..lineTo(r, t)
+                  ..lineTo(r, b)
+                  ..lineTo(l, b)
+                  ..close())
+              : (Path()
+                  ..moveTo(l, sy)
+                  ..lineTo(sx, sy)
+                  ..lineTo(sx, b)
+                  ..lineTo(l, b)
+                  ..close());
         }
       default:
         {
           final sx = l + (r - l) * 0.4;
           final sy = t + (b - t) * 0.4;
-          return piece == 0 ? (Path()
-            ..moveTo(l, sy)
-            ..lineTo(sx, sy)..lineTo(sx, t)..lineTo(r, t)..lineTo(r, b)..lineTo(
-                l, b)
-            ..close()) : (Path()
-            ..moveTo(l, t)
-            ..lineTo(sx, t)..lineTo(sx, sy)..lineTo(l, sy)
-            ..close());
+          return piece == 0
+              ? (Path()
+                  ..moveTo(l, sy)
+                  ..lineTo(sx, sy)
+                  ..lineTo(sx, t)
+                  ..lineTo(r, t)
+                  ..lineTo(r, b)
+                  ..lineTo(l, b)
+                  ..close())
+              : (Path()
+                  ..moveTo(l, t)
+                  ..lineTo(sx, t)
+                  ..lineTo(sx, sy)
+                  ..lineTo(l, sy)
+                  ..close());
         }
     }
   }
 
-  static Path _tr(double l, double t, double r, double b, double cx, double cy,
-      int cut, int piece) {
+  static Path _tr(
+    double l,
+    double t,
+    double r,
+    double b,
+    double cx,
+    double cy,
+    int cut,
+    int piece,
+  ) {
     switch (cut) {
       case 0:
         {
           final my = t + (b - t) * 0.5;
           final mll = l + (my - t) / (b - t) * (cx - l);
           final mlr = cx + (my - t) / (b - t) * (r - cx);
-          return piece == 0 ? (Path()
-            ..moveTo(cx, t)
-            ..lineTo(mlr, my)..lineTo(mll, my)
-            ..close()) : (Path()
-            ..moveTo(mll, my)
-            ..lineTo(mlr, my)..lineTo(r, b)..lineTo(l, b)
-            ..close());
+          return piece == 0
+              ? (Path()
+                  ..moveTo(cx, t)
+                  ..lineTo(mlr, my)
+                  ..lineTo(mll, my)
+                  ..close())
+              : (Path()
+                  ..moveTo(mll, my)
+                  ..lineTo(mlr, my)
+                  ..lineTo(r, b)
+                  ..lineTo(l, b)
+                  ..close());
         }
       case 1:
-        return piece == 0 ? (Path()
-          ..moveTo(cx, t)
-          ..lineTo(cx, b)..lineTo(l, b)
-          ..close()) : (Path()
-          ..moveTo(cx, t)
-          ..lineTo(r, b)..lineTo(cx, b)
-          ..close());
+        return piece == 0
+            ? (Path()
+                ..moveTo(cx, t)
+                ..lineTo(cx, b)
+                ..lineTo(l, b)
+                ..close())
+            : (Path()
+                ..moveTo(cx, t)
+                ..lineTo(r, b)
+                ..lineTo(cx, b)
+                ..close());
       case 2:
         {
           final mx = (cx + r) / 2;
           final my = (t + b) / 2;
-          return piece == 0 ? (Path()
-            ..moveTo(l, b)
-            ..lineTo(cx, t)..lineTo(mx, my)
-            ..close()) : (Path()
-            ..moveTo(l, b)
-            ..lineTo(mx, my)..lineTo(r, b)
-            ..close());
+          return piece == 0
+              ? (Path()
+                  ..moveTo(l, b)
+                  ..lineTo(cx, t)
+                  ..lineTo(mx, my)
+                  ..close())
+              : (Path()
+                  ..moveTo(l, b)
+                  ..lineTo(mx, my)
+                  ..lineTo(r, b)
+                  ..close());
         }
       default:
         {
           final mx = (cx + l) / 2;
           final my = (t + b) / 2;
-          return piece == 0 ? (Path()
-            ..moveTo(r, b)
-            ..lineTo(cx, t)..lineTo(mx, my)
-            ..close()) : (Path()
-            ..moveTo(r, b)
-            ..lineTo(mx, my)..lineTo(l, b)
-            ..close());
+          return piece == 0
+              ? (Path()
+                  ..moveTo(r, b)
+                  ..lineTo(cx, t)
+                  ..lineTo(mx, my)
+                  ..close())
+              : (Path()
+                  ..moveTo(r, b)
+                  ..lineTo(mx, my)
+                  ..lineTo(l, b)
+                  ..close());
         }
     }
   }
@@ -415,6 +502,43 @@ class _GeoPieceOptionPainter extends CustomPainter {
     }
   }
 
-  @override bool shouldRepaint(covariant _GeoPieceOptionPainter old) =>
-      old.data != data;
+  @override
+  bool shouldRepaint(covariant _GeoPieceOptionPainter old) => old.data != data;
+}
+
+class _SymbolGridOption extends StatelessWidget {
+  final List<String> symbols;
+  final double size;
+
+  const _SymbolGridOption({required this.symbols, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: GridView.count(
+        crossAxisCount: 2,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.all(size * 0.06),
+        mainAxisSpacing: 2,
+        crossAxisSpacing: 2,
+        children: symbols
+            .take(4)
+            .map(
+              (s) => Center(
+                child: Text(
+                  s,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
 }

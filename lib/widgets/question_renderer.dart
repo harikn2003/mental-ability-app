@@ -47,73 +47,130 @@ class QuestionRenderer extends StatelessWidget {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  Widget _fig(Map<String, dynamic> data, {double size = 64}) =>
-      FigureWidget(data: data, size: size);
-
-  Widget _label(String text) =>
-      Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 13, color: _subtle, height: 1.4),
+  Widget _fig(Map<String, dynamic> data, {double size = 64}) {
+    if (data['type'] == 'mirror_text') {
+      return CustomPaint(
+        size: Size(size, size),
+        painter: MirrorTextPainter(data),
       );
-
-  Widget _qBox({double size = 64}) =>
-      Container(
-        width: size, height: size,
-        decoration: BoxDecoration(
-          color: const Color(0xFFE2E8F0),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade400),
-        ),
-        child: const Center(
-          child: Text('?', style: TextStyle(
-              fontSize: 22, fontWeight: FontWeight.bold, color: _subtle)),
+    }
+    if (data['type'] == 'symbol_grid') {
+      final symbols = (data['symbols'] as List).cast<String>();
+      return SizedBox(
+        width: size,
+        height: size,
+        child: GridView.count(
+          crossAxisCount: 2,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.all(size * 0.06),
+          children: symbols
+              .take(4)
+              .map(
+                (s) => Center(
+                  child: Text(
+                    s,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
         ),
       );
+    }
+    return FigureWidget(data: data, size: size);
+  }
 
-  Widget _mirrorLine() =>
-      Container(
-        width: 2.5, height: 90,
-        decoration: BoxDecoration(
-          color: _blue.withOpacity(0.6),
-          borderRadius: BorderRadius.circular(2),
+  Widget _label(String text) => Text(
+    text,
+    textAlign: TextAlign.center,
+    style: const TextStyle(fontSize: 13, color: _subtle, height: 1.4),
+  );
+
+  Widget _qBox({double size = 64}) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      color: const Color(0xFFE2E8F0),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: Colors.grey.shade400),
+    ),
+    child: const Center(
+      child: Text(
+        '?',
+        style: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.bold,
+          color: _subtle,
         ),
-      );
+      ),
+    ),
+  );
+
+  Widget _mirrorLine() => Container(
+    width: 2.5,
+    height: 90,
+    decoration: BoxDecoration(
+      color: _blue.withOpacity(0.6),
+      borderRadius: BorderRadius.circular(2),
+    ),
+  );
 
   // ── 1. Odd Man Out ─────────────────────────────────────────────────────────
-  Widget _oddMan() =>
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: _label(AppLocale.s('find_odd')),
-      );
+  Widget _oddMan() => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    child: _label(AppLocale.s('find_odd')),
+  );
 
   // ── 2. Figure Match ────────────────────────────────────────────────────────
   Widget _figureMatch() {
-    final target = Map<String, dynamic>.from(puzzle['target'] as Map);
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label(AppLocale.s('instr_match')),
-      const SizedBox(height: 12),
-      Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: _blue.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _blue, width: 2),
+    late Map<String, dynamic> target;
+    if (puzzle['subtype'] == 'letter') {
+      target = {
+        'type': 'mirror_text',
+        'content': puzzle['content'] as String,
+        'is_clock': false,
+        'mirror_h': false,
+        'mirror_v': false,
+      };
+    } else {
+      target = Map<String, dynamic>.from(puzzle['target'] as Map);
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _label(AppLocale.s('instr_match')),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: _blue.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _blue, width: 2),
+          ),
+          child: _fig(target, size: 80),
         ),
-        child: _fig(target, size: 80),
-      ),
-    ]);
+      ],
+    );
   }
 
   // ── 3. Pattern Completion (3×3 matrix) ────────────────────────────────────
   Widget _matrix() {
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label(puzzle['category'] == 'geo_completion'
-          ? AppLocale.s('instr_geo')
-          : AppLocale.s('instr_pattern')),
-      const SizedBox(height: 12),
-      _buildMatrix(),
-    ]);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _label(
+          puzzle['category'] == 'geo_completion'
+              ? AppLocale.s('instr_geo')
+              : AppLocale.s('instr_pattern'),
+        ),
+        const SizedBox(height: 12),
+        _buildMatrix(),
+      ],
+    );
   }
 
   // ── 4. Figure Series ───────────────────────────────────────────────────────
@@ -121,60 +178,92 @@ class QuestionRenderer extends StatelessWidget {
     final seq = (puzzle['sequence'] as List)
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label(AppLocale.s('instr_series')),
-      const SizedBox(height: 12),
-      SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (final item in seq) ...[
-              _fig(item, size: 58),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 5),
-                child: Icon(
-                    Icons.arrow_forward_rounded, color: _subtle, size: 18),
-              ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _label(AppLocale.s('instr_series')),
+        const SizedBox(height: 12),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (final item in seq) ...[
+                _fig(item, size: 58),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 5),
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    color: _subtle,
+                    size: 18,
+                  ),
+                ),
+              ],
+              _qBox(size: 58),
             ],
-            _qBox(size: 58),
-          ],
+          ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 
   // ── 5. Analogy ─────────────────────────────────────────────────────────────
   Widget _analogy() {
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label(AppLocale.s('instr_analogy')),
-      const SizedBox(height: 12),
-      SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _fig(Map<String, dynamic>.from(puzzle['A'] as Map), size: 50),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 5),
-                child: Text(':', style: TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.bold, color: _ink))),
-            _fig(Map<String, dynamic>.from(puzzle['B'] as Map), size: 50),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Text('::', style: TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.bold, color: _blue))),
-            _fig(Map<String, dynamic>.from(puzzle['C'] as Map), size: 50),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 5),
-                child: Text(':', style: TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.bold, color: _ink))),
-            _qBox(size: 50),
-          ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _label(AppLocale.s('instr_analogy')),
+        const SizedBox(height: 12),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _fig(Map<String, dynamic>.from(puzzle['A'] as Map), size: 50),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                child: Text(
+                  ':',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: _ink,
+                  ),
+                ),
+              ),
+              _fig(Map<String, dynamic>.from(puzzle['B'] as Map), size: 50),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Text(
+                  '::',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: _blue,
+                  ),
+                ),
+              ),
+              _fig(Map<String, dynamic>.from(puzzle['C'] as Map), size: 50),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                child: Text(
+                  ':',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: _ink,
+                  ),
+                ),
+              ),
+              _qBox(size: 50),
+            ],
+          ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 
   // ── 6. Geo Completion ──────────────────────────────────────────────────────
-
 
   // Extracted matrix builder so both _matrix() and _geoCompletion() can use it
   Widget _buildMatrix() {
@@ -184,10 +273,13 @@ class QuestionRenderer extends StatelessWidget {
     if (rawCells.length != 9) {
       return _label(AppLocale.s('instr_error'));
     }
-    final cells = rawCells.map((e) =>
-    (e == null || e is! Map) ? <String, dynamic>{'empty': true} : Map<
-        String,
-        dynamic>.from(e as Map)).toList();
+    final cells = rawCells
+        .map(
+          (e) => (e == null || e is! Map)
+              ? <String, dynamic>{'empty': true}
+              : Map<String, dynamic>.from(e as Map),
+        )
+        .toList();
     final missing = puzzle['missing'] as int? ?? 8;
     const cellSize = 54.0;
 
@@ -198,29 +290,39 @@ class QuestionRenderer extends StatelessWidget {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: List.generate(3, (row) =>
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(3, (col) {
-                final idx = row * 3 + col;
-                final cell = cells[idx];
-                final isQ = idx == missing;
-                return Container(
-                  width: cellSize, height: cellSize,
-                  decoration: BoxDecoration(
-                    color: isQ ? const Color(0xFFE2E8F0) : Colors.white,
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: isQ
-                      ? const Center(child: Text('?',
-                      style: TextStyle(fontSize: 20,
-                          fontWeight: FontWeight.bold, color: _subtle)))
-                      : (cell['empty'] == true
-                      ? const SizedBox()
-                      : Center(child: _fig(cell, size: 38))),
-                );
-              }),
-            )),
+        children: List.generate(
+          3,
+          (row) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(3, (col) {
+              final idx = row * 3 + col;
+              final cell = cells[idx];
+              final isQ = idx == missing;
+              return Container(
+                width: cellSize,
+                height: cellSize,
+                decoration: BoxDecoration(
+                  color: isQ ? const Color(0xFFE2E8F0) : Colors.white,
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: isQ
+                    ? const Center(
+                        child: Text(
+                          '?',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: _subtle,
+                          ),
+                        ),
+                      )
+                    : (cell['empty'] == true
+                          ? const SizedBox()
+                          : Center(child: _fig(cell, size: 38))),
+              );
+            }),
+          ),
+        ),
       ),
     );
   }
@@ -228,63 +330,79 @@ class QuestionRenderer extends StatelessWidget {
   // ── 6. Geo Completion (jigsaw piece-fitting) ──────────────────────────────
   Widget _geoJigsaw() {
     final piece = Map<String, dynamic>.from(puzzle['piece'] as Map);
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label(AppLocale.s('instr_geo')),
-      const SizedBox(height: 16),
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _blue.withOpacity(0.3), width: 1.5),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _label(AppLocale.s('instr_geo')),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _blue.withOpacity(0.3), width: 1.5),
+          ),
+          child: CustomPaint(
+            size: const Size(100, 100),
+            painter: _GeoPiecePainter(piece),
+          ),
         ),
-        child: CustomPaint(
-          size: const Size(100, 100),
-          painter: _GeoPiecePainter(piece),
-        ),
-      ),
-    ]);
+      ],
+    );
   }
 
   // ── 7. Mirror Shape ────────────────────────────────────────────────────────
   Widget _mirrorShape() {
     final target = Map<String, dynamic>.from(puzzle['target'] as Map);
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label(AppLocale.s('instr_mirror')),
-      const SizedBox(height: 14),
-      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        // Show the shape larger so mirror difference is clearly visible
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: _blue.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _blue.withOpacity(0.2)),
-          ),
-          child: _fig(target, size: 88),
-        ),
-        const SizedBox(width: 16),
-        // Mirror line with arrows indicating reflection direction
-        Column(
-          mainAxisSize: MainAxisSize.min,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _label(AppLocale.s('instr_mirror')),
+        const SizedBox(height: 14),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.keyboard_arrow_right_rounded, size: 16,
-                color: _blue.withOpacity(0.7)),
+            // Show the shape larger so mirror difference is clearly visible
             Container(
-              width: 3, height: 70,
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: _blue.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(2),
+                color: _blue.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _blue.withOpacity(0.2)),
               ),
+              child: _fig(target, size: 88),
             ),
-            Icon(Icons.keyboard_arrow_left_rounded, size: 16,
-                color: _blue.withOpacity(0.7)),
+            const SizedBox(width: 16),
+            // Mirror line with arrows indicating reflection direction
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.keyboard_arrow_right_rounded,
+                  size: 16,
+                  color: _blue.withOpacity(0.7),
+                ),
+                Container(
+                  width: 3,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    color: _blue.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Icon(
+                  Icons.keyboard_arrow_left_rounded,
+                  size: 16,
+                  color: _blue.withOpacity(0.7),
+                ),
+              ],
+            ),
+            const SizedBox(width: 16),
+            _qBox(size: 88),
           ],
         ),
-        const SizedBox(width: 16),
-        _qBox(size: 88),
-      ]),
-    ]);
+      ],
+    );
   }
 
   // ── 8. Mirror Text / Clock ─────────────────────────────────────────────────
@@ -293,47 +411,60 @@ class QuestionRenderer extends StatelessWidget {
       ..['mirror_h'] = false
       ..['mirror_v'] = false
       ..['type'] = 'mirror_text';
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label(AppLocale.s('instr_mirror')),
-      const SizedBox(height: 14),
-      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        CustomPaint(size: const Size(80, 80), painter: MirrorTextPainter(orig)),
-        const SizedBox(width: 20),
-        _mirrorLine(),
-        const SizedBox(width: 20),
-        _qBox(size: 80),
-      ]),
-    ]);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _label(AppLocale.s('instr_mirror')),
+        const SizedBox(height: 14),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CustomPaint(
+              size: const Size(80, 80),
+              painter: MirrorTextPainter(orig),
+            ),
+            const SizedBox(width: 20),
+            _mirrorLine(),
+            const SizedBox(width: 20),
+            _qBox(size: 80),
+          ],
+        ),
+      ],
+    );
   }
 
   // ── 9. Punch Hole ──────────────────────────────────────────────────────────
-  Widget _punchHole() =>
-      Column(mainAxisSize: MainAxisSize.min, children: [
-        _label(AppLocale.s('find_unfolded')),
-        const SizedBox(height: 14),
-        CustomPaint(size: const Size(120, 120), painter: PunchPainter(puzzle)),
-      ]);
+  Widget _punchHole() => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      _label(AppLocale.s('find_unfolded')),
+      const SizedBox(height: 14),
+      CustomPaint(size: const Size(120, 120), painter: PunchPainter(puzzle)),
+    ],
+  );
 
   // ── 10. Embedded Figure ────────────────────────────────────────────────────
   Widget _embedded() {
     final target = Map<String, dynamic>.from(puzzle['target'] as Map);
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      _label(AppLocale.s('instr_embedded')),
-      const SizedBox(height: 12),
-      // Show target with a highlight box
-      Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: _blue.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _blue, width: 2),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _label(AppLocale.s('instr_embedded')),
+        const SizedBox(height: 12),
+        // Show target with a highlight box
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: _blue.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _blue, width: 2),
+          ),
+          child: _fig(target, size: 72),
         ),
-        child: _fig(target, size: 72),
-      ),
-    ]);
+      ],
+    );
   }
 }
-
 
 // ── Geo piece painter (inline) ────────────────────────────────────────────────
 class _GeoPiecePainter extends CustomPainter {
@@ -371,26 +502,10 @@ class _GeoPiecePainter extends CustomPainter {
     Path path;
     switch (shape) {
       case 0:
-        path = _squarePiece(
-            l,
-            t,
-            r,
-            b,
-            cx,
-            cy,
-            cut,
-            piece);
+        path = _squarePiece(l, t, r, b, cx, cy, cut, piece);
         break;
       case 1:
-        path = _triPiece(
-            l,
-            t,
-            r,
-            b,
-            cx,
-            cy,
-            cut,
-            piece);
+        path = _triPiece(l, t, r, b, cx, cy, cut, piece);
         break;
       default:
         path = _circlePiece(cx, cy, rad, cut, piece);
@@ -400,63 +515,88 @@ class _GeoPiecePainter extends CustomPainter {
     canvas.drawPath(path, stroke);
   }
 
-  static Path _squarePiece(double l, double t, double r, double b,
-      double cx, double cy, int cut, int piece) {
+  static Path _squarePiece(
+    double l,
+    double t,
+    double r,
+    double b,
+    double cx,
+    double cy,
+    int cut,
+    int piece,
+  ) {
     switch (cut) {
       case 0:
         return piece == 0
             ? (Path()
-          ..moveTo(l, t)
-          ..lineTo(cx, t)..lineTo(cx, b)..lineTo(l, b)
-          ..close())
+                ..moveTo(l, t)
+                ..lineTo(cx, t)
+                ..lineTo(cx, b)
+                ..lineTo(l, b)
+                ..close())
             : (Path()
-          ..moveTo(cx, t)
-          ..lineTo(r, t)..lineTo(r, b)..lineTo(cx, b)
-          ..close());
+                ..moveTo(cx, t)
+                ..lineTo(r, t)
+                ..lineTo(r, b)
+                ..lineTo(cx, b)
+                ..close());
       case 1:
         return piece == 0
             ? (Path()
-          ..moveTo(l, t)
-          ..lineTo(r, t)..lineTo(r, cy)..lineTo(l, cy)
-          ..close())
+                ..moveTo(l, t)
+                ..lineTo(r, t)
+                ..lineTo(r, cy)
+                ..lineTo(l, cy)
+                ..close())
             : (Path()
-          ..moveTo(l, cy)
-          ..lineTo(r, cy)..lineTo(r, b)..lineTo(l, b)
-          ..close());
+                ..moveTo(l, cy)
+                ..lineTo(r, cy)
+                ..lineTo(r, b)
+                ..lineTo(l, b)
+                ..close());
       case 2:
         return piece == 0
             ? (Path()
-          ..moveTo(l, t)
-          ..lineTo(r, t)..lineTo(r, b)
-          ..close())
+                ..moveTo(l, t)
+                ..lineTo(r, t)
+                ..lineTo(r, b)
+                ..close())
             : (Path()
-          ..moveTo(l, t)
-          ..lineTo(r, b)..lineTo(l, b)
-          ..close());
+                ..moveTo(l, t)
+                ..lineTo(r, b)
+                ..lineTo(l, b)
+                ..close());
       case 3:
         return piece == 0
             ? (Path()
-          ..moveTo(l, t)
-          ..lineTo(r, t)..lineTo(l, b)
-          ..close())
+                ..moveTo(l, t)
+                ..lineTo(r, t)
+                ..lineTo(l, b)
+                ..close())
             : (Path()
-          ..moveTo(r, t)
-          ..lineTo(r, b)..lineTo(l, b)
-          ..close());
+                ..moveTo(r, t)
+                ..lineTo(r, b)
+                ..lineTo(l, b)
+                ..close());
       case 4:
         {
           final sx = l + (r - l) * 0.6;
           final sy = t + (b - t) * 0.4;
           return piece == 0
               ? (Path()
-            ..moveTo(l, t)
-            ..lineTo(sx, t)..lineTo(sx, sy)..lineTo(r, sy)..lineTo(
-                r, b)..lineTo(l, b)
-            ..close())
+                  ..moveTo(l, t)
+                  ..lineTo(sx, t)
+                  ..lineTo(sx, sy)
+                  ..lineTo(r, sy)
+                  ..lineTo(r, b)
+                  ..lineTo(l, b)
+                  ..close())
               : (Path()
-            ..moveTo(sx, t)
-            ..lineTo(r, t)..lineTo(r, sy)..lineTo(sx, sy)
-            ..close());
+                  ..moveTo(sx, t)
+                  ..lineTo(r, t)
+                  ..lineTo(r, sy)
+                  ..lineTo(sx, sy)
+                  ..close());
         }
       case 5:
         {
@@ -464,14 +604,19 @@ class _GeoPiecePainter extends CustomPainter {
           final sy = t + (b - t) * 0.6;
           return piece == 0
               ? (Path()
-            ..moveTo(l, t)
-            ..lineTo(r, t)..lineTo(r, sy)..lineTo(sx, sy)..lineTo(
-                sx, b)..lineTo(l, b)
-            ..close())
+                  ..moveTo(l, t)
+                  ..lineTo(r, t)
+                  ..lineTo(r, sy)
+                  ..lineTo(sx, sy)
+                  ..lineTo(sx, b)
+                  ..lineTo(l, b)
+                  ..close())
               : (Path()
-            ..moveTo(sx, sy)
-            ..lineTo(r, sy)..lineTo(r, b)..lineTo(sx, b)
-            ..close());
+                  ..moveTo(sx, sy)
+                  ..lineTo(r, sy)
+                  ..lineTo(r, b)
+                  ..lineTo(sx, b)
+                  ..close());
         }
       case 6:
         {
@@ -479,14 +624,19 @@ class _GeoPiecePainter extends CustomPainter {
           final sy = t + (b - t) * 0.6;
           return piece == 0
               ? (Path()
-            ..moveTo(l, sy)
-            ..lineTo(sx, sy)..lineTo(sx, t)..lineTo(r, t)..lineTo(r, b)..lineTo(
-                l, b)
-            ..close())
+                  ..moveTo(l, sy)
+                  ..lineTo(sx, sy)
+                  ..lineTo(sx, t)
+                  ..lineTo(r, t)
+                  ..lineTo(r, b)
+                  ..lineTo(l, b)
+                  ..close())
               : (Path()
-            ..moveTo(l, sy)
-            ..lineTo(sx, sy)..lineTo(sx, b)..lineTo(l, b)
-            ..close());
+                  ..moveTo(l, sy)
+                  ..lineTo(sx, sy)
+                  ..lineTo(sx, b)
+                  ..lineTo(l, b)
+                  ..close());
         }
       default:
         {
@@ -494,20 +644,33 @@ class _GeoPiecePainter extends CustomPainter {
           final sy = t + (b - t) * 0.4;
           return piece == 0
               ? (Path()
-            ..moveTo(l, sy)
-            ..lineTo(sx, sy)..lineTo(sx, t)..lineTo(r, t)..lineTo(r, b)..lineTo(
-                l, b)
-            ..close())
+                  ..moveTo(l, sy)
+                  ..lineTo(sx, sy)
+                  ..lineTo(sx, t)
+                  ..lineTo(r, t)
+                  ..lineTo(r, b)
+                  ..lineTo(l, b)
+                  ..close())
               : (Path()
-            ..moveTo(l, t)
-            ..lineTo(sx, t)..lineTo(sx, sy)..lineTo(l, sy)
-            ..close());
+                  ..moveTo(l, t)
+                  ..lineTo(sx, t)
+                  ..lineTo(sx, sy)
+                  ..lineTo(l, sy)
+                  ..close());
         }
     }
   }
 
-  static Path _triPiece(double l, double t, double r, double b,
-      double cx, double cy, int cut, int piece) {
+  static Path _triPiece(
+    double l,
+    double t,
+    double r,
+    double b,
+    double cx,
+    double cy,
+    int cut,
+    int piece,
+  ) {
     final ax = cx;
     final ay = t;
     final blx = l;
@@ -522,37 +685,44 @@ class _GeoPiecePainter extends CustomPainter {
           final mlr = cx + (my - t) / (b - t) * (r - cx);
           return piece == 0
               ? (Path()
-            ..moveTo(ax, ay)
-            ..lineTo(mlr, my)..lineTo(mll, my)
-            ..close())
+                  ..moveTo(ax, ay)
+                  ..lineTo(mlr, my)
+                  ..lineTo(mll, my)
+                  ..close())
               : (Path()
-            ..moveTo(mll, my)
-            ..lineTo(mlr, my)..lineTo(brx, bry)..lineTo(blx, bly)
-            ..close());
+                  ..moveTo(mll, my)
+                  ..lineTo(mlr, my)
+                  ..lineTo(brx, bry)
+                  ..lineTo(blx, bly)
+                  ..close());
         }
       case 1:
         return piece == 0
             ? (Path()
-          ..moveTo(ax, ay)
-          ..lineTo(cx, b)..lineTo(l, b)
-          ..close())
+                ..moveTo(ax, ay)
+                ..lineTo(cx, b)
+                ..lineTo(l, b)
+                ..close())
             : (Path()
-          ..moveTo(ax, ay)
-          ..lineTo(r, b)..lineTo(cx, b)
-          ..close());
+                ..moveTo(ax, ay)
+                ..lineTo(r, b)
+                ..lineTo(cx, b)
+                ..close());
       case 2:
         {
           final mx = (ax + brx) / 2;
           final my = (ay + bry) / 2;
           return piece == 0
               ? (Path()
-            ..moveTo(blx, bly)
-            ..lineTo(ax, ay)..lineTo(mx, my)
-            ..close())
+                  ..moveTo(blx, bly)
+                  ..lineTo(ax, ay)
+                  ..lineTo(mx, my)
+                  ..close())
               : (Path()
-            ..moveTo(blx, bly)
-            ..lineTo(mx, my)..lineTo(brx, bry)
-            ..close());
+                  ..moveTo(blx, bly)
+                  ..lineTo(mx, my)
+                  ..lineTo(brx, bry)
+                  ..close());
         }
       default:
         {
@@ -560,13 +730,15 @@ class _GeoPiecePainter extends CustomPainter {
           final my = (ay + bly) / 2;
           return piece == 0
               ? (Path()
-            ..moveTo(brx, bry)
-            ..lineTo(ax, ay)..lineTo(mx, my)
-            ..close())
+                  ..moveTo(brx, bry)
+                  ..lineTo(ax, ay)
+                  ..lineTo(mx, my)
+                  ..close())
               : (Path()
-            ..moveTo(brx, bry)
-            ..lineTo(mx, my)..lineTo(blx, bly)
-            ..close());
+                  ..moveTo(brx, bry)
+                  ..lineTo(mx, my)
+                  ..lineTo(blx, bly)
+                  ..close());
         }
     }
   }
@@ -589,8 +761,7 @@ class _GeoPiecePainter extends CustomPainter {
         p.moveTo(cx, cy);
         if (piece == 0) {
           p.arcTo(rect, 0, 3 * pi / 2, false);
-        }
-        else {
+        } else {
           p.arcTo(rect, -pi / 2, pi / 2, false);
         }
         p.close();
@@ -599,8 +770,7 @@ class _GeoPiecePainter extends CustomPainter {
         p.moveTo(cx, cy);
         if (piece == 0) {
           p.arcTo(rect, pi / 2, 3 * pi / 2, false);
-        }
-        else {
+        } else {
           p.arcTo(rect, 0, pi / 2, false);
         }
         p.close();
@@ -608,6 +778,6 @@ class _GeoPiecePainter extends CustomPainter {
     }
   }
 
-  @override bool shouldRepaint(covariant _GeoPiecePainter old) =>
-      old.data != data;
+  @override
+  bool shouldRepaint(covariant _GeoPiecePainter old) => old.data != data;
 }
