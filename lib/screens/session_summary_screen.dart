@@ -37,8 +37,8 @@ class SessionSummaryScreen extends StatelessWidget {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: Text(
-          AppLocale.s('report_title'),
-          style: TextStyle(fontWeight: FontWeight.bold),
+          AppLocale.s('detailed_report'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         elevation: 0,
@@ -84,8 +84,10 @@ class SessionSummaryScreen extends StatelessWidget {
         ? (timeSpent.reduce((a, b) => a + b) / timeSpent.length).round()
         : 0;
     final String avgStr = avgSecs >= 60
-        ? '${avgSecs ~/ 60}m ${(avgSecs % 60).toString().padLeft(2, '0')}s'
-        : '${avgSecs}s';
+        ? '${avgSecs ~/ 60}${AppLocale.s('minute_short')} ${(avgSecs % 60)
+        .toString()
+        .padLeft(2, '0')}${AppLocale.s('second_short')}'
+        : '${avgSecs}${AppLocale.s('second_short')}';
 
     // Pie chart edge case: if both values are 0 show a grey placeholder
     final double pieCorrect = score > 0 ? score.toDouble() : 0;
@@ -94,7 +96,7 @@ class SessionSummaryScreen extends StatelessWidget {
 
     return Card(
       elevation: 0,
-      color: const Color(0xFF195DE6).withOpacity(0.1),
+      color: const Color(0xFF195DE6).withValues(alpha: 0.1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -247,7 +249,7 @@ class SessionSummaryScreen extends StatelessWidget {
                         color: Colors.orange.shade700,
                         fontSize: 10,
                       ),
-                      labelResolver: (line) => 'Limit (45s)',
+                      labelResolver: (line) => AppLocale.s('limit_45s'),
                     ),
                   ),
                 ],
@@ -264,7 +266,7 @@ class SessionSummaryScreen extends StatelessWidget {
                       return Padding(
                         padding: const EdgeInsets.only(top: 8.0),
                         child: Text(
-                          'Q${index + 1}',
+                          '${AppLocale.s('question_short')}${index + 1}',
                           style: const TextStyle(fontSize: 10),
                         ),
                       );
@@ -535,7 +537,7 @@ class SessionSummaryScreen extends StatelessWidget {
             icon: const Icon(Icons.fitness_center_rounded),
             label: Text(
               hasWeak
-                  ? 'Practice Weak Areas: ${_weakSummary()}'
+                  ? '${AppLocale.s('practice_weak_summary')} ${_weakSummary()}'
                   : AppLocale.s('no_weak_session'),
               style: const TextStyle(fontSize: 15),
             ),

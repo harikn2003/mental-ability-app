@@ -17,10 +17,7 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
   static const _surface = Colors.white;
   static const _ink = Color(0xFF0F172A);
   static const _subtle = Color(0xFF64748B);
-  static const _primary = Color(0xFF195DE6);
-  static const _green = Color(0xFF10B981);
   static const _red = Color(0xFFEF4444);
-  static const _orange = Color(0xFFF97316);
 
   List<SessionRecord> _sessions = [];
 
@@ -142,9 +139,12 @@ class _SessionCard extends StatelessWidget {
   String _formatDate(DateTime d) {
     final now = DateTime.now();
     final diff = now.difference(d);
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    if (diff.inMinutes < 60)
+      return '${diff.inMinutes}${AppLocale.s('minutes_ago_suffix')}';
+    if (diff.inHours < 24)
+      return '${diff.inHours}${AppLocale.s('hours_ago_suffix')}';
+    if (diff.inDays < 7)
+      return '${diff.inDays}${AppLocale.s('days_ago_suffix')}';
     return '${d.day}/${d.month}/${d.year}';
   }
 
@@ -159,10 +159,10 @@ class _SessionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 8, offset: const Offset(0, 2),
           ),
         ],
@@ -190,7 +190,7 @@ class _SessionCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -207,15 +207,16 @@ class _SessionCard extends StatelessWidget {
           Row(
             children: [
               _stat(Icons.check_circle_outline_rounded, _green,
-                  '${session.score}/${session.totalQuestions} correct'),
+                  '${session.score}/${session.totalQuestions} ${AppLocale.s(
+                      'correct')}'),
               const SizedBox(width: 16),
               if (session.skipped > 0) ...[
                 _stat(Icons.skip_next_rounded, _orange,
-                    '${session.skipped} skipped'),
+                    '${session.skipped} ${AppLocale.s('skipped_label')}'),
                 const SizedBox(width: 16),
               ],
               _stat(Icons.timer_outlined, _subtle,
-                  'avg ${session.avgTimeSeconds}s'),
+                  '${AppLocale.s('avg')} ${session.avgTimeSeconds}s'),
             ],
           ),
           // Category breakdown — only show categories attempted
@@ -270,7 +271,7 @@ class _SessionCard extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(

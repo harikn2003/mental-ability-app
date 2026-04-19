@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:mental_ability_app/config/localization.dart';
 
 part 'session_record.g.dart';
 
@@ -46,19 +47,20 @@ class SessionRecord extends HiveObject {
 
   String get modeLabel {
     const m = {
-      'random': 'Random Mix',
-      'weak_areas': 'Weak Areas',
-      'odd_man': 'Odd Man Out',
-      'figure_match': 'Figure Match',
-      'pattern': 'Pattern',
-      'figure_series': 'Figure Series',
-      'analogy': 'Analogy',
-      'geo_completion': 'Geo Completion',
-      'mirror_shape': 'Mirror Shape',
-      'mirror_text': 'Mirror Text',
-      'punch_hole': 'Punch Hole',
-      'embedded': 'Embedded Figure',
+      'random': 'random_mix',
+      'weak_areas': 'weak_areas',
+      'odd_man': 'cat_odd_man',
+      'figure_match': 'cat_fig_match',
+      'pattern': 'cat_pattern',
+      'figure_series': 'cat_fig_series',
+      'analogy': 'cat_analogy',
+      'geo_completion': 'cat_geo',
+      'mirror_shape': 'cat_mirror_shape',
+      'mirror_text': 'cat_mirror_text',
+      'punch_hole': 'cat_punch',
+      'embedded': 'cat_embedded',
     };
-    return m[mode] ?? mode;
+    final key = m[mode];
+    return key == null ? mode : AppLocale.s(key);
   }
 }

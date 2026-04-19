@@ -77,7 +77,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
             margin: const EdgeInsets.only(right: 8),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: accColor.withOpacity(0.12),
+              color: accColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -277,12 +277,12 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                     horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: _wrongOnly
-                      ? _red.withOpacity(0.1)
+                      ? _red.withValues(alpha: 0.1)
                       : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: _wrongOnly
-                        ? _red.withOpacity(0.4)
+                        ? _red.withValues(alpha: 0.4)
                         : Colors.grey.shade300,
                   ),
                 ),
@@ -304,11 +304,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
   }
 
   String _formatDate(DateTime d) {
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return '${d.day} ${months[d.month - 1]} ${d.year}, '
+    return '${d.day}/${d.month}/${d.year}, '
         '${d.hour.toString().padLeft(2, '0')}:'
         '${d.minute.toString().padLeft(2, '0')}';
   }
@@ -336,7 +332,6 @@ class _SnapshotCardState extends State<_SnapshotCard> {
   static const _green = Color(0xFF10B981);
   static const _red = Color(0xFFEF4444);
   static const _orange = Color(0xFFF97316);
-  static const _ink = Color(0xFF0F172A);
   static const _subtle = Color(0xFF64748B);
 
   late bool _expanded;
@@ -387,10 +382,11 @@ class _SnapshotCardState extends State<_SnapshotCard> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: statusColor.withOpacity(0.3), width: 1.5),
+          border: Border.all(
+              color: statusColor.withValues(alpha: 0.3), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -409,11 +405,11 @@ class _SnapshotCardState extends State<_SnapshotCard> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
+                      color: statusColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      'Q${widget.number}',
+                      '${AppLocale.s('question_short')}${widget.number}',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -464,7 +460,7 @@ class _SnapshotCardState extends State<_SnapshotCard> {
                     color: const Color(0xFFF8FAFF),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                        color: const Color(0xFF195DE6).withOpacity(0.12)),
+                        color: const Color(0xFF195DE6).withValues(alpha: 0.12)),
                   ),
                   child: QuestionRenderer(puzzle: rq.puzzle),
                 ),
@@ -488,10 +484,10 @@ class _SnapshotCardState extends State<_SnapshotCard> {
                     Color border = Colors.grey.shade200;
 
                     if (isCorr) {
-                      bg = _green.withOpacity(0.08);
+                      bg = _green.withValues(alpha: 0.08);
                       border = _green;
                     } else if (isSel && !isCorr) {
-                      bg = _red.withOpacity(0.08);
+                      bg = _red.withValues(alpha: 0.08);
                       border = _red;
                     }
 
@@ -537,7 +533,7 @@ class _SnapshotCardState extends State<_SnapshotCard> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.06),
+                    color: statusColor.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(

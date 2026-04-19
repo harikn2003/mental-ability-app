@@ -94,7 +94,7 @@ class _SessionReviewScreenState extends State<SessionReviewScreen> {
                           .where((a) => a.wasSkipped)
                           .length
                           .toString(),
-                      AppLocale.s('weak'), _orange,
+                      AppLocale.s('skipped_label'), _orange,
                     ),
                   ],
                 ),
@@ -361,7 +361,7 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
         ? Icons.check_circle_rounded
         : (isSkipped ? Icons.skip_next_rounded : Icons.cancel_rounded);
     String statusText = isCorrect ? AppLocale.s('correct') : (isSkipped
-        ? AppLocale.s('weak')
+        ? AppLocale.s('skipped_label')
         : AppLocale.s('incorrect'));
 
     return Container(
@@ -402,7 +402,7 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
                     ),
                     child: Center(
                       child: Text(
-                        'Q${widget.number}',
+                        '${AppLocale.s('question_short')}${widget.number}',
                         style: const TextStyle(
                           fontSize: 11, fontWeight: FontWeight.bold,
                           color: _primary,
