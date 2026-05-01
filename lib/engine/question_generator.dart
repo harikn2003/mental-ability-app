@@ -20,6 +20,7 @@ class QuestionGenerator {
 
   // ── Repeat prevention ─────────────────────────────────────────────────────
   static final Set<String> _history = {};
+  static final Set<String> _questionHistory = {};
   static int _totalGenerated = 0;
 
   static String _sig(String cat, Map<String, dynamic> params) =>
@@ -28,6 +29,7 @@ class QuestionGenerator {
   /// Call at the start of each new quiz session for fresh variety.
   static void resetSession() {
     _history.clear();
+    _questionHistory.clear();
     _totalGenerated = 0;
   }
 
@@ -55,12 +57,61 @@ class QuestionGenerator {
     return _history.skip(_history.length - maxItems).toList();
   }
 
+  static String _canonical(dynamic value) {
+    if (value is Map) {
+      final entries = value.entries.toList()
+        ..sort((a, b) => a.key.toString().compareTo(b.key.toString()));
+      return '{${entries.map((e) => '${e.key}:${_canonical(e.value)}').join(
+          ',')}}';
+    }
+    if (value is Iterable) {
+      return '[${value.map(_canonical).join(',')}]';
+    }
+    return value.toString();
+  }
+
+  static String _questionSignature(ReasoningQuestion q) {
+    final optionSigs =
+    q.options.map((o) => _canonical(Map<String, dynamic>.from(o))).toList()
+      ..sort();
+    return _canonical({
+      'category': q.category,
+      'type': q.type,
+      'puzzle': q.puzzle,
+      // Sort option signatures so mere option-order shuffles are not treated as unique.
+      'options': optionSigs,
+    });
+  }
+
+  static bool _markQuestionIfNew(ReasoningQuestion q) {
+    final sig = _questionSignature(q);
+    if (_questionHistory.contains(sig)) return false;
+    _questionHistory.add(sig);
+    if (_questionHistory.length > 1200) {
+      final toRemove = _questionHistory.take(500).toList();
+      _questionHistory.removeAll(toRemove);
+    }
+    return true;
+  }
+
   /// Weighted picker used to bias generation toward harder JNVST-like variants.
   static int _pickWeighted(List<int> weightedValues) {
     return weightedValues[_r.nextInt(weightedValues.length)];
   }
 
   static ReasoningQuestion generate(String category) {
+    for (int attempt = 0; attempt < 80; attempt++) {
+      final q = _generateRaw(category);
+      if (_markQuestionIfNew(q)) return q;
+    }
+    // Safety valve: if a category is fully exhausted in a long session, return
+    // the latest generated instance instead of stalling generation.
+    final fallback = _generateRaw(category);
+    _markQuestionIfNew(fallback);
+    return fallback;
+  }
+
+  static ReasoningQuestion _generateRaw(String category) {
     switch (category) {
       case 'odd_man':
         return _oddMan();
@@ -179,6 +230,23 @@ class QuestionGenerator {
     }
     if (s == 3 || s == 5) rot = rot % 2;
     return '$s,${m["filled"]},$rot,$mir,${m["dots"]},${m["inner"]},${m["lines"]},${m["missingCorner"]}';
+  }
+
+  /// Visible signature used to reject series questions that only differ in
+  /// ways the painter renders poorly (for example, rotating a square).
+  static String _visibleKey(Map<String, dynamic> m) {
+    final copy = Map<String, dynamic>.from(m);
+    final s = copy['shape'] ?? 0;
+    if (s == 0 || s == 1 || s == 4) copy['rotation'] = 0;
+    if (s == 3 || s == 5) copy['rotation'] = (copy['rotation'] ?? 0) % 2;
+    return _key(copy);
+  }
+
+  static bool _hasVisibleVariation(List<Map<String, dynamic>> seq) {
+    return seq
+        .map(_visibleKey)
+        .toSet()
+        .length > 1;
   }
 
   /// Insert [correct] at a random position among [wrongs].
@@ -751,8 +819,8 @@ class QuestionGenerator {
       Map<String, dynamic> cell(int row, int col) => _f(
         outerShapes[row % outerShapes.length],
         filled: false,
-        inner: inners[col] + 1,
-      ); // +1 because inner=0 means no inner
+        inner: inners[col],
+      );
 
       final cells = <Map<String, dynamic>>[];
       for (int r = 0; r < 3; r++)
@@ -763,14 +831,14 @@ class QuestionGenerator {
       final ansInner = inners[mCol];
 
       final res = _pack(ans, [
-        _f(ansOuter, filled: false, inner: inners[(mCol + 1) % 3] + 1),
+        _f(ansOuter, filled: false, inner: inners[(mCol + 1) % 3]),
         // wrong inner
-        _f(ansOuter, filled: true, inner: ansInner + 1),
+        _f(ansOuter, filled: true, inner: ansInner),
         // wrong fill
         _f(
           outerShapes[(mRow + 1) % outerShapes.length],
           filled: false,
-          inner: ansInner + 1,
+          inner: ansInner,
         ),
         // wrong outer
       ]);
@@ -862,7 +930,7 @@ class QuestionGenerator {
 
   static ReasoningQuestion _seriesRotation() {
     for (int attempt = 0; attempt < 30; attempt++) {
-      final shape = _serRotShapes[_r.nextInt(_serRotShapes.length)];
+      final shape = [2, 3, 7, 8][_r.nextInt(4)];
       final filled = _r.nextBool();
       final start = _r.nextInt(4);
       final dots = _r.nextInt(3); // 0,1,2 — adds variety to same shape+rot
@@ -883,6 +951,7 @@ class QuestionGenerator {
           inner: subV2 == 1 ? ((innerCy + i - 1) % 3 + 1) : 0,
         ),
       );
+      if (!_hasVisibleVariation(seq)) continue;
       final ansInner = subV2 == 1 ? ((innerCy + 3 - 1) % 3 + 1) : 0;
       final ans = _f(
         shape,
@@ -947,7 +1016,7 @@ class QuestionGenerator {
     // sub=0: ascending  (start → start+1 → start+2 → ?)  answer = start+3
     // sub=1: descending (start → start-1 → start-2 → ?)  answer = start-3
     for (int attempt = 0; attempt < 30; attempt++) {
-      final shape = _r.nextInt(6) + 1; // 1-6 (more shape variety)
+      final shape = [2, 3, 5, 7, 8][_r.nextInt(5)];
       final filled = _r.nextBool();
       final sub = _r.nextBool() ? 0 : 1; // ascending or descending
       // Ascending: start 0 or 1 (so answer is 3 or 4, both valid)
@@ -964,6 +1033,7 @@ class QuestionGenerator {
         3,
         (i) => _f(shape, dots: (start + step * i).clamp(0, 4), filled: filled),
       );
+      if (!_hasVisibleVariation(seq)) continue;
       final ans = _f(shape, dots: ansD, filled: filled);
 
       final d1 = (ansD + 1).clamp(0, 4);
@@ -1004,16 +1074,8 @@ class QuestionGenerator {
   // 4c. SERIES — fill toggles each step, rotation advances each step
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion _seriesFillToggle() {
-    // Expanded: use all 5 asymmetric shapes + dots for extra variety
-    const _fillShapes = [
-      2,
-      3,
-      7,
-      8,
-      5,
-    ]; // triangle, diamond, arrow, L, pentagon
     for (int attempt = 0; attempt < 30; attempt++) {
-      final shape = _fillShapes[_r.nextInt(_fillShapes.length)];
+      final shape = [2, 3, 5, 7, 8][_r.nextInt(5)];
       final startFill = _r.nextBool();
       final startRot = _r.nextInt(4);
       final dots = _r.nextInt(3);
@@ -1026,6 +1088,7 @@ class QuestionGenerator {
         3,
         (i) => _f(shape, rot: (startRot + i) % 4, filled: fill(i), dots: dots),
       );
+      if (!_hasVisibleVariation(seq)) continue;
       final ans = _f(
         shape,
         rot: (startRot + 3) % 4,
@@ -1139,9 +1202,8 @@ class QuestionGenerator {
   // Each step: shape rotates +90° AND fill flips. Two rules at once.
   // Harder than seriesRotation or seriesFillToggle individually.
   static ReasoningQuestion _seriesRotFill() {
-    const shapes = [2, 3, 7, 8, 5];
     for (int attempt = 0; attempt < 30; attempt++) {
-      final shape = shapes[_r.nextInt(shapes.length)];
+      final shape = [2, 3, 7, 8][_r.nextInt(4)];
       final startR = _r.nextInt(4);
       final startF = _r.nextBool();
       final dots = _r.nextInt(3);
@@ -1157,6 +1219,7 @@ class QuestionGenerator {
           dots: dots,
         ),
       );
+      if (!_hasVisibleVariation(seq)) continue;
       final ansR = (startR + 3) % 4;
       final ansF = 3.isEven
           ? startF
@@ -1200,17 +1263,16 @@ class QuestionGenerator {
   // Tests whether student notices inner-shape changes (common in real exam).
   static ReasoningQuestion _seriesInner() {
     const outers = [
-      1,
       3,
       5,
-      6,
-    ]; // square, diamond, pentagon, hexagon — good containers
+      7,
+      8,
+    ]; // clearer containers for the inner progression
     const innerSeqs = [
-      [1, 2, 3], // square → triangle → diamond
-      [2, 4, 7], // triangle → cross → arrow
-      [3, 2, 8], // diamond → triangle → L
-      [5, 1, 2], // pentagon → square → triangle
-      [7, 3, 5], // arrow → diamond → pentagon
+      [2, 7, 8, 3], // triangle -> arrow -> L -> diamond
+      [7, 2, 5, 8], // arrow -> triangle -> pentagon -> L
+      [8, 3, 2, 7], // L -> diamond -> triangle -> arrow
+      [5, 8, 7, 2], // pentagon -> L -> arrow -> triangle
     ];
     for (int attempt = 0; attempt < 30; attempt++) {
       final outer = outers[_r.nextInt(outers.length)];
@@ -1221,26 +1283,17 @@ class QuestionGenerator {
 
       final figures = List.generate(
         3,
-        (i) => _f(outer, filled: filled, inner: seq[i] + 1),
+            (i) => _f(outer, filled: filled, inner: seq[i]),
       );
-      // Answer: next inner in the cycle (wrap around)
-      final ansInner = seq[(seq.length) % seq.length]; // cycles back to first
-      // Actually answer is 4th: use the pattern to continue
-      // seq is length 3 — 4th would cycle: seq[0] again? No — it's a progression.
-      // Better: pick the inner that doesn't appear in seq (the 4th different one)
-      final allInners = [1, 2, 3, 4, 5, 6, 7, 8];
-      final usedInners = seq.toSet();
-      final nextCandidates = allInners
-          .where((i) => !usedInners.contains(i))
-          .toList();
-      final ansI = nextCandidates[_r.nextInt(nextCandidates.length)];
-      final ans = _f(outer, filled: filled, inner: ansI + 1);
+      if (!_hasVisibleVariation(figures)) continue;
+      final ansInner = seq[3];
+      final ans = _f(outer, filled: filled, inner: ansInner);
 
       // Distractors: one uses a shape already in sequence, one uses different outer
       final r = _pack(ans, [
-        _f(outer, filled: filled, inner: seq[0] + 1), // repeats first inner
-        _f(outer, filled: filled, inner: seq[1] + 1), // repeats second inner
-        _f(outer, filled: !filled, inner: ansI + 1), // right inner, wrong fill
+        _f(outer, filled: filled, inner: seq[0]), // repeats first inner
+        _f(outer, filled: filled, inner: seq[2]), // previous inner
+        _f(outer, filled: !filled, inner: ansInner), // right inner, wrong fill
       ]);
       _markSeen(sigKey);
       return ReasoningQuestion(
@@ -1251,11 +1304,11 @@ class QuestionGenerator {
         correctIndex: r.idx,
       );
     }
-    final figs = [_f(1, inner: 2), _f(1, inner: 3), _f(1, inner: 4)];
-    final r = _pack(_f(1, inner: 5), [
+    final figs = [_f(1, inner: 1), _f(1, inner: 2), _f(1, inner: 3)];
+    final r = _pack(_f(1, inner: 4), [
+      _f(1, inner: 1),
       _f(1, inner: 2),
-      _f(1, inner: 3),
-      _f(1, filled: true, inner: 5),
+      _f(1, filled: true, inner: 4),
     ]);
     return ReasoningQuestion(
       category: 'figure_series',
@@ -1287,6 +1340,7 @@ class QuestionGenerator {
           filled: filled,
         ),
       );
+      if (!_hasVisibleVariation(seq)) continue;
       final ansD = (startD + 3).clamp(0, 4);
       final ansR = (startR + 3) % 4;
       final ans = _f(shape, rot: ansR, dots: ansD, filled: filled);
@@ -1352,6 +1406,7 @@ class QuestionGenerator {
       final ans = step(s3, 4);
 
       final seq = [s0, s1, s2, s3];
+      if (!_hasVisibleVariation(seq)) continue;
       final ansRot = ans['rotation'] as int;
       final ansDots = ans['dots'] as int;
       final ansFill = ans['filled'] as bool;
@@ -1533,6 +1588,12 @@ class QuestionGenerator {
           dotsD = (dotsC + 2).clamp(0, 4);
           innD = 0;
           break;
+        case 7:
+          rotD = (rotC + 2) % 4;
+          fillD = fillC;
+          dotsD = dotsC;
+          innD = innC;
+          break;
         case 8:
           rotD = (rotC + 1) % 4;
           fillD = !fillC;
@@ -1545,11 +1606,11 @@ class QuestionGenerator {
           dotsD = dotsC;
           innD = (innC % 3) + 1;
           break;
-        default:
-          rotD = (rotC + 2) % 4;
-          fillD = fillC;
-          dotsD = dotsC;
-          innD = innA;
+        default: // rule 4 fallback
+          rotD = (rotC + 1) % 4;
+          fillD = !fillC;
+          dotsD = 0;
+          innD = innB;
           break;
       }
 
@@ -1667,6 +1728,8 @@ class QuestionGenerator {
       final nearCuts = _geoNeighborCuts(cut, maxCut);
 
       void addWrong(int s, int c, int p) {
+        // Avoid showing the exact same piece as the puzzle prompt as an option.
+        if (s == shape && c == cut && p == shownPiece) return;
         final w = _geoPiece(s, c, p);
         final wk = _key(w);
         if (wk == correctKey) return;
@@ -1774,27 +1837,56 @@ class QuestionGenerator {
       final shape = _mirrorShapes[_r.nextInt(_mirrorShapes.length)];
       final rot = _r.nextInt(4);
       final filled = _r.nextBool();
-      final sigKey = 'mirror5:s$shape,r$rot,f$filled';
+      final dots = _r.nextInt(3);
+      final sigKey = 'mirror6:s$shape,r$rot,f$filled,d$dots';
       if (_seen(sigKey)) continue;
 
       final target = _f(
         shape,
         rot: rot,
         filled: filled,
+        dots: dots,
         mirror: false,
       ); // shown in puzzle
       final ans = _f(
         shape,
         rot: rot,
         filled: filled,
+        dots: dots,
         mirror: true,
       ); // CORRECT: mirror of target
       final wrongPool = <Map<String, dynamic>>[
-        _f(shape, rot: rot, filled: filled, mirror: false),
-        _f(shape, rot: (rot + 1) % 4, filled: filled, mirror: true),
-        _f(shape, rot: (rot + 2) % 4, filled: filled, mirror: false),
-        _f(shape, rot: rot, filled: !filled, mirror: false),
-        _f(shape, rot: (rot + 3) % 4, filled: !filled, mirror: true),
+        _f(shape, rot: rot, filled: filled, dots: dots, mirror: false),
+        _f(shape, rot: (rot + 1) % 4, filled: filled, dots: dots, mirror: true),
+        _f(
+          shape,
+          rot: (rot + 2) % 4,
+          filled: filled,
+          dots: dots,
+          mirror: false,
+        ),
+        _f(shape, rot: rot, filled: !filled, dots: dots, mirror: false),
+        _f(
+          shape,
+          rot: (rot + 3) % 4,
+          filled: !filled,
+          dots: dots,
+          mirror: true,
+        ),
+        _f(
+          shape,
+          rot: rot,
+          filled: filled,
+          dots: (dots + 1) % 3,
+          mirror: false,
+        ),
+        _f(
+          shape,
+          rot: (rot + 1) % 4,
+          filled: !filled,
+          dots: (dots + 2) % 3,
+          mirror: true,
+        ),
       ]..shuffle(_r);
 
       final r = _pack(ans, wrongPool.take(3).toList());
@@ -1825,9 +1917,6 @@ class QuestionGenerator {
   // 8. MIRROR TEXT
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion _mirrorText() {
-    final sub = _r.nextInt(
-      4,
-    ); // 0=single letter, 1=word, 2=number string, 3=clock
     // Single asymmetric letters (symmetric ones like A,H,I,M,O,T,U,V,W,X look same mirrored)
     const letters = [
       'B',
@@ -1896,6 +1985,9 @@ class QuestionGenerator {
     const digits = ['2', '3', '4', '5', '6', '7'];
 
     for (int attempt = 0; attempt < 20; attempt++) {
+      final sub = _r.nextInt(
+        4,
+      ); // 0=single letter, 1=word, 2=number string, 3=clock
       late Map<String, dynamic> base;
       late String sigKey;
       switch (sub) {

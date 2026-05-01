@@ -114,10 +114,84 @@ class QuestionRenderer extends StatelessWidget {
     width: 2.5,
     height: 90,
     decoration: BoxDecoration(
-      color: _blue.withOpacity(0.6),
+      color: _blue.withValues(alpha: 0.6),
       borderRadius: BorderRadius.circular(2),
     ),
   );
+
+  // ── Helper: Horizontal scrollable container with right-side cue ─────────────
+  Widget _buildHorizontalScrollableContainer(
+      {required Widget child, Key? scrollKey}) {
+    return Stack(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200, width: 1),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          child: SingleChildScrollView(
+            key: scrollKey,
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: child,
+          ),
+        ),
+        // Right-side gradient fade + arrow cue
+        Positioned(
+          right: 0,
+          top: 0,
+          bottom: 0,
+          child: IgnorePointer(
+            child: Container(
+              width: 60,
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    const Color(0xFFF8FAFC).withValues(alpha: 0),
+                    const Color(0xFFF8FAFC).withValues(alpha: 0.7),
+                    const Color(0xFFF8FAFC),
+                  ],
+                ),
+              ),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        color: _blue.withValues(alpha: 0.6),
+                        size: 20,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'scroll',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: _blue.withValues(alpha: 0.5),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   // ── 1. Odd Man Out ─────────────────────────────────────────────────────────
   Widget _oddMan() => Padding(
@@ -147,7 +221,7 @@ class QuestionRenderer extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: _blue.withOpacity(0.06),
+            color: _blue.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: _blue, width: 2),
           ),
@@ -182,24 +256,28 @@ class QuestionRenderer extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _label(AppLocale.s('instr_series')),
-        const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
+        const SizedBox(height: 14),
+        _buildHorizontalScrollableContainer(
+          scrollKey: PageStorageKey<String>('series-${puzzle.hashCode}'),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              for (final item in seq) ...[
-                _fig(item, size: 58),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 5),
-                  child: Icon(
-                    Icons.arrow_forward_rounded,
-                    color: _subtle,
-                    size: 18,
+              const SizedBox(width: 4),
+              for (int i = 0; i < seq.length; i++) ...[
+                _fig(seq[i], size: 64),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Center(
+                    child: Icon(
+                      Icons.arrow_forward_rounded,
+                      color: _subtle,
+                      size: 20,
+                    ),
                   ),
                 ),
               ],
-              _qBox(size: 58),
+              _qBox(size: 64),
+              const SizedBox(width: 4),
             ],
           ),
         ),
@@ -213,49 +291,52 @@ class QuestionRenderer extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _label(AppLocale.s('instr_analogy')),
-        const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
+        const SizedBox(height: 14),
+        _buildHorizontalScrollableContainer(
+          scrollKey: PageStorageKey<String>('analogy-${puzzle.hashCode}'),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _fig(Map<String, dynamic>.from(puzzle['A'] as Map), size: 50),
+              const SizedBox(width: 4),
+              _fig(Map<String, dynamic>.from(puzzle['A'] as Map), size: 58),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: Text(
                   ':',
                   style: TextStyle(
-                    fontSize: 22,
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: _ink,
                   ),
                 ),
               ),
-              _fig(Map<String, dynamic>.from(puzzle['B'] as Map), size: 50),
+              _fig(Map<String, dynamic>.from(puzzle['B'] as Map), size: 58),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
                   '::',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: _blue,
                   ),
                 ),
               ),
-              _fig(Map<String, dynamic>.from(puzzle['C'] as Map), size: 50),
+              _fig(Map<String, dynamic>.from(puzzle['C'] as Map), size: 58),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: Text(
                   ':',
                   style: TextStyle(
-                    fontSize: 22,
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: _ink,
                   ),
                 ),
               ),
-              _qBox(size: 50),
+              _qBox(size: 58),
+              const SizedBox(width: 4),
             ],
           ),
         ),
@@ -277,16 +358,16 @@ class QuestionRenderer extends StatelessWidget {
         .map(
           (e) => (e == null || e is! Map)
               ? <String, dynamic>{'empty': true}
-              : Map<String, dynamic>.from(e as Map),
+              : Map<String, dynamic>.from(e),
         )
         .toList();
     final missing = puzzle['missing'] as int? ?? 8;
-    const cellSize = 54.0;
+    const cellSize = 68.0;
 
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade300, width: 1.5),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -303,22 +384,22 @@ class QuestionRenderer extends StatelessWidget {
                 height: cellSize,
                 decoration: BoxDecoration(
                   color: isQ ? const Color(0xFFE2E8F0) : Colors.white,
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border.all(color: Colors.grey.shade300, width: 1),
                 ),
                 child: isQ
                     ? const Center(
                         child: Text(
                           '?',
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize: 22,
                             fontWeight: FontWeight.bold,
                             color: _subtle,
                           ),
                         ),
                       )
                     : (cell['empty'] == true
-                          ? const SizedBox()
-                          : Center(child: _fig(cell, size: 38))),
+                    ? const SizedBox()
+                    : Center(child: _fig(cell, size: 46))),
               );
             }),
           ),
@@ -340,7 +421,7 @@ class QuestionRenderer extends StatelessWidget {
           decoration: BoxDecoration(
             color: const Color(0xFFF1F5F9),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _blue.withOpacity(0.3), width: 1.5),
+            border: Border.all(color: _blue.withValues(alpha: 0.3), width: 1.5),
           ),
           child: CustomPaint(
             size: const Size(100, 100),
@@ -366,9 +447,9 @@ class QuestionRenderer extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: _blue.withOpacity(0.05),
+                color: _blue.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _blue.withOpacity(0.2)),
+                border: Border.all(color: _blue.withValues(alpha: 0.2)),
               ),
               child: _fig(target, size: 88),
             ),
@@ -380,20 +461,20 @@ class QuestionRenderer extends StatelessWidget {
                 Icon(
                   Icons.keyboard_arrow_right_rounded,
                   size: 16,
-                  color: _blue.withOpacity(0.7),
+                  color: _blue.withValues(alpha: 0.7),
                 ),
                 Container(
                   width: 3,
                   height: 70,
                   decoration: BoxDecoration(
-                    color: _blue.withOpacity(0.6),
+                    color: _blue.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
                 Icon(
                   Icons.keyboard_arrow_left_rounded,
                   size: 16,
-                  color: _blue.withOpacity(0.7),
+                  color: _blue.withValues(alpha: 0.7),
                 ),
               ],
             ),
@@ -455,7 +536,7 @@ class QuestionRenderer extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: _blue.withOpacity(0.06),
+            color: _blue.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: _blue, width: 2),
           ),
