@@ -86,7 +86,7 @@ class SessionSummaryScreen extends StatelessWidget {
         ? '${avgSecs ~/ 60}${AppLocale.s('minute_short')} ${(avgSecs % 60)
         .toString()
         .padLeft(2, '0')}${AppLocale.s('second_short')}'
-        : '${avgSecs}${AppLocale.s('second_short')}';
+        : '$avgSecs${AppLocale.s('second_short')}';
 
     // Pie chart edge case: if both values are 0 show a grey placeholder
     final double pieCorrect = score > 0 ? score.toDouble() : 0;
@@ -260,8 +260,9 @@ class SessionSummaryScreen extends StatelessWidget {
                     showTitles: true,
                     getTitlesWidget: (double value, TitleMeta meta) {
                       int index = value.toInt();
-                      if (index < 0 || index >= timeSpent.length)
+                      if (index < 0 || index >= timeSpent.length) {
                         return const SizedBox.shrink();
+                      }
                       return Padding(
                         padding: const EdgeInsets.only(top: 8.0),
                         child: Text(
@@ -368,7 +369,7 @@ class SessionSummaryScreen extends StatelessWidget {
               ?? (categoryName[0].toUpperCase() + categoryName.substring(1));
 
           return _buildMasteryTile(formattedName, status, percent, color);
-        }).toList(),
+        }),
       ],
     );
   }

@@ -139,12 +139,15 @@ class _SessionCard extends StatelessWidget {
   String _formatDate(DateTime d) {
     final now = DateTime.now();
     final diff = now.difference(d);
-    if (diff.inMinutes < 60)
+    if (diff.inMinutes < 60) {
       return '${diff.inMinutes}${AppLocale.s('minutes_ago_suffix')}';
-    if (diff.inHours < 24)
+    }
+    if (diff.inHours < 24) {
       return '${diff.inHours}${AppLocale.s('hours_ago_suffix')}';
-    if (diff.inDays < 7)
+    }
+    if (diff.inDays < 7) {
       return '${diff.inDays}${AppLocale.s('days_ago_suffix')}';
+    }
     return '${d.day}/${d.month}/${d.year}';
   }
 
