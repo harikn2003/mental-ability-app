@@ -250,12 +250,13 @@ class _QuizScreenState extends State<QuizScreen>
     _timer?.cancel();
     secondsElapsedForCurrent = 0;
 
-    if (widget.timePerQuestion == '30s')
+    if (widget.timePerQuestion == '30s') {
       remainingSeconds = 30;
-    else if (widget.timePerQuestion == '2m')
+    } else if (widget.timePerQuestion == '2m') {
       remainingSeconds = 120;
-    else
+    } else {
       remainingSeconds = -1;
+    }
 
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
@@ -449,10 +450,10 @@ class _QuizScreenState extends State<QuizScreen>
     final m = seconds ~/ 60;
     final s = seconds % 60;
     if (m > 0) {
-      return '${m}${AppLocale.get(currentLang, 'minute_short')} '
+      return '$m${AppLocale.get(currentLang, 'minute_short')} '
           '${s.toString().padLeft(2, '0')}${AppLocale.get(currentLang, 'second_short')}';
     }
-    return '${s}${AppLocale.get(currentLang, 'second_short')}';
+    return '$s${AppLocale.get(currentLang, 'second_short')}';
   }
 
   Color _timerColor() {
@@ -519,7 +520,7 @@ class _QuizScreenState extends State<QuizScreen>
         color: surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -647,9 +648,11 @@ class _QuizScreenState extends State<QuizScreen>
     final container = Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: _isTimeLow ? Border.all(color: error.withOpacity(0.5)) : null,
+        border: _isTimeLow
+            ? Border.all(color: error.withValues(alpha: 0.5))
+            : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -716,7 +719,7 @@ class _QuizScreenState extends State<QuizScreen>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -766,13 +769,13 @@ class _QuizScreenState extends State<QuizScreen>
 
     if (isAnswered) {
       if (isCorrectOption) {
-        bgColor = success.withOpacity(0.12);
+        bgColor = success.withValues(alpha: 0.12);
         borderColor = success;
         borderWidth = 2;
         labelColor = success;
         badge = _badge(Icons.check_rounded, success);
       } else if (isSelected) {
-        bgColor = error.withOpacity(0.12);
+        bgColor = error.withValues(alpha: 0.12);
         borderColor = error;
         borderWidth = 2;
         labelColor = error;
@@ -790,7 +793,7 @@ class _QuizScreenState extends State<QuizScreen>
           border: Border.all(color: borderColor, width: borderWidth),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -850,12 +853,12 @@ class _QuizScreenState extends State<QuizScreen>
       text =
           '${AppLocale.get(currentLang, 'skipped_answer_is')} $correctLetter';
     } else if (isCorrect) {
-      bg = success.withOpacity(0.1);
+      bg = success.withValues(alpha: 0.1);
       fg = success;
       icon = Icons.check_circle_outline_rounded;
       text = AppLocale.get(currentLang, 'correct_msg');
     } else {
-      bg = error.withOpacity(0.1);
+      bg = error.withValues(alpha: 0.1);
       fg = error;
       icon = Icons.cancel_outlined;
       text = '${AppLocale.get(currentLang, 'wrong_answer_is')} $correctLetter';
@@ -983,20 +986,20 @@ class _QuizScreenState extends State<QuizScreen>
                   : e.value <= 4
                   ? warning
                   : error;
+              final marker = isCurrentCat
+                  ? Container(
+                      width: 4,
+                      height: 4,
+                      decoration: const BoxDecoration(
+                        color: primary,
+                        shape: BoxShape.circle,
+                      ),
+                    )
+                  : const SizedBox(height: 4);
               return Expanded(
                 child: Column(
                   children: [
-                    if (isCurrentCat)
-                      Container(
-                        width: 4,
-                        height: 4,
-                        decoration: const BoxDecoration(
-                          color: primary,
-                          shape: BoxShape.circle,
-                        ),
-                      )
-                    else
-                      const SizedBox(height: 4),
+                    marker,
                     const SizedBox(height: 2),
                     Container(
                       height: barH,
@@ -1004,7 +1007,7 @@ class _QuizScreenState extends State<QuizScreen>
                       decoration: BoxDecoration(
                         color: isCurrentCat
                             ? barColor
-                            : barColor.withOpacity(0.45),
+                            : barColor.withValues(alpha: 0.45),
                         borderRadius: BorderRadius.circular(3),
                       ),
                     ),
@@ -1138,7 +1141,7 @@ class _QuizScreenState extends State<QuizScreen>
         border: Border.all(color: Colors.grey.shade300),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
