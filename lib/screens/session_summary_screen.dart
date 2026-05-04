@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:mental_ability_app/config/localization.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../engine/question_attempt.dart';
 import 'quiz_screen.dart';
@@ -37,8 +36,8 @@ class SessionSummaryScreen extends StatelessWidget {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: Text(
-          AppLocale.s('report_title'),
-          style: TextStyle(fontWeight: FontWeight.bold),
+          AppLocale.s('detailed_report'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         elevation: 0,
@@ -84,8 +83,10 @@ class SessionSummaryScreen extends StatelessWidget {
         ? (timeSpent.reduce((a, b) => a + b) / timeSpent.length).round()
         : 0;
     final String avgStr = avgSecs >= 60
-        ? '${avgSecs ~/ 60}m ${(avgSecs % 60).toString().padLeft(2, '0')}s'
-        : '${avgSecs}s';
+        ? '${avgSecs ~/ 60}${AppLocale.s('minute_short')} ${(avgSecs % 60)
+        .toString()
+        .padLeft(2, '0')}${AppLocale.s('second_short')}'
+        : '${avgSecs}${AppLocale.s('second_short')}';
 
     // Pie chart edge case: if both values are 0 show a grey placeholder
     final double pieCorrect = score > 0 ? score.toDouble() : 0;
@@ -94,7 +95,7 @@ class SessionSummaryScreen extends StatelessWidget {
 
     return Card(
       elevation: 0,
-      color: const Color(0xFF195DE6).withOpacity(0.1),
+      color: const Color(0xFF195DE6).withValues(alpha: 0.1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -247,7 +248,7 @@ class SessionSummaryScreen extends StatelessWidget {
                         color: Colors.orange.shade700,
                         fontSize: 10,
                       ),
-                      labelResolver: (line) => 'Limit (45s)',
+                      labelResolver: (line) => AppLocale.s('limit_45s'),
                     ),
                   ),
                 ],
@@ -264,7 +265,7 @@ class SessionSummaryScreen extends StatelessWidget {
                       return Padding(
                         padding: const EdgeInsets.only(top: 8.0),
                         child: Text(
-                          'Q${index + 1}',
+                          '${AppLocale.s('question_short')}${index + 1}',
                           style: const TextStyle(fontSize: 10),
                         ),
                       );
@@ -417,50 +418,19 @@ class SessionSummaryScreen extends StatelessWidget {
 
   // --- HELPERS ---
 
-  static Map<String, String> get _labels =>
-      {
-        'odd_man': AppLocale.s('cat_odd_man'),
-        'figure_match': AppLocale.s('cat_fig_match'),
-        'pattern': AppLocale.s('cat_pattern'),
-        'figure_series': AppLocale.s('cat_fig_series'),
-        'analogy': AppLocale.s('cat_analogy'),
-        'geo_completion': AppLocale.s('cat_geo'),
-        'mirror_shape': AppLocale.s('cat_mirror_shape'),
-        'mirror_text': AppLocale.s('cat_mirror_text'),
-        'punch_hole': AppLocale.s('cat_punch'),
-        'embedded': AppLocale.s('cat_embedded'),
-  };
-
-  // Build a weights map from this session's accuracy:
-  // accuracy < 50% → weight 6, 50-79% → weight 3, ≥80% → weight 1
-  // This lets us pass a meaningful initialWeights that biases
-  // the weak-areas session toward the worst categories.
-  Map<String, int> _sessionWeakWeights() {
-    if (categoryStats.isEmpty) return {};
-    final weights = <String, int>{};
-    for (final entry in categoryStats.entries) {
-      final correct = entry.value
-          .where((v) => v)
-          .length;
-      final pct = entry.value.isEmpty ? 1.0 : correct / entry.value.length;
-      if (pct < 0.5)
-        weights[entry.key] = 6;
-      else if (pct < 0.8) weights[entry.key] = 3;
-      // categories ≥ 80% are omitted — they won't appear in weak session
-    }
-    return weights;
+  String _questionSignature(QuestionAttempt a) {
+    return '${a.question.category}|${a.question.type}|${a.question.puzzle}|${a
+        .question.correctIndex}';
   }
 
-  // Human-readable summary of weak categories for button label
-  String _weakSummary() {
-    final ww = _sessionWeakWeights();
-    if (ww.isEmpty) return AppLocale.s('weak_areas');
-    // Show up to 2 names, then "+N more"
-    final names = ww.keys
-        .map((k) => _labels[k] ?? k)
-        .toList();
-    if (names.length <= 2) return names.join(' & ');
-    return '${names.take(2).join(', ')} +${names.length - 2} more';
+  List<QuestionAttempt> _incorrectAttemptsUnique() {
+    final seen = <String>{};
+    final out = <QuestionAttempt>[];
+    for (final a in attempts.where((x) => !x.isCorrect)) {
+      final sig = _questionSignature(a);
+      if (seen.add(sig)) out.add(a);
+    }
+    return out;
   }
 
   // --- 4. BOTTOM ACTION BUTTONS ---
@@ -489,58 +459,39 @@ class SessionSummaryScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Builder(builder: (context) {
-          final weakWeights = _sessionWeakWeights();
-          final hasWeak = weakWeights.isNotEmpty;
+          final retryAttempts = _incorrectAttemptsUnique();
+          final canRetry = retryAttempts.isNotEmpty;
           return FilledButton.icon(
-            onPressed: !hasWeak ? null : () {
-              // Merge session weak weights with any previously saved weights:
-              // read SharedPreferences, boost categories that were weak this
-              // session, then launch a random session across all weak categories
-              SharedPreferences.getInstance().then((prefs) {
-                // Load persisted weights as base
-                const allCats = [
-                  'pattern', 'analogy', 'odd_man', 'mirror_shape',
-                  'figure_match', 'figure_series', 'geo_completion',
-                  'mirror_text', 'punch_hole', 'embedded',
-                ];
-                final merged = <String, int>{};
-                for (final cat in allCats) {
-                  final saved = prefs.getInt('bias_weights_$cat') ?? 1;
-                  final session = weakWeights[cat] ?? 0;
-                  // Take the higher of persisted or session weight
-                  final w = session > saved ? session : saved;
-                  if (w > 1) merged[cat] = w;
-                }
-                // If nothing is weak at all, fall back to equal weights
-                final weights = merged.isEmpty
-                    ? {for (final c in allCats) c: 1}
-                    : merged;
-
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        QuizScreen(
+            onPressed: !canRetry
+                ? null
+                : () {
+              final retryQuestions =
+              retryAttempts.map((a) => a.question).toList();
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      QuizScreen(
                           mode: 'random',
-                          totalQuestions: 10,
+                        totalQuestions: retryQuestions.length,
                           timePerQuestion: '2m',
-                          biasEnabled: true,
-                          initialWeights: weights,
+                        biasEnabled: false,
+                        retryQuestions: retryQuestions,
                         ),
-                  ),
-                );
-              });
+                ),
+              );
             },
             icon: const Icon(Icons.fitness_center_rounded),
             label: Text(
-              hasWeak
-                  ? 'Practice Weak Areas: ${_weakSummary()}'
+              canRetry
+                  ? '${AppLocale.s('try_again')} (${retryAttempts
+                  .length} ${AppLocale.s('incorrect')})'
                   : AppLocale.s('no_weak_session'),
               style: const TextStyle(fontSize: 15),
             ),
             style: FilledButton.styleFrom(
-              backgroundColor: hasWeak
+              backgroundColor: canRetry
                   ? const Color(0xFFF97316)
                   : Colors.grey.shade400,
               padding: const EdgeInsets.symmetric(vertical: 16),

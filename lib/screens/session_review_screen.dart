@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mental_ability_app/config/localization.dart';
 
 import '../engine/question_attempt.dart';
 import '../widgets/option_renderer.dart';
@@ -33,7 +34,6 @@ class _SessionReviewScreenState extends State<SessionReviewScreen> {
 
   // ── Filter state ─────────────────────────────────────────────────────────
   bool _showWrongOnly = false;
-
   // ── Navigation state ─────────────────────────────────────────────────────
   // When non-null, the review is in "focused" mode showing one card at a time
   // with Prev / Next buttons. Null = list mode.
@@ -64,8 +64,8 @@ class _SessionReviewScreenState extends State<SessionReviewScreen> {
         backgroundColor: _surface,
         elevation: 0,
         centerTitle: true,
-        title: const Text(
-          'Answer Review',
+        title: Text(
+          AppLocale.s('answer_review'),
           style: TextStyle(
               fontWeight: FontWeight.bold, fontSize: 18, color: _ink),
         ),
@@ -83,16 +83,18 @@ class _SessionReviewScreenState extends State<SessionReviewScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _statChip(_correctCount.toString(), 'Correct', _green),
+                    _statChip(_correctCount.toString(), AppLocale.s('correct'),
+                        _green),
                     const SizedBox(width: 12),
-                    _statChip(_wrongCount.toString(), 'Wrong', _red),
+                    _statChip(
+                        _wrongCount.toString(), AppLocale.s('incorrect'), _red),
                     const SizedBox(width: 12),
                     _statChip(
                       widget.attempts
                           .where((a) => a.wasSkipped)
                           .length
                           .toString(),
-                      'Skipped', _orange,
+                      AppLocale.s('skipped_label'), _orange,
                     ),
                   ],
                 ),
@@ -130,8 +132,8 @@ class _SessionReviewScreenState extends State<SessionReviewScreen> {
                         const SizedBox(width: 6),
                         Text(
                           _showWrongOnly
-                              ? 'Showing $_wrongCount wrong answers — tap to show all'
-                              : 'Show wrong answers only  ($_wrongCount)',
+                              ? AppLocale.s('showing_wrong')
+                              : '${AppLocale.s("show_wrong")}  ($_wrongCount)',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -197,11 +199,11 @@ class _SessionReviewScreenState extends State<SessionReviewScreen> {
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.list_rounded, size: 16,
+                    children: [
+                      const Icon(Icons.list_rounded, size: 16,
                           color: Color(0xFF64748B)),
-                      SizedBox(width: 4),
-                      Text('List',
+                      const SizedBox(width: 4),
+                      Text(AppLocale.s('list'),
                           style: TextStyle(
                               fontSize: 12, color: Color(0xFF64748B))),
                     ],
@@ -298,11 +300,11 @@ class _SessionReviewScreenState extends State<SessionReviewScreen> {
             Icon(Icons.check_circle_outline_rounded, size: 64,
                 color: _green.withOpacity(0.5)),
             const SizedBox(height: 16),
-            const Text('All answers were correct!',
+            Text(AppLocale.s('all_correct'),
                 style: TextStyle(
                     fontSize: 18, fontWeight: FontWeight.bold, color: _ink)),
             const SizedBox(height: 8),
-            Text('No wrong answers to show.',
+            Text(AppLocale.s('no_wrong'),
                 style: TextStyle(fontSize: 14, color: _subtle)),
           ],
         ),
@@ -358,9 +360,9 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
     IconData statusIcon = isCorrect
         ? Icons.check_circle_rounded
         : (isSkipped ? Icons.skip_next_rounded : Icons.cancel_rounded);
-    String statusText = isCorrect ? 'Correct' : (isSkipped
-        ? 'Skipped'
-        : 'Wrong');
+    String statusText = isCorrect ? AppLocale.s('correct') : (isSkipped
+        ? AppLocale.s('skipped_label')
+        : AppLocale.s('incorrect'));
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -400,7 +402,7 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
                     ),
                     child: Center(
                       child: Text(
-                        'Q${widget.number}',
+                        '${AppLocale.s('question_short')}${widget.number}',
                         style: const TextStyle(
                           fontSize: 11, fontWeight: FontWeight.bold,
                           color: _primary,
@@ -524,17 +526,19 @@ class _QuestionReviewCardState extends State<_QuestionReviewCard> {
       // Student picked the right answer
       borderColor = _green;
       bgColor = _green.withOpacity(0.08);
-      badge = _optionBadge(_green, Icons.check_rounded, 'Your answer ✓');
+      badge = _optionBadge(
+          _green, Icons.check_rounded, AppLocale.s('your_answer_right'));
     } else if (isCorrectOption) {
       // This is the correct answer (student didn't pick it)
       borderColor = _green;
       bgColor = _green.withOpacity(0.06);
-      badge = _optionBadge(_green, Icons.check_rounded, 'Correct');
+      badge = _optionBadge(_green, Icons.check_rounded, AppLocale.s('correct'));
     } else if (isWrongChoice) {
       // Student picked this but it's wrong
       borderColor = _red;
       bgColor = _red.withOpacity(0.06);
-      badge = _optionBadge(_red, Icons.close_rounded, 'Your answer');
+      badge = _optionBadge(
+          _red, Icons.close_rounded, AppLocale.s('your_answer_wrong'));
     } else {
       borderColor = Colors.grey.shade200;
       bgColor = _surface;

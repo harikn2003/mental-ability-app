@@ -1,3 +1,4 @@
+import '../config/localization.dart';
 import 'reasoning_question.dart';
 
 /// Stores everything about one answered question for the review screen.
@@ -18,20 +19,21 @@ class QuestionAttempt {
     required this.timeSpentSeconds,
   });
 
-  /// Human-readable category label
+  /// Human-readable category label — respects current app language
   String get categoryLabel {
-    const labels = {
-      'odd_man': 'Odd Man Out',
-      'figure_match': 'Figure Match',
-      'pattern': 'Pattern Completion',
-      'figure_series': 'Figure Series',
-      'analogy': 'Analogy',
-      'geo_completion': 'Geo Completion',
-      'mirror_shape': 'Mirror Shape',
-      'mirror_text': 'Mirror Text',
-      'punch_hole': 'Punch Hole',
-      'embedded': 'Embedded Figure',
+    const keyMap = {
+      'odd_man': 'cat_odd_man',
+      'figure_match': 'cat_fig_match',
+      'pattern': 'cat_pattern',
+      'figure_series': 'cat_fig_series',
+      'analogy': 'cat_analogy',
+      'geo_completion': 'cat_geo',
+      'mirror_shape': 'cat_mirror_shape',
+      'mirror_text': 'cat_mirror_text',
+      'punch_hole': 'cat_punch',
+      'embedded': 'cat_embedded',
     };
-    return labels[question.category] ?? question.category;
+    final key = keyMap[question.category];
+    return key != null ? AppLocale.s(key) : question.category;
   }
 }

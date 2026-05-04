@@ -67,15 +67,29 @@ class FigurePainter extends CustomPainter {
     canvas.rotate(rot * pi / 2);
     canvas.translate(-cx, -cy);
 
-    _drawShape(canvas, shape, r, cx, cy, paint);
+    final outerR = inner > 0 ? r * 1.10 : r;
+    _drawShape(canvas, shape, outerR, cx, cy, paint);
 
-    // Inner shape (outline only, half size)
+    // Inner shape (outline only, made larger for better visibility when overlapping)
+    // Enhanced visual rendering with improved contrast and depth
     if (inner > 0) {
-      _drawShape(canvas, inner - 1, r * 0.44, cx, cy,
-          Paint()
-            ..color = _ink
-            ..strokeWidth = 1.5
-            ..style = PaintingStyle.stroke);
+      final innerR = r * 0.56;
+
+      // Draw subtle shadow effect for depth perception
+      final shadowPaint = Paint()
+        ..color = _ink.withOpacity(0.08)
+        ..strokeWidth = 2.2
+        ..style = PaintingStyle.stroke;
+      _drawShape(canvas, inner - 1, innerR * 1.03, cx, cy, shadowPaint);
+
+      // Draw main inner shape with improved stroke
+      final innerPaint = Paint()
+        ..color = _ink
+        ..strokeWidth = 2.2
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke;
+      _drawShape(canvas, inner - 1, innerR, cx, cy, innerPaint);
     }
 
     // Vertical crossing lines (embedded figure questions)
@@ -100,13 +114,26 @@ class FigurePainter extends CustomPainter {
   static void _drawDots(Canvas canvas, int dots, double r,
       double cx, double cy, Size size) {
     if (dots <= 0) return;
-    final dp = Paint()
-      ..color = _ink
-      ..style = PaintingStyle.fill;
     final dotR = size.width * 0.055;
     final gap = dotR * 2.6;
     final totalW = (dots - 1) * gap;
     final dotY = cy + r * 1.55;
+
+    // Draw dot outline first (subtle shadow for depth)
+    final outlinePaint = Paint()
+      ..color = const Color(0xFF1E293B).withOpacity(0.15)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+
+    for (int i = 0; i < dots; i++) {
+      final offset = Offset(cx - totalW / 2 + i * gap, dotY);
+      canvas.drawCircle(offset, dotR * 1.05, outlinePaint);
+    }
+
+    // Draw filled dots with better contrast
+    final dp = Paint()
+      ..color = const Color(0xFF1E293B)
+      ..style = PaintingStyle.fill;
     for (int i = 0; i < dots; i++) {
       canvas.drawCircle(
           Offset(cx - totalW / 2 + i * gap, dotY), dotR, dp);

@@ -21,6 +21,15 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Lexend',
       ),
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaler: const TextScaler.linear(1.06),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       home: const SessionConfigScreen(),
     );
   }

@@ -13,7 +13,7 @@ import '../engine/question_generator.dart';
 import '../engine/reasoning_question.dart';
 import '../widgets/option_renderer.dart';
 import '../widgets/question_renderer.dart';
-import 'session_summary_screen.dart';
+import 'student_result_screen.dart';
 
 class QuizScreen extends StatefulWidget {
   final String mode;
@@ -21,6 +21,7 @@ class QuizScreen extends StatefulWidget {
   final String timePerQuestion;
   final bool biasEnabled;
   final Map<String, int> initialWeights; // persisted from previous session
+  final List<ReasoningQuestion> retryQuestions;
 
   const QuizScreen({
     super.key,
@@ -29,6 +30,7 @@ class QuizScreen extends StatefulWidget {
     required this.timePerQuestion,
     this.biasEnabled = true,
     this.initialWeights = const {},
+    this.retryQuestions = const [],
   });
 
   @override
@@ -37,7 +39,6 @@ class QuizScreen extends StatefulWidget {
 
 class _QuizScreenState extends State<QuizScreen>
     with SingleTickerProviderStateMixin {
-
   // ── Session state ─────────────────────────────────────────────────────────
   // Questions are generated ONE AT A TIME so bias weights are always current.
   // We keep already-seen signatures to avoid exact duplicates.
@@ -75,14 +76,26 @@ class _QuizScreenState extends State<QuizScreen>
   // Saved to SharedPreferences after every change via _saveWeights().
   static const _kWeightsKey = 'bias_weights';
   static const _allCategories = [
-    'pattern', 'analogy', 'odd_man', 'mirror_shape', 'figure_match',
-    'figure_series', 'geo_completion', 'mirror_text', 'punch_hole', 'embedded',
+    'pattern',
+    'analogy',
+    'odd_man',
+    'mirror_shape',
+    'figure_match',
+    'figure_series',
+    'geo_completion',
+    'mirror_text',
+    'punch_hole',
+    'embedded',
   ];
+
+  static const _linearOrder = _allCategories;
+  int _linearCursor = 0;
 
   late Map<String, int> _weights;
 
   // ── Constants ─────────────────────────────────────────────────────────────
-  final String currentLang = 'EN';
+  String get currentLang =>
+      AppLocale.current; // always reflects the globally selected language
   static const Color primary = Color(0xFF195DE6);
   static const Color background = Color(0xFFF6F6F8);
   static const Color surface = Colors.white;
@@ -108,15 +121,13 @@ class _QuizScreenState extends State<QuizScreen>
 
     // Seed weights from persisted values — any category not in storage defaults to 1
     _weights = {
-      for (final cat in _allCategories)
-        cat: widget.initialWeights[cat] ?? 1,
+      for (final cat in _allCategories) cat: widget.initialWeights[cat] ?? 1,
     };
 
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
-    )
-      ..repeat(reverse: true);
+    )..repeat(reverse: true);
     _pulseAnim = Tween<double>(begin: 1.0, end: 1.18).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
@@ -155,6 +166,11 @@ class _QuizScreenState extends State<QuizScreen>
 
   // ── Bias: pick a category ─────────────────────────────────────────────────
   String _pickCategory() {
+    if (widget.mode == 'linear') {
+      final cat = _linearOrder[_linearCursor % _linearOrder.length];
+      _linearCursor++;
+      return cat;
+    }
     if (widget.mode != 'random') return widget.mode;
 
     final int total = _weights.values.reduce((a, b) => a + b);
@@ -167,18 +183,49 @@ class _QuizScreenState extends State<QuizScreen>
   }
 
   // ── Generate a single question, avoiding exact duplicates ─────────────────
+  String _canonical(dynamic value) {
+    if (value is Map) {
+      final entries = value.entries.toList()
+        ..sort((a, b) => a.key.toString().compareTo(b.key.toString()));
+      return '{${entries.map((e) => '${e.key}:${_canonical(e.value)}').join(',')}}';
+    }
+    if (value is Iterable) {
+      return '[${value.map(_canonical).join(',')}]';
+    }
+    return value.toString();
+  }
+
+  String _questionSignature(ReasoningQuestion q) {
+    final optionSigs =
+        q.options.map((o) => _canonical(Map<String, dynamic>.from(o))).toList()
+          ..sort();
+    return _canonical({
+      'category': q.category,
+      'type': q.type,
+      'puzzle': q.puzzle,
+      'options': optionSigs,
+    });
+  }
+
   void _generateNextQuestion() {
-    final category = _pickCategory();
+    // Retry flow: replay known incorrect questions first.
+    if (_questions.length < widget.retryQuestions.length) {
+      final retryQ = widget.retryQuestions[_questions.length];
+      final sig = _questionSignature(retryQ);
+      if (_seenSignatures.add(sig)) {
+        _questions.add(retryQ);
+        return;
+      }
+    }
+
     ReasoningQuestion q;
     int attempts = 0;
     do {
+      final category = _pickCategory();
       q = QuestionGenerator.generate(category);
       attempts++;
-    } while (
-    _seenSignatures.contains(q.puzzle.toString() + q.options.toString()) &&
-        attempts < 20
-    );
-    _seenSignatures.add(q.puzzle.toString() + q.options.toString());
+    } while (_seenSignatures.contains(_questionSignature(q)) && attempts < 40);
+    _seenSignatures.add(_questionSignature(q));
     _questions.add(q);
   }
 
@@ -244,7 +291,9 @@ class _QuizScreenState extends State<QuizScreen>
     } else {
       HapticFeedback.mediumImpact();
       Future.delayed(
-          const Duration(milliseconds: 120), HapticFeedback.mediumImpact);
+        const Duration(milliseconds: 120),
+        HapticFeedback.mediumImpact,
+      );
     }
 
     setState(() {
@@ -254,14 +303,16 @@ class _QuizScreenState extends State<QuizScreen>
       if (correct) score++;
       timeSpentPerQuestion.add(timeSecs);
       categoryPerformance.putIfAbsent(cat, () => []).add(correct);
-      _attempts.add(QuestionAttempt(
-        questionNumber: currentQuestionIndex + 1,
-        question: _currentQ,
-        selectedIndex: selIdx,
-        isCorrect: correct,
-        wasSkipped: false,
-        timeSpentSeconds: timeSecs,
-      ));
+      _attempts.add(
+        QuestionAttempt(
+          questionNumber: currentQuestionIndex + 1,
+          question: _currentQ,
+          selectedIndex: selIdx,
+          isCorrect: correct,
+          wasSkipped: false,
+          timeSpentSeconds: timeSecs,
+        ),
+      );
       // Lock Next for 1.2s after wrong answer so student sees the correct option
       if (!correct) {
         _nextLocked = true;
@@ -285,14 +336,16 @@ class _QuizScreenState extends State<QuizScreen>
       skippedCount++;
       timeSpentPerQuestion.add(timeSecs);
       categoryPerformance.putIfAbsent(cat, () => []).add(false);
-      _attempts.add(QuestionAttempt(
-        questionNumber: currentQuestionIndex + 1,
-        question: _currentQ,
-        selectedIndex: null,
-        isCorrect: false,
-        wasSkipped: true,
-        timeSpentSeconds: timeSecs,
-      ));
+      _attempts.add(
+        QuestionAttempt(
+          questionNumber: currentQuestionIndex + 1,
+          question: _currentQ,
+          selectedIndex: null,
+          isCorrect: false,
+          wasSkipped: true,
+          timeSpentSeconds: timeSecs,
+        ),
+      );
     });
     _updateWeights(cat, false); // skip counts as wrong for bias
   }
@@ -304,37 +357,55 @@ class _QuizScreenState extends State<QuizScreen>
       final catCorrect = <String, int>{};
       final catTotal = <String, int>{};
       for (final entry in categoryPerformance.entries) {
-        catCorrect[entry.key] = entry.value
-            .where((v) => v)
-            .length;
+        catCorrect[entry.key] = entry.value.where((v) => v).length;
         catTotal[entry.key] = entry.value.length;
       }
       final avgT = timeSpentPerQuestion.isNotEmpty
           ? (timeSpentPerQuestion.reduce((a, b) => a + b) /
-          timeSpentPerQuestion.length).round()
+                    timeSpentPerQuestion.length)
+                .round()
           : 0;
-      HiveService.saveSession(SessionRecord(
-        date: DateTime.now(),
-        score: score,
-        totalQuestions: widget.totalQuestions,
-        skipped: skippedCount,
-        mode: widget.mode,
-        categoryCorrect: catCorrect,
-        categoryTotal: catTotal,
-        avgTimeSeconds: avgT,
-      ));
+      // Serialize attempts into plain maps for Hive storage
+      final snapshots = _attempts
+          .map(
+            (a) => <dynamic, dynamic>{
+              'category': a.question.category,
+              'type': a.question.type,
+              'puzzle': a.question.puzzle,
+              'options': a.question.options,
+              'correctIndex': a.question.correctIndex,
+              'selectedIndex': a.selectedIndex,
+              'timeSpentSeconds': a.timeSpentSeconds,
+              'isCorrect': a.isCorrect,
+              'wasSkipped': a.wasSkipped,
+            },
+          )
+          .toList();
+
+      HiveService.saveSession(
+        SessionRecord(
+          date: DateTime.now(),
+          score: score,
+          totalQuestions: widget.totalQuestions,
+          skipped: skippedCount,
+          mode: widget.mode,
+          categoryCorrect: catCorrect,
+          categoryTotal: catTotal,
+          avgTimeSeconds: avgT,
+          attemptSnapshots: snapshots,
+        ),
+      );
 
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) =>
-              SessionSummaryScreen(
-                score: score,
-                totalQuestions: widget.totalQuestions,
-                skipped: skippedCount,
-                timeSpent: timeSpentPerQuestion,
-                categoryStats: categoryPerformance,
-                attempts: List.unmodifiable(_attempts),
+          builder: (_) => StudentResultScreen(
+            score: score,
+            totalQuestions: widget.totalQuestions,
+            skipped: skippedCount,
+            timeSpent: timeSpentPerQuestion,
+            categoryStats: categoryPerformance,
+            attempts: List.unmodifiable(_attempts),
           ),
         ),
       );
@@ -377,8 +448,11 @@ class _QuizScreenState extends State<QuizScreen>
     if (seconds < 0) return '∞';
     final m = seconds ~/ 60;
     final s = seconds % 60;
-    if (m > 0) return '${m}m ${s.toString().padLeft(2, '0')}s';
-    return '${s}s';
+    if (m > 0) {
+      return '${m}${AppLocale.get(currentLang, 'minute_short')} '
+          '${s.toString().padLeft(2, '0')}${AppLocale.get(currentLang, 'second_short')}';
+    }
+    return '${s}${AppLocale.get(currentLang, 'second_short')}';
   }
 
   Color _timerColor() {
@@ -392,15 +466,16 @@ class _QuizScreenState extends State<QuizScreen>
   bool get _isTimeLow =>
       _hasTimer && remainingSeconds >= 0 && remainingSeconds <= 10;
 
+  int get _attemptedCount =>
+      _attempts.where((a) => a.selectedIndex != null).length;
+
   // ═══════════════════════════════════════════════════════════════════════════
   // Build
   // ═══════════════════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     if (_questions.isEmpty) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final double progress = (currentQuestionIndex + 1) / widget.totalQuestions;
@@ -413,8 +488,11 @@ class _QuizScreenState extends State<QuizScreen>
             _buildHeader(progress, _currentQ.category),
             Expanded(
               child: SingleChildScrollView(
+                scrollDirection: Axis.vertical,
+                physics: const ClampingScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildQuestionFigure(),
                     const SizedBox(height: 20),
@@ -440,9 +518,11 @@ class _QuizScreenState extends State<QuizScreen>
       decoration: BoxDecoration(
         color: surface,
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05),
-              blurRadius: 6,
-              offset: const Offset(0, 2))
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
@@ -463,14 +543,16 @@ class _QuizScreenState extends State<QuizScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: primary.withOpacity(0.1),
+                  color: primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   _getTopicLabel(category),
                   style: const TextStyle(
-                    fontSize: 10, fontWeight: FontWeight.bold,
-                    color: primary, letterSpacing: 0.8,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: primary,
+                    letterSpacing: 0.8,
                   ),
                 ),
               ),
@@ -485,12 +567,18 @@ class _QuizScreenState extends State<QuizScreen>
               _buildTimerWidget(),
               const SizedBox(width: 12),
               Text(
-                'Q ${currentQuestionIndex + 1} / ${widget.totalQuestions}',
+                '${AppLocale.s('question_short')} ${currentQuestionIndex + 1} / ${widget.totalQuestions}',
                 style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 13),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          Center(child: _buildScorePill()),
+          const SizedBox(height: 8),
+          Container(height: 1, color: Colors.grey.shade200),
         ],
       ),
     );
@@ -518,14 +606,18 @@ class _QuizScreenState extends State<QuizScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 7, height: 7,
+            width: 7,
+            height: 7,
             decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
           ),
           const SizedBox(width: 3),
           Text(
             tooltip,
             style: TextStyle(
-                fontSize: 9, color: dotColor, fontWeight: FontWeight.bold),
+              fontSize: 9,
+              color: dotColor,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -540,10 +632,14 @@ class _QuizScreenState extends State<QuizScreen>
         children: [
           Icon(Icons.timer_outlined, size: 14, color: Colors.grey.shade400),
           const SizedBox(width: 3),
-          Text(_formatTime(secondsElapsedForCurrent),
-              style: TextStyle(fontSize: 12,
-                  color: Colors.grey.shade500,
-                  fontWeight: FontWeight.w500)),
+          Text(
+            _formatTime(secondsElapsedForCurrent),
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade500,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       );
     }
@@ -558,12 +654,20 @@ class _QuizScreenState extends State<QuizScreen>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(_isTimeLow ? Icons.timer_off_rounded : Icons.timer_rounded,
-              size: 15, color: color),
+          Icon(
+            _isTimeLow ? Icons.timer_off_rounded : Icons.timer_rounded,
+            size: 15,
+            color: color,
+          ),
           const SizedBox(width: 4),
-          Text(_formatTime(remainingSeconds),
-              style: TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+          Text(
+            _formatTime(remainingSeconds),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
         ],
       ),
     );
@@ -573,17 +677,49 @@ class _QuizScreenState extends State<QuizScreen>
         : container;
   }
 
+  Widget _buildScorePill() {
+    final attempted = _attemptedCount;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 96),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: success.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
+          // rounded rectangle, not fully circular
+          border: Border.all(color: success.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              '$score/$attempted',
+              style: TextStyle(
+                color: success,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ── Question figure ───────────────────────────────────────────────────────
   Widget _buildQuestionFigure() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 3))
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
         ],
       ),
       child: QuestionRenderer(puzzle: _currentQ.puzzle),
@@ -653,9 +789,11 @@ class _QuizScreenState extends State<QuizScreen>
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: borderColor, width: borderWidth),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.04),
-                blurRadius: 6,
-                offset: const Offset(0, 2))
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
           ],
         ),
         child: Stack(
@@ -664,7 +802,8 @@ class _QuizScreenState extends State<QuizScreen>
             Center(child: OptionRenderer(data: optionData)),
             // A/B/C/D label — top-left corner always visible
             Positioned(
-              top: 7, left: 9,
+              top: 7,
+              left: 9,
               child: Text(
                 label,
                 style: TextStyle(
@@ -682,18 +821,18 @@ class _QuizScreenState extends State<QuizScreen>
     );
   }
 
-  Widget _badge(IconData icon, Color color) =>
-      Container(
-        padding: const EdgeInsets.all(3),
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        child: Icon(icon, size: 12, color: Colors.white),
-      );
+  Widget _badge(IconData icon, Color color) => Container(
+    padding: const EdgeInsets.all(3),
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    child: Icon(icon, size: 12, color: Colors.white),
+  );
 
   // ── Result message ────────────────────────────────────────────────────────
   Widget _buildResultMessage() {
     final isSkipped = selectedOption == null;
     final correctLetter = String.fromCharCode(
-        65 + _currentQ.correctIndex); // A/B/C/D
+      65 + _currentQ.correctIndex,
+    ); // A/B/C/D
     Color bg;
     Color fg;
     IconData icon;
@@ -708,7 +847,8 @@ class _QuizScreenState extends State<QuizScreen>
       bg = Colors.grey.shade100;
       fg = Colors.grey.shade600;
       icon = Icons.skip_next_rounded;
-      text = 'Skipped — correct answer is Option $correctLetter';
+      text =
+          '${AppLocale.get(currentLang, 'skipped_answer_is')} $correctLetter';
     } else if (isCorrect) {
       bg = success.withOpacity(0.1);
       fg = success;
@@ -718,7 +858,7 @@ class _QuizScreenState extends State<QuizScreen>
       bg = error.withOpacity(0.1);
       fg = error;
       icon = Icons.cancel_outlined;
-      text = 'Wrong — correct answer is Option $correctLetter';
+      text = '${AppLocale.get(currentLang, 'wrong_answer_is')} $correctLetter';
     }
 
     return Column(
@@ -726,13 +866,19 @@ class _QuizScreenState extends State<QuizScreen>
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-              color: bg, borderRadius: BorderRadius.circular(14)),
+            color: bg,
+            borderRadius: BorderRadius.circular(14),
+          ),
           child: Row(
             children: [
               Icon(icon, color: fg, size: 20),
               const SizedBox(width: 10),
-              Expanded(child: Text(text,
-                  style: TextStyle(color: fg, fontWeight: FontWeight.bold))),
+              Expanded(
+                child: Text(
+                  text,
+                  style: TextStyle(color: fg, fontWeight: FontWeight.bold),
+                ),
+              ),
             ],
           ),
         ),
@@ -785,16 +931,16 @@ class _QuizScreenState extends State<QuizScreen>
   Widget _buildWeightPreview() {
     final maxW = _weights.values.reduce(max).toDouble();
     final shortLabels = {
-      'pattern': 'Pat',
-      'analogy': 'Ana',
-      'odd_man': 'Odd',
-      'mirror_shape': 'Mir',
-      'figure_match': 'Fig',
-      'figure_series': 'Ser',
-      'geo_completion': 'Geo',
-      'mirror_text': 'Txt',
-      'punch_hole': 'Pnc',
-      'embedded': 'Emb',
+      'pattern': AppLocale.get(currentLang, 'short_pattern'),
+      'analogy': AppLocale.get(currentLang, 'short_analogy'),
+      'odd_man': AppLocale.get(currentLang, 'short_odd'),
+      'mirror_shape': AppLocale.get(currentLang, 'short_mirshape'),
+      'figure_match': AppLocale.get(currentLang, 'short_fig'),
+      'figure_series': AppLocale.get(currentLang, 'short_series'),
+      'geo_completion': AppLocale.get(currentLang, 'short_geo'),
+      'mirror_text': AppLocale.get(currentLang, 'short_mirtext'),
+      'punch_hole': AppLocale.get(currentLang, 'short_punch'),
+      'embedded': AppLocale.get(currentLang, 'short_embedded'),
     };
 
     return Container(
@@ -810,12 +956,19 @@ class _QuizScreenState extends State<QuizScreen>
           Row(
             children: [
               const Icon(
-                  Icons.analytics_outlined, size: 13, color: Color(0xFF64748B)),
+                Icons.analytics_outlined,
+                size: 13,
+                color: Color(0xFF64748B),
+              ),
               const SizedBox(width: 5),
               Text(
                 AppLocale.get(currentLang, 'bias_weights'),
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
-                    color: Color(0xFF64748B), letterSpacing: 0.8),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF64748B),
+                  letterSpacing: 0.8,
+                ),
               ),
             ],
           ),
@@ -835,9 +988,12 @@ class _QuizScreenState extends State<QuizScreen>
                   children: [
                     if (isCurrentCat)
                       Container(
-                        width: 4, height: 4,
-                        decoration: const BoxDecoration(color: primary,
-                            shape: BoxShape.circle),
+                        width: 4,
+                        height: 4,
+                        decoration: const BoxDecoration(
+                          color: primary,
+                          shape: BoxShape.circle,
+                        ),
                       )
                     else
                       const SizedBox(height: 4),
@@ -846,8 +1002,9 @@ class _QuizScreenState extends State<QuizScreen>
                       height: barH,
                       margin: const EdgeInsets.symmetric(horizontal: 1.5),
                       decoration: BoxDecoration(
-                        color: isCurrentCat ? barColor : barColor.withOpacity(
-                            0.45),
+                        color: isCurrentCat
+                            ? barColor
+                            : barColor.withOpacity(0.45),
                         borderRadius: BorderRadius.circular(3),
                       ),
                     ),
@@ -857,8 +1014,9 @@ class _QuizScreenState extends State<QuizScreen>
                       style: TextStyle(
                         fontSize: 7.5,
                         color: isCurrentCat ? primary : Colors.grey.shade500,
-                        fontWeight: isCurrentCat ? FontWeight.bold : FontWeight
-                            .normal,
+                        fontWeight: isCurrentCat
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                       ),
                     ),
                   ],
@@ -876,8 +1034,10 @@ class _QuizScreenState extends State<QuizScreen>
     if (!isAnswered) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Row(mainAxisAlignment: MainAxisAlignment.end,
-            children: [_skipButton()]),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [_skipButton()],
+        ),
       );
     }
     return Padding(
@@ -887,18 +1047,26 @@ class _QuizScreenState extends State<QuizScreen>
           if (skippedCount > 0) ...[
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(14)),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(14),
+              ),
               child: Row(
                 children: [
-                  Icon(Icons.skip_next_rounded, size: 16,
-                      color: Colors.grey.shade600),
+                  Icon(
+                    Icons.skip_next_rounded,
+                    size: 16,
+                    color: Colors.grey.shade600,
+                  ),
                   const SizedBox(width: 4),
-                  Text('$skippedCount ${AppLocale.get(
-                      currentLang, "skipped_count")}',
-                      style: TextStyle(fontSize: 12,
-                          color: Colors.grey.shade600,
-                          fontWeight: FontWeight.w600)),
+                  Text(
+                    '$skippedCount ${AppLocale.get(currentLang, "skipped_count")}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -915,35 +1083,42 @@ class _QuizScreenState extends State<QuizScreen>
                 children: [
                   if (_nextLocked) ...[
                     const SizedBox(
-                      width: 14, height: 14,
+                      width: 14,
+                      height: 14,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white70),
+                          Colors.white70,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       AppLocale.get(currentLang, 'look_at'),
-                      style: TextStyle(color: Colors.white70,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14),
-                    ),
-                  ] else
-                    ...[
-                      Text(
-                        currentQuestionIndex < widget.totalQuestions - 1
-                            ? AppLocale.get(currentLang, 'next_question')
-                            : AppLocale.get(currentLang, 'finish'),
-                        style: const TextStyle(color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15),
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
-                      const SizedBox(width: 6),
-                      const Icon(
-                          Icons.arrow_forward_rounded, color: Colors.white,
-                          size: 18),
-                    ],
+                    ),
+                  ] else ...[
+                    Text(
+                      currentQuestionIndex < widget.totalQuestions - 1
+                          ? AppLocale.get(currentLang, 'next_question')
+                          : AppLocale.get(currentLang, 'finish'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -953,35 +1128,39 @@ class _QuizScreenState extends State<QuizScreen>
     );
   }
 
-  Widget _skipButton() =>
-      GestureDetector(
-        onTap: _skipQuestion,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          decoration: BoxDecoration(
-            color: surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey.shade300),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.06),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3))
-            ],
+  Widget _skipButton() => GestureDetector(
+    onTap: _skipQuestion,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.skip_next_rounded, size: 18,
-                  color: Colors.grey.shade600),
-              const SizedBox(width: 6),
-              Text(AppLocale.get(currentLang, 'skip'), style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade600)),
-            ],
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.skip_next_rounded, size: 18, color: Colors.grey.shade600),
+          const SizedBox(width: 6),
+          Text(
+            AppLocale.get(currentLang, 'skip'),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+            ),
           ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

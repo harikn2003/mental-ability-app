@@ -79,3 +79,13 @@ Distractors are pedagogically designed per question type — they represent spec
 mistakes rather than random shapes. For example, punch hole wrong options show: the correct axis
 mirrored on the wrong axis, a double-fold result with 4 holes, and a single un-mirrored hole (
 forgetting that unfolding doubles the hole).
+
+## Beta Release (GitHub)
+
+- Version format: `x.y.z-beta.n+build` in `pubspec.yaml`
+- Tag format: `vx.y.z-beta.n`
+- Pushing a beta tag triggers `.github/workflows/beta-release.yml`
+- Workflow validates tag version against `pubspec.yaml` build-name
+- GitHub release is published as a **pre-release** with APK and AAB artifacts
+
+See `docs/release_beta.md` for the full checklist and commands.

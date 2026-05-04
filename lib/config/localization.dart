@@ -83,6 +83,38 @@ class AppLocale {
       'no_weak_session': 'No Weak Areas This Session',
       'avg_per_q': 'Avg',
       'per_question': '/ question',
+      'detailed_report': 'Detailed Report',
+      'question_short': 'Q',
+      'avg_time': 'Avg time',
+      'minute_short': 'm',
+      'second_short': 's',
+      'how_you_did_by_topic': 'How you did by topic',
+      'try_again': 'Try Again',
+      'full_report': 'Full Report',
+      'practice_weak_summary': 'Practice Weak Areas:',
+      'limit_45s': 'Limit (45s)',
+      'topic_badge_good': 'Good',
+      'topic_badge_ok': 'OK',
+      'topic_badge_retry': 'Retry',
+      'correct_answer_is': 'Correct answer is Option',
+      'wrong_answer_is': 'Wrong — correct answer is Option',
+      'skipped_answer_is': 'Skipped — correct answer is Option',
+      'skipped_label': 'skipped',
+      'minutes_ago_suffix': ' m ago',
+      'hours_ago_suffix': ' h ago',
+      'days_ago_suffix': ' d ago',
+      'excellent_headline': 'Outstanding!',
+      'good_headline': 'Good Work!',
+      'average_headline': 'Keep Going!',
+      'needs_practice_headline': 'Keep Practicing!',
+      'excellent_subtitle':
+          'You got most of them right.\nExcellent performance!',
+      'good_subtitle':
+          'Solid effort. A little more\npractice and you\'ll ace it!',
+      'average_subtitle':
+          'You\'re getting there.\nPractice the weak topics below.',
+      'needs_practice_subtitle':
+          'Don\'t give up! Every session\nmakes you stronger.',
 
       // ── Review Screen ────────────────────────────────────────────────────
       'answer_review': 'Answer Review',
@@ -115,6 +147,9 @@ class AppLocale {
       'find_embedded': 'FIND THE EMBEDDED SHAPE',
       'find_unfolded': 'FIND THE UNFOLDED RESULT',
       'find_odd': 'FIND THE ODD ONE OUT',
+      'no_detail_data': 'No question data for this session',
+      'no_detail_data_sub':
+          'Complete a new session to see full question review here.',
       // ── Category full names (summary/history) ────────────────────────────
       'cat_odd_man': 'Odd Man Out',
       'cat_fig_match': 'Figure Match',
@@ -240,6 +275,38 @@ class AppLocale {
       'no_weak_session': 'या सत्रात कोणते कमकुवत विषय नाहीत',
       'avg_per_q': 'सरासरी',
       'per_question': '/ प्रश्न',
+      'detailed_report': 'तपशीलवार अहवाल',
+      'question_short': 'प्र',
+      'avg_time': 'सरासरी वेळ',
+      'minute_short': 'मि',
+      'second_short': 'से',
+      'how_you_did_by_topic': 'विषयानुसार तुमची कामगिरी',
+      'try_again': 'पुन्हा प्रयत्न करा',
+      'full_report': 'पूर्ण अहवाल',
+      'practice_weak_summary': 'कमकुवत विषयांचा सराव:',
+      'limit_45s': 'मर्यादा (45 सेकंद)',
+      'topic_badge_good': 'चांगले',
+      'topic_badge_ok': 'ठीक',
+      'topic_badge_retry': 'पुन्हा प्रयत्न',
+      'correct_answer_is': 'बरोबर उत्तर पर्याय',
+      'wrong_answer_is': 'चुकीचे — बरोबर उत्तर पर्याय',
+      'skipped_answer_is': 'वगळले — बरोबर उत्तर पर्याय',
+      'skipped_label': 'वगळलेले',
+      'minutes_ago_suffix': ' मिनिटांपूर्वी',
+      'hours_ago_suffix': ' तासांपूर्वी',
+      'days_ago_suffix': ' दिवसांपूर्वी',
+      'excellent_headline': 'अतिशय उत्कृष्ट!',
+      'good_headline': 'छान काम!',
+      'average_headline': 'पुढे चालू ठेवा!',
+      'needs_practice_headline': 'अधिक सराव करा!',
+      'excellent_subtitle':
+          'तुम्ही बहुतेक प्रश्न बरोबर सोडवले.\nअतिशय उत्तम कामगिरी!',
+      'good_subtitle':
+          'छान प्रयत्न. थोडा अधिक\nसराव केला तर तुम्ही नक्की यशस्वी व्हाल!',
+      'average_subtitle':
+          'तुम्ही योग्य दिशेने जात आहात.\nखालील कमकुवत विषयांवर सराव करा.',
+      'needs_practice_subtitle':
+          'हार मानू नका! प्रत्येक सत्र\nतुम्हाला अधिक मजबूत बनवते.',
 
       // ── Review Screen ────────────────────────────────────────────────────
       'answer_review': 'उत्तर तपासणी',
@@ -271,6 +338,8 @@ class AppLocale {
       'find_embedded': 'अंतर्भूत आकृती शोधा',
       'find_unfolded': 'उघडलेली आकृती शोधा',
       'find_odd': 'वेगळी आकृती शोधा',
+      'no_detail_data': 'या सत्रासाठी प्रश्नांचा डेटा उपलब्ध नाही',
+      'no_detail_data_sub': 'पूर्ण प्रश्न पुनरावलोकनासाठी नवीन सत्र पूर्ण करा.',
       // ── Category full names ───────────────────────────────────────────────
       'cat_odd_man': 'वेगळे पद',
       'cat_fig_match': 'समान आकृती',
@@ -311,6 +380,195 @@ class AppLocale {
       'instr_analogy': 'A : B :: C : ?  — D शोधा',
       'instr_error': 'प्रश्न तयार करता आला नाही — हा प्रश्न वगळा.',
     },
+
+    'HI': {
+      // ── Config Screen ────────────────────────────────────────────────────
+      'title': 'नया सत्र',
+      'total_questions': 'कुल प्रश्न',
+      'time_per_question': 'प्रति प्रश्न समय',
+      'select_mode': 'मोड / विषय चुनें',
+      'random_mix': 'सभी विषयों का मिश्रण',
+      'random_desc': 'सभी विषयों के प्रश्न शामिल हैं।',
+      'intelligent_bias': 'स्मार्ट बायस',
+      'bias_sub': 'कमज़ोर क्षेत्रों पर ध्यान',
+      'start_random': 'रैंडम अभ्यास शुरू करें',
+      'start_linear': 'लाइनर टेस्ट शुरू करें',
+      'start_weak': 'कमज़ोर क्षेत्रों का अभ्यास शुरू करें',
+      'odd_man': 'अलग आकृति पहचानें',
+      'fig_match': 'समान आकृति',
+      'pattern': 'आकृति पूर्णता',
+      'analogy': 'समानता',
+      'figure_match': 'समान आकृति',
+      'figure_series': 'आकृति श्रृंखला',
+      'geo_completion': 'ज्यामितीय पूर्णता',
+      'mirror_shape': 'दर्पण आकृति',
+      'mirror_text': 'दर्पण अक्षर / घड़ी',
+      'punch_hole': 'छेद आकृति',
+      'embedded': 'अंतर्निहित आकृति',
+      'practice_weak_card': 'कमज़ोर क्षेत्रों का अभ्यास',
+      'weak_topics': 'विषय',
+      'questions_label': 'प्रश्न',
+      'hold_reset': 'रीसेट के लिए दबाकर रखें',
+      'reset_title': 'प्रगति रीसेट करें?',
+      'reset_body':
+          'यह सभी बायस वेट साफ़ करेगा और नई शुरुआत करेगा। आपकी कमज़ोर क्षेत्रों की जानकारी मिट जाएगी।',
+      'cancel': 'रद्द करें',
+      'reset': 'रीसेट',
+
+      // ── Quiz Screen ──────────────────────────────────────────────────────
+      'find_the': 'ढूँढिए',
+      'question_figure': 'प्रश्न आकृति',
+      'next_question': 'अगला प्रश्न',
+      'finish': 'समाप्त करें',
+      'skip': 'छोड़ें',
+      'logic': 'तर्क',
+      'bias_weights': 'बायस वेट',
+      'show_bias': 'समन्वयक: बायस चार्ट दिखाएँ',
+      'hide_bias': 'बायस चार्ट छिपाएँ',
+      'look_at': 'विकल्प देखें...',
+      'reviewing': 'समीक्षा',
+      'weak_area': 'कमज़ोर क्षेत्र',
+      'times_up': 'समय समाप्त! सही उत्तर विकल्प',
+      'skipped_msg': 'छोड़ा गया — सही उत्तर विकल्प',
+      'correct_msg': 'सही! बहुत बढ़िया।',
+      'wrong_msg': 'गलत — सही उत्तर विकल्प',
+      'skipped_count': 'छोड़ा गया',
+
+      // ── Topic labels for quiz header ─────────────────────────────────────
+      'topic_pattern': 'आकृति पूर्णता',
+      'topic_mirror': 'दर्पण आकृति',
+      'topic_odd': 'अलग आकृति',
+      'topic_analogy': 'समानता',
+      'topic_figmatch': 'समान आकृति',
+      'topic_series': 'आकृति श्रृंखला',
+      'topic_geo': 'ज्यामितीय पूर्णता',
+      'topic_punch': 'छेद आकृति',
+      'topic_embedded': 'अंतर्निहित आकृति',
+
+      // ── Summary Screen ───────────────────────────────────────────────────
+      'report_title': 'सत्र सारांश',
+      'score': 'स्कोर',
+      'accuracy': 'सटीकता',
+      'time': 'समय',
+      'performance': 'विषयवार प्रदर्शन',
+      'correct': 'सही',
+      'incorrect': 'गलत',
+      'analysis': 'विश्लेषण',
+      'home': 'होम',
+      'practice_weak': 'कमज़ोर क्षेत्रों का अभ्यास',
+      'questions_correct': 'सही प्रश्न',
+      'time_per_q': 'प्रति प्रश्न समय',
+      'category_breakdown': 'श्रेणीवार विवरण',
+      'review_answers': 'उत्तर देखें',
+      'return_home': 'होम पर जाएँ',
+      'no_weak_session': 'इस सत्र में कोई कमज़ोर क्षेत्र नहीं',
+      'avg_per_q': 'औसत',
+      'per_question': '/ प्रश्न',
+      'detailed_report': 'विस्तृत रिपोर्ट',
+      'question_short': 'प्र',
+      'avg_time': 'औसत समय',
+      'minute_short': 'मि',
+      'second_short': 'से',
+      'how_you_did_by_topic': 'विषयवार आपका प्रदर्शन',
+      'try_again': 'फिर प्रयास करें',
+      'full_report': 'पूरी रिपोर्ट',
+      'practice_weak_summary': 'कमज़ोर क्षेत्रों का अभ्यास:',
+      'limit_45s': 'सीमा (45 सेकंड)',
+      'topic_badge_good': 'अच्छा',
+      'topic_badge_ok': 'ठीक',
+      'topic_badge_retry': 'फिर प्रयास',
+      'correct_answer_is': 'सही उत्तर विकल्प',
+      'wrong_answer_is': 'गलत — सही उत्तर विकल्प',
+      'skipped_answer_is': 'छोड़ा गया — सही उत्तर विकल्प',
+      'skipped_label': 'छोड़ा गया',
+      'minutes_ago_suffix': ' मिनट पहले',
+      'hours_ago_suffix': ' घंटे पहले',
+      'days_ago_suffix': ' दिन पहले',
+      'excellent_headline': 'बहुत शानदार!',
+      'good_headline': 'अच्छा काम!',
+      'average_headline': 'जारी रखें!',
+      'needs_practice_headline': 'और अभ्यास करें!',
+      'excellent_subtitle': 'आपने अधिकांश प्रश्न सही किए।\nबेहतरीन प्रदर्शन!',
+      'good_subtitle':
+          'अच्छा प्रयास। थोड़ा और\nअभ्यास करेंगे तो और बेहतर करेंगे!',
+      'average_subtitle':
+          'आप सही दिशा में हैं।\nनीचे दिए कमजोर विषयों का अभ्यास करें।',
+      'needs_practice_subtitle':
+          'हार मत मानिए! हर सत्र\nआपको और मजबूत बनाता है।',
+
+      // ── Review Screen ────────────────────────────────────────────────────
+      'answer_review': 'उत्तर समीक्षा',
+      'show_wrong': 'केवल गलत उत्तर दिखाएँ',
+      'showing_wrong': 'गलत उत्तर दिखा रहे हैं — सभी देखने के लिए टैप करें',
+      'all_correct': 'सभी उत्तर सही थे!',
+      'no_wrong': 'दिखाने के लिए कोई गलत उत्तर नहीं है।',
+      'your_answer_right': 'आपका उत्तर ✓',
+      'your_answer_wrong': 'आपका उत्तर',
+      'list': 'सूची',
+
+      // ── History Screen ───────────────────────────────────────────────────
+      'session_history': 'सत्र इतिहास',
+      'no_sessions': 'अभी कोई सत्र नहीं',
+      'no_sessions_sub': 'इतिहास देखने के लिए एक क्विज़ पूरा करें।',
+      'clear_history': 'सारा इतिहास साफ़ करें?',
+      'clear_history_body': 'सभी सत्र रिकॉर्ड स्थायी रूप से हटा दिए जाएंगे।',
+      'clear': 'साफ़ करें',
+      'avg': 'औसत',
+
+      // ── Status labels ────────────────────────────────────────────────────
+      'strong': 'मज़बूत',
+      'good': 'अच्छा',
+      'weak': 'कमज़ोर',
+      'find_mirror': 'दर्पण आकृति ढूँढिए',
+      'find_match': 'सटीक समान आकृति ढूँढिए',
+      'find_next': 'अगली आकृति ढूँढिए',
+      'find_complete': 'आकृति पूरी कीजिए',
+      'find_embedded': 'अंतर्निहित आकृति ढूँढिए',
+      'find_unfolded': 'खुला हुआ परिणाम ढूँढिए',
+      'find_odd': 'अलग आकृति ढूँढिए',
+      'no_detail_data': 'इस सत्र के लिए प्रश्न डेटा नहीं है',
+      'no_detail_data_sub':
+          'पूरा प्रश्न पुनरावलोकन देखने के लिए नया सत्र पूरा करें।',
+      // ── Category full names (summary/history) ────────────────────────────
+      'cat_odd_man': 'अलग आकृति',
+      'cat_fig_match': 'समान आकृति',
+      'cat_pattern': 'आकृति पूर्णता',
+      'cat_fig_series': 'आकृति श्रृंखला',
+      'cat_analogy': 'समानता',
+      'cat_geo': 'ज्यामितीय पूर्णता',
+      'cat_mirror_shape': 'दर्पण आकृति',
+      'cat_mirror_text': 'दर्पण अक्षर',
+      'cat_punch': 'छेद आकृति',
+      'cat_embedded': 'अंतर्निहित आकृति',
+
+      // ── Category short labels (history bar chart) ─────────────────────────
+      'short_odd': 'अल',
+      'short_fig': 'आक',
+      'short_pattern': 'पूर्ण',
+      'short_series': 'श्रृ',
+      'short_analogy': 'समा',
+      'short_geo': 'ज्यो',
+      'short_mirshape': 'दर्प',
+      'short_mirtext': 'अक्ष',
+      'short_punch': 'छेद',
+      'short_embedded': 'अंत',
+
+      // ── Misc UI ───────────────────────────────────────────────────────────
+      'time_unlimited': 'असीमित',
+      'time_label': 'समय',
+      'weak_areas': 'कमज़ोर क्षेत्र',
+      'clear_history_btn': 'इतिहास साफ़ करें',
+
+      // ── Question renderer instructions ────────────────────────────────────
+      'instr_match': 'सटीक समान आकृति ढूँढिए',
+      'instr_pattern': 'पैटर्न पूरा करने के लिए लापता आकृति ढूँढिए',
+      'instr_series': 'श्रृंखला में अगला क्या है?',
+      'instr_geo': 'कौन-सा भाग यह आकृति पूरी करता है?',
+      'instr_mirror': 'दर्पण आकृति ढूँढिए',
+      'instr_embedded': 'ऐसा विकल्प ढूँढिए जिसमें यह आकृति छिपी हो',
+      'instr_analogy': 'A : B :: C : ?  — D ढूँढिए',
+      'instr_error': 'प्रश्न बन नहीं सका — यह प्रश्न छोड़ दें।',
+    },
   };
 
   static String get(String lang, String key) {
@@ -318,13 +576,13 @@ class AppLocale {
   }
 
   static String nextLang(String current) {
-    const cycle = ['EN', 'MR'];
+    const cycle = ['EN', 'MR', 'HI'];
     final idx = cycle.indexOf(current);
     return cycle[(idx + 1) % cycle.length];
   }
 
   static String langLabel(String lang) {
-    const labels = {'EN': 'EN', 'MR': 'मर'};
+    const labels = {'EN': 'EN', 'MR': 'मर', 'HI': 'हि'};
     return labels[lang] ?? lang;
   }
 
