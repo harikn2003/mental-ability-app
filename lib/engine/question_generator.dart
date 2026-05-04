@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'reasoning_question.dart';
@@ -9,8 +10,16 @@ import 'reasoning_question.dart';
 /// Repeat prevention: tracks (category, variant, key params) as a string
 /// signature. After 50 questions the history is cleared automatically.
 class QuestionGenerator {
-  static final _r = Random();
+  // Random source. Made non-final so tests can seed the generator for
+  // deterministic behavior.
+  static Random _r = Random();
   static const bool _jnvstHardMode = true;
+
+  /// When enabled generator will print a structured JSON line for any
+  /// generated question whose options contain visually-duplicate keys.
+  /// This is intended for device-side diagnostic logging and is false by
+  /// default to avoid noisy logs in normal runs.
+  static bool debugDuplicateLogging = false;
 
   // Shapes that look visually different when rotated (asymmetric)
   static const _rotateable = [2, 3, 7]; // triangle, diamond, arrow
@@ -31,6 +40,12 @@ class QuestionGenerator {
     _history.clear();
     _questionHistory.clear();
     _totalGenerated = 0;
+  }
+
+  /// Seed the internal RNG (useful for deterministic tests).
+  /// Note: calling this during a live session will affect randomness.
+  static void seed(int s) {
+    _r = Random(s);
   }
 
   static bool _seen(String sig) => _history.contains(sig);
@@ -102,6 +117,41 @@ class QuestionGenerator {
   static ReasoningQuestion generate(String category) {
     for (int attempt = 0; attempt < 80; attempt++) {
       final q = _generateRaw(category);
+      // Diagnostic logging: detect visual-duplicate options and emit a
+      // structured JSON blob so device logs (adb/flutter logs) can be
+      // searched for duplicate events.
+      if (debugDuplicateLogging) {
+        try {
+          final keys = q.options.map((o) =>
+              _visibleKey(Map<String, dynamic>.from(o))).toList();
+          if (keys
+              .toSet()
+              .length < 4) {
+            final dupCounts = <String, int>{};
+            for (final k in keys)
+              dupCounts[k] = (dupCounts[k] ?? 0) + 1;
+            final dupKeys = dupCounts.entries.where((e) => e.value > 1).map((
+                e) => e.key).toList();
+            final out = {
+              'event': 'duplicate_options_detected',
+              'category': category,
+              'type': q.type,
+              'correctIndex': q.correctIndex,
+              'keys': keys,
+              'duplicate_keys': dupKeys,
+              'options': q.options,
+              'seed_snapshot': _r.nextInt(1 << 30),
+              // lightweight entropy snapshot
+            };
+            // Print with a stable prefix so logs can be grepped easily.
+            print('DUPLICATE_DETECTED: ${JsonEncoder.withIndent('').convert(
+                out)}');
+          }
+        } catch (e, st) {
+          // Don't let logging break generation in production; print minimal info.
+          print('DUPLICATE_LOG_ERROR: $e $st');
+        }
+      }
       if (_markQuestionIfNew(q)) return q;
     }
     // Safety valve: if a category is fully exhausted in a long session, return
@@ -256,65 +306,84 @@ class QuestionGenerator {
     Map<String, dynamic> correct,
     List<Map<String, dynamic>> wrongs,
   ) {
+    // Ensure we always return exactly 4 visually-distinct options.
+    // Use _key to detect visual duplicates and generate safe fallbacks when
+    // necessary. Also clone maps when returning so callers don't accidentally
+    // mutate shared instances.
     final ck = _key(correct);
-    // Deduplicate: remove wrongs that match correct or each other
     final seen = <String>{ck};
     final deduped = <Map<String, dynamic>>[];
+
+    // Add unique wrongs from the provided pool
     for (final w in wrongs) {
       final k = _key(w);
       if (!seen.contains(k)) {
         seen.add(k);
-        deduped.add(w);
+        deduped.add(Map<String, dynamic>.from(w));
       }
     }
-    // If we lost wrongs due to dedup, generate type-appropriate fallbacks
-    final bool isPunchHole = correct.containsKey('holes');
-    final bool isMirrorText =
-        correct.containsKey('mirror_h') || correct.containsKey('is_clock');
-    final bool isGeoPiece = correct['type'] == 'geo_piece';
-    int safety = 0;
-    while (deduped.length < 3 && safety < 50) {
-      safety++;
-      Map<String, dynamic> fallback;
+
+    // Helper to produce a type-appropriate fallback option
+    Map<String, dynamic> _makeFallback(Map<String, dynamic> sample) {
+      final bool isPunchHole = sample.containsKey('holes') ||
+          sample['type'] == 'punch_hole';
+      final bool isMirrorText =
+          sample.containsKey('mirror_h') || sample.containsKey('is_clock') ||
+              sample['type'] == 'mirror_text';
+      final bool isGeoPiece = sample['type'] == 'geo_piece';
+
       if (isPunchHole) {
-        // Generate another punch-hole option with random hole count
-        final hx = 0.2 + _r.nextDouble() * 0.2;
-        final hy = 0.2 + _r.nextDouble() * 0.6;
-        final ax = correct['fold_axis'] as int? ?? 0;
-        final n = _r.nextInt(3) + 1; // 1-3 holes
-        fallback = {
+        final hx = 0.18 + _r.nextDouble() * 0.6;
+        final hy = 0.18 + _r.nextDouble() * 0.6;
+        final ax = sample['fold_axis'] as int? ?? 0;
+        final n = _r.nextInt(3) + 1;
+        return {
           'type': 'punch_hole',
           'unfolded': true,
           'fold_axis': ax,
-          'holes': List.generate(n, (i) => {'x': hx + i * 0.15, 'y': hy}),
+          'holes': List.generate(n, (i) =>
+          {
+            'x': (hx + i * 0.12).clamp(0.05, 0.95),
+            'y': (hy + i * 0.08).clamp(0.05, 0.95)
+          }),
         };
-      } else if (isMirrorText) {
-        // Keep mirror_text fallback tied to the same prompt content/time.
-        fallback = {
+      }
+      if (isMirrorText) {
+        return {
           'type': 'mirror_text',
-          'content': correct['content'],
-          'is_clock': correct['is_clock'] ?? false,
-          'clock_hour': correct['clock_hour'],
-          'clock_minute': correct['clock_minute'],
+          'content': sample['content'] ?? sample['clock_hour']?.toString() ??
+              'A',
+          'is_clock': sample['is_clock'] ?? false,
+          'clock_hour': sample['clock_hour'],
+          'clock_minute': sample['clock_minute'],
           'mirror_h': _r.nextBool(),
           'mirror_v': _r.nextBool(),
         };
-      } else if (isGeoPiece) {
-        final sh = correct['shape'] as int? ?? 0;
+      }
+      if (isGeoPiece) {
+        final sh = sample['shape'] as int? ?? 0;
         final maxCut = sh == 0 ? 8 : 4;
-        fallback = {
+        return {
           'type': 'geo_piece',
           'shape': sh,
           'cut': _r.nextInt(maxCut),
           'piece': _r.nextInt(2),
         };
-      } else {
-        fallback = _f(
-          _allNonCircle[_r.nextInt(_allNonCircle.length)],
-          rot: _r.nextInt(4),
-          filled: _r.nextBool(),
-        );
       }
+
+      // Generic shape fallback
+      return _f(
+        _allNonCircle[_r.nextInt(_allNonCircle.length)],
+        rot: _r.nextInt(4),
+        filled: _r.nextBool(),
+      );
+    }
+
+    // Fill up to 3 wrongs with unique fallbacks if needed
+    int safety = 0;
+    while (deduped.length < 3 && safety < 80) {
+      safety++;
+      final fallback = _makeFallback(correct);
       final fk = _key(fallback);
       if (!seen.contains(fk)) {
         seen.add(fk);
@@ -322,9 +391,41 @@ class QuestionGenerator {
       }
     }
 
+    // If deduped somehow exceeded 3 (shouldn't normally), trim to 3
+    if (deduped.length > 3) deduped.removeRange(3, deduped.length);
+
+    // Insert correct at a random position among the 4 slots
     final pos = _r.nextInt(4);
-    final list = List<Map<String, dynamic>>.from(deduped)..insert(pos, correct);
-    return (opts: list, idx: pos);
+    final finalList = List<Map<String, dynamic>>.from(deduped);
+    finalList.insert(pos, Map<String, dynamic>.from(correct));
+
+    // As a last-ditch safeguard ensure all 4 options are visually distinct;
+    // if any duplicates remain, replace them deterministically with generated
+    // fallbacks until uniqueness is achieved or attempts exhausted.
+    safety = 0;
+    while (finalList
+        .map(_key)
+        .toSet()
+        .length < 4 && safety < 40) {
+      safety++;
+      for (int i = 0; i < finalList.length && finalList
+          .map(_key)
+          .toSet()
+          .length < 4; i++) {
+        final k = _key(finalList[i]);
+        // if this key collides with another, replace it
+        if (finalList
+            .map(_key)
+            .where((x) => x == k)
+            .length > 1) {
+          final replacement = _makeFallback(correct);
+          final rk = _key(replacement);
+          if (!finalList.map(_key).contains(rk)) finalList[i] = replacement;
+        }
+      }
+    }
+
+    return (opts: finalList, idx: pos);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

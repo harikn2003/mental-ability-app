@@ -466,6 +466,9 @@ class _QuizScreenState extends State<QuizScreen>
   bool get _isTimeLow =>
       _hasTimer && remainingSeconds >= 0 && remainingSeconds <= 10;
 
+  int get _attemptedCount =>
+      _attempts.where((a) => a.selectedIndex != null).length;
+
   // ═══════════════════════════════════════════════════════════════════════════
   // Build
   // ═══════════════════════════════════════════════════════════════════════════
@@ -675,7 +678,7 @@ class _QuizScreenState extends State<QuizScreen>
   }
 
   Widget _buildScorePill() {
-    final attempts = _attempts.length;
+    final attempted = _attemptedCount;
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 96),
       child: Container(
@@ -691,15 +694,7 @@ class _QuizScreenState extends State<QuizScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              '${AppLocale.s('score')} ',
-              style: TextStyle(
-                color: success,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              '$score / $attempts',
+              '$score/$attempted',
               style: TextStyle(
                 color: success,
                 fontSize: 16,
