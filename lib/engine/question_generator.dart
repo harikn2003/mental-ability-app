@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
+
 import 'reasoning_question.dart';
 
 /// QuestionGenerator
@@ -30,16 +32,11 @@ class QuestionGenerator {
   // ── Repeat prevention ─────────────────────────────────────────────────────
   static final Set<String> _history = {};
   static final Set<String> _questionHistory = {};
-  static int _totalGenerated = 0;
-
-  static String _sig(String cat, Map<String, dynamic> params) =>
-      '$cat:${params.entries.map((e) => '${e.key}=${e.value}').join(',')}';
 
   /// Call at the start of each new quiz session for fresh variety.
   static void resetSession() {
     _history.clear();
     _questionHistory.clear();
-    _totalGenerated = 0;
   }
 
   /// Seed the internal RNG (useful for deterministic tests).
@@ -51,7 +48,6 @@ class QuestionGenerator {
   static bool _seen(String sig) => _history.contains(sig);
   static void _markSeen(String sig) {
     _history.add(sig);
-    _totalGenerated++;
     // Safety valve: if history grows very large, trim oldest half
     if (_history.length > 800) {
       final toRemove = _history.take(400).toList();
@@ -128,8 +124,9 @@ class QuestionGenerator {
               .toSet()
               .length < 4) {
             final dupCounts = <String, int>{};
-            for (final k in keys)
+            for (final k in keys) {
               dupCounts[k] = (dupCounts[k] ?? 0) + 1;
+            }
             final dupKeys = dupCounts.entries.where((e) => e.value > 1).map((
                 e) => e.key).toList();
             final out = {
@@ -144,12 +141,13 @@ class QuestionGenerator {
               // lightweight entropy snapshot
             };
             // Print with a stable prefix so logs can be grepped easily.
-            print('DUPLICATE_DETECTED: ${JsonEncoder.withIndent('').convert(
-                out)}');
+            debugPrint(
+                'DUPLICATE_DETECTED: ${JsonEncoder.withIndent('').convert(
+                    out)}');
           }
         } catch (e, st) {
           // Don't let logging break generation in production; print minimal info.
-          print('DUPLICATE_LOG_ERROR: $e $st');
+          debugPrint('DUPLICATE_LOG_ERROR: $e $st');
         }
       }
       if (_markQuestionIfNew(q)) return q;
@@ -324,7 +322,7 @@ class QuestionGenerator {
     }
 
     // Helper to produce a type-appropriate fallback option
-    Map<String, dynamic> _makeFallback(Map<String, dynamic> sample) {
+    Map<String, dynamic> makeFallback(Map<String, dynamic> sample) {
       final bool isPunchHole = sample.containsKey('holes') ||
           sample['type'] == 'punch_hole';
       final bool isMirrorText =
@@ -383,7 +381,7 @@ class QuestionGenerator {
     int safety = 0;
     while (deduped.length < 3 && safety < 80) {
       safety++;
-      final fallback = _makeFallback(correct);
+      final fallback = makeFallback(correct);
       final fk = _key(fallback);
       if (!seen.contains(fk)) {
         seen.add(fk);
@@ -418,7 +416,7 @@ class QuestionGenerator {
             .map(_key)
             .where((x) => x == k)
             .length > 1) {
-          final replacement = _makeFallback(correct);
+          final replacement = makeFallback(correct);
           final rk = _key(replacement);
           if (!finalList.map(_key).contains(rk)) finalList[i] = replacement;
         }
@@ -497,8 +495,8 @@ class QuestionGenerator {
               [7, 8], // arrow vs L-shape
             ];
             final pair = pairs[_r.nextInt(pairs.length)];
-            final base = pair[0] as int;
-            final odd = pair[1] as int;
+            final base = pair[0];
+            final odd = pair[1];
             final rot = _r.nextInt(4);
             final filled = _r.nextBool();
             sigKey = 'oddB:b$base,o$odd,r$rot,f$filled,cp$cp';
@@ -688,13 +686,13 @@ class QuestionGenerator {
     // different-looking questions across sessions.
 
     // Only asymmetric shapes — rotation is always visually meaningful
-    const _asymShapes = [2, 3, 7, 8]; // triangle, diamond, arrow, L-shape
+    const asymShapes = [2, 3, 7, 8]; // triangle, diamond, arrow, L-shape
 
     // For each shape, which other shape looks most similar (hardest distractor)
-    const _lookalike = {2: 3, 3: 2, 7: 8, 8: 7};
+    const lookalike = {2: 3, 3: 2, 7: 8, 8: 7};
 
     for (int attempt = 0; attempt < 30; attempt++) {
-      final s = _asymShapes[_r.nextInt(_asymShapes.length)];
+      final s = asymShapes[_r.nextInt(asymShapes.length)];
       final rot = _r.nextInt(4);
       final filled = _r.nextBool();
       final dots = _r.nextInt(3); // 0, 1, or 2
@@ -708,7 +706,7 @@ class QuestionGenerator {
       final dRot = _f(s, rot: (rot + rotStep) % 4, filled: filled, dots: dots);
       final dFill = _f(s, rot: rot, filled: !filled, dots: dots);
       final dShape = _f(
-        _lookalike[s] ?? ((s % 4) + 1),
+        lookalike[s] ?? ((s % 4) + 1),
         rot: rot,
         filled: filled,
         dots: dots,
@@ -783,7 +781,9 @@ class QuestionGenerator {
 
       final cells = <Map<String, dynamic>>[];
       for (int r = 0; r < 3; r++)
-        for (int c = 0; c < 3; c++) cells.add(cell(r, c));
+        for (int c = 0; c < 3; c++) {
+          cells.add(cell(r, c));
+        }
 
       final ans = cell(misRow, misCol);
       final ansShape = shapes[misRow];
@@ -843,7 +843,9 @@ class QuestionGenerator {
 
       final cells = <Map<String, dynamic>>[];
       for (int r = 0; r < 3; r++)
-        for (int c = 0; c < 3; c++) cells.add(cell(r, c));
+        for (int c = 0; c < 3; c++) {
+          cells.add(cell(r, c));
+        }
 
       final ans = cell(misRow, misCol);
       final ansRot = ans['rotation'] as int;
@@ -872,7 +874,9 @@ class QuestionGenerator {
     final shape = _rotateable[_r.nextInt(_rotateable.length)];
     final cells = <Map<String, dynamic>>[];
     for (int r = 0; r < 3; r++)
-      for (int c = 0; c < 3; c++) cells.add(_f(shape, rot: c % 4, dots: c));
+      for (int c = 0; c < 3; c++) {
+        cells.add(_f(shape, rot: c % 4, dots: c));
+      }
     final ans = _f(shape, rot: 2, dots: 2);
     final res = _pack(ans, [
       _f(shape, rot: 1, dots: 2),
@@ -925,7 +929,9 @@ class QuestionGenerator {
 
       final cells = <Map<String, dynamic>>[];
       for (int r = 0; r < 3; r++)
-        for (int c = 0; c < 3; c++) cells.add(cell(r, c));
+        for (int c = 0; c < 3; c++) {
+          cells.add(cell(r, c));
+        }
 
       final ans = cell(mRow, mCol);
       final ansOuter = outerShapes[mRow % outerShapes.length];
@@ -1021,13 +1027,7 @@ class QuestionGenerator {
   // 4a. SERIES — clockwise rotation
   // ═══════════════════════════════════════════════════════════════════════════
   // All asymmetric shapes — clearly different at each 90° rotation
-  static const _serRotShapes = [
-    2,
-    3,
-    7,
-    8,
-    5,
-  ]; // triangle, diamond, arrow, L, pentagon
+  // (Previously _serRotShapes was declared here but unused; removed.)
 
   static ReasoningQuestion _seriesRotation() {
     for (int attempt = 0; attempt < 30; attempt++) {
@@ -1139,7 +1139,6 @@ class QuestionGenerator {
 
       final d1 = (ansD + 1).clamp(0, 4);
       final d2 = (ansD - 1).clamp(0, 4);
-      final d3 = (ansD + step).clamp(0, 4); // continues wrong direction
 
       final r = _pack(ans, [
         _f(shape, dots: d1, filled: filled),
@@ -1546,7 +1545,7 @@ class QuestionGenerator {
   //   Rule 4: rotate +90°, flip fill, add inner shape
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion _analogy() {
-    const _allAsym = [2, 3, 7, 8]; // triangle, diamond, arrow, L-shape
+    const allAsym = [2, 3, 7, 8]; // triangle, diamond, arrow, L-shape
 
     for (int attempt = 0; attempt < 40; attempt++) {
       final rule = _jnvstHardMode
@@ -1554,10 +1553,10 @@ class QuestionGenerator {
           : _r.nextInt(8); // 0-7
 
       // Pick two distinct asymmetric shapes for A/B pair and C/D pair
-      final sh1 = _allAsym[_r.nextInt(_allAsym.length)];
+      final sh1 = allAsym[_r.nextInt(allAsym.length)];
       int sh2;
       do {
-        sh2 = _allAsym[_r.nextInt(_allAsym.length)];
+        sh2 = allAsym[_r.nextInt(allAsym.length)];
       } while (sh2 == sh1);
 
       final fillA = _r.nextBool();
@@ -2083,7 +2082,7 @@ class QuestionGenerator {
       '5923',
       '3867',
     ];
-    const digits = ['2', '3', '4', '5', '6', '7'];
+    // removed unused `digits` helper
 
     for (int attempt = 0; attempt < 20; attempt++) {
       final sub = _r.nextInt(
@@ -2132,7 +2131,8 @@ class QuestionGenerator {
         // Clock: same time in all options; only mirror orientation changes.
         final h = base['clock_hour'] as int;
         final m2 = base['clock_minute'] as int;
-        final mk = (int dh, int dm, bool mir) => {
+        mk(int dh, int dm, bool mir) =>
+            {
           ...base,
           'type': 'mirror_text',
           'clock_hour': ((h + dh - 1) % 12) + 1,
@@ -2358,7 +2358,7 @@ class QuestionGenerator {
         : (hy + 0.1).clamp(0.15, 0.85);
 
     // WRONG A: opposite axis / only vertical mirror for double fold
-    final wrongA_holes = foldType == 2
+    final wrongaHoles = foldType == 2
         ? [
             {'x': hx, 'y': hy},
             {'x': 1.0 - hx, 'y': hy},
@@ -2374,7 +2374,7 @@ class QuestionGenerator {
           ];
 
     // WRONG B: correct axis but different position
-    final wrongB_holes = foldType == 2
+    final wrongbHoles = foldType == 2
         ? [
             {'x': altHx, 'y': altHy},
             {'x': 1.0 - altHx, 'y': altHy},
@@ -2392,19 +2392,20 @@ class QuestionGenerator {
           ];
 
     // WRONG C: single hole only (forgot unfolding multiplies holes)
-    final wrongC_holes = [
+    final wrongcHoles = [
       {'x': hx, 'y': hy},
     ];
 
-    Map<String, dynamic> _opt(List<Map<String, dynamic>> holes) => {
+    Map<String, dynamic> opt(List<Map<String, dynamic>> holes) =>
+        {
       'type': 'punch_hole',
       'unfolded': true,
       'fold_axis': foldAxis,
       'holes': holes,
     };
 
-    final correct = _opt(correctHoles);
-    final wrongs = [_opt(wrongA_holes), _opt(wrongB_holes), _opt(wrongC_holes)];
+    final correct = opt(correctHoles);
+    final wrongs = [opt(wrongaHoles), opt(wrongbHoles), opt(wrongcHoles)];
 
     final r = _pack(correct, wrongs);
     _markSeen(sigKey);
@@ -2424,19 +2425,7 @@ class QuestionGenerator {
     );
   }
 
-  static List<Map<String, dynamic>> _unfold(Map<String, double> h, int axis) {
-    final x = h['x']!;
-    final y = h['y']!;
-    if (axis == 0)
-      return [
-        {'x': x, 'y': y},
-        {'x': 1.0 - x, 'y': y},
-      ];
-    return [
-      {'x': x, 'y': y},
-      {'x': x, 'y': 1.0 - y},
-    ];
-  }
+  // _unfold helper removed (unused) to silence analyzer warnings.
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 10. EMBEDDED FIGURE
@@ -2466,10 +2455,10 @@ class QuestionGenerator {
     // This makes the question genuinely require visual search, not just
     // "which option has 2 shapes and one of them looks like the target?"
 
-    const _embShapes = [1, 2, 3, 7, 8]; // square, triangle, diamond, arrow, L
+    const embShapes = [1, 2, 3, 7, 8]; // square, triangle, diamond, arrow, L
 
     for (int attempt = 0; attempt < 40; attempt++) {
-      final targetShape = _embShapes[_r.nextInt(_embShapes.length)];
+      final targetShape = embShapes[_r.nextInt(embShapes.length)];
       final targetFilled = _r.nextBool();
       final targetRot = _r.nextInt(4); // target can be rotated — harder
       final targetPos = _r.nextInt(3); // where in the triple the target sits
@@ -2489,7 +2478,7 @@ class QuestionGenerator {
           } else {
             int s;
             do {
-              s = _embShapes[_r.nextInt(_embShapes.length)];
+              s = embShapes[_r.nextInt(embShapes.length)];
             } while (used.contains(s));
             used.add(s);
             shapes.add(_f(s, filled: _r.nextBool(), rot: _r.nextInt(4)));
@@ -2518,7 +2507,7 @@ class QuestionGenerator {
           int s;
           int tries = 0;
           do {
-            s = _embShapes[_r.nextInt(_embShapes.length)];
+            s = embShapes[_r.nextInt(embShapes.length)];
             tries++;
           } while (used.contains(s) && tries < 10);
           if (used.contains(s)) {

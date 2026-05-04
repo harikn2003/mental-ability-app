@@ -131,8 +131,12 @@ void main(List<String> args) async {
         if (examples.length < 5) {
           final dupKeys = <String>[];
           final counts = <String, int>{};
-          for (var k in keys) counts[k] = (counts[k] ?? 0) + 1;
-          for (var e in counts.entries) if (e.value > 1) dupKeys.add(e.key);
+          for (var k in keys) {
+            counts[k] = (counts[k] ?? 0) + 1;
+          }
+          for (var e in counts.entries) {
+            if (e.value > 1) dupKeys.add(e.key);
+          }
           examples.add({
             'index': i,
             'type': q.type,

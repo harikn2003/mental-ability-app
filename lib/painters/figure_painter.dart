@@ -77,7 +77,7 @@ class FigurePainter extends CustomPainter {
 
       // Draw subtle shadow effect for depth perception
       final shadowPaint = Paint()
-        ..color = _ink.withOpacity(0.08)
+        ..color = _ink.withValues(alpha: 0.08)
         ..strokeWidth = 2.2
         ..style = PaintingStyle.stroke;
       _drawShape(canvas, inner - 1, innerR * 1.03, cx, cy, shadowPaint);
@@ -121,7 +121,7 @@ class FigurePainter extends CustomPainter {
 
     // Draw dot outline first (subtle shadow for depth)
     final outlinePaint = Paint()
-      ..color = const Color(0xFF1E293B).withOpacity(0.15)
+      ..color = const Color(0xFF1E293B).withValues(alpha: 0.15)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
 

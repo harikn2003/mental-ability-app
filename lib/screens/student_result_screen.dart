@@ -204,8 +204,8 @@ class StudentResultScreen extends StatelessWidget {
     final mins = _avgSecs ~/ 60;
     final secs = _avgSecs % 60;
     final timeStr = mins > 0
-        ? '${mins}${AppLocale.s('minute_short')} ${secs.toString().padLeft(2, '0')}${AppLocale.s('second_short')}'
-        : '${secs}${AppLocale.s('second_short')}';
+        ? '$mins${AppLocale.s('minute_short')} ${secs.toString().padLeft(2, '0')}${AppLocale.s('second_short')}'
+        : '$secs${AppLocale.s('second_short')}';
 
     return Row(
       children: [
