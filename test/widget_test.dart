@@ -35,7 +35,7 @@ void main() {
     expect(find.text('नवीन सत्र'), findsOneWidget);
 
     // Tap again to reach Hindi
-    await tester.tap(find.text('मर'));
+    await tester.tap(find.text('म'));
     await tester.pump();
 
     expect(find.text('नया सत्र'), findsOneWidget);
