@@ -582,7 +582,7 @@ class AppLocale {
   }
 
   static String langLabel(String lang) {
-    const labels = {'EN': 'EN', 'MR': 'मर', 'HI': 'हि'};
+    const labels = {'EN': 'EN', 'MR': 'म', 'HI': 'हि'};
     return labels[lang] ?? lang;
   }
 

@@ -16,7 +16,19 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0-beta.3+3
+# 
+# Versioning Convention:
+#   Format: major.minor.patch-beta.N+buildNumber
+#   Example: 1.0.0-beta.0+0
+#   Build Codename: Fruit names (rotates per build for field identification)
+#   Current: v1.0.0-beta.0 (Banana) · Build #0
+# 
+# To release next beta build:
+#   1. Update buildNumber and preRelease in lib/config/version.dart
+#   2. Bump version here (e.g., 1.0.0-beta.1+1)
+#   3. Tag as: v1.0.0-beta.1
+#   4. Codename will auto-rotate: Banana -> Blackberry -> Blueberry -> etc
+version: 1.0.0-beta.0+0
 
 environment:
   sdk: ^3.8.1

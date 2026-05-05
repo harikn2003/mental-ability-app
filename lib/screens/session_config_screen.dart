@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mental_ability_app/config/localization.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../widgets/version_badge.dart';
 import 'quiz_screen.dart';
 import 'session_history_screen.dart';
 
@@ -119,6 +120,29 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
         for (final cat in _defaultCategories) cat: 1,
       });
     }
+  }
+
+  void _showVersionInfo() {
+    showDialog(
+      context: context,
+      builder: (_) =>
+          AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.info_outline_rounded, color: Color(0xFF195DE6)),
+                SizedBox(width: 8),
+                Text('Build Information'),
+              ],
+            ),
+            content: const VersionBadge(size: 'large'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+    );
   }
 
   @override
@@ -317,6 +341,14 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
             ],
           ),
           const SizedBox(height: 20),
+
+          // Version display badge
+          VersionBadge(
+            size: 'normal',
+            showDetails: false,
+            onTap: _showVersionInfo,
+          ),
+          const SizedBox(height: 16),
 
           // Setting 1: Total Questions — slider from 10 to 50, step 10
           Column(

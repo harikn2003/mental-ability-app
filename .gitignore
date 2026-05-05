@@ -43,3 +43,16 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/.gitingestignore
+/.graphify_analysis.json
+/.graphify_ast.json
+/.graphify_detect.json
+/.graphify_extract.json
+/.graphify_semantic.json
+/CLAUDE.md
+/digest.txt
+/graphify-out/
+/tool/dup_report_5k.json
+/tool/dup_report_500.json
+/tool/dup_report_no_odd_50.json
+/tool/dup_report_no_odd_500.json
