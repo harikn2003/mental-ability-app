@@ -300,25 +300,62 @@ void main() {
     }
   });
 
-  test('mirror text options are unique', () {
+  test('mirror text options are unique numeric mirrors and letters', () {
     for (int i = 0; i < 80; i++) {
       final q = QuestionGenerator.generate('mirror_text');
       final puzzle = Map<String, dynamic>.from(q.puzzle);
+      final puzzleContent = puzzle['content'].toString();
       final keys = q.options
-          .map(
-            (o) => o['is_clock'] == true
-                ? 'clk|${o['clock_hour']}|${o['clock_minute']}|${o['mirror_h']}|${o['mirror_v']}'
-                : '${o['content']}|${o['mirror_h']}|${o['mirror_v']}',
-          )
+          .map((o) => '${o['content']}|${o['mirror_h']}|${o['mirror_v']}')
           .toSet();
       expect(keys.length, 4);
+
+      // All options have mirror_v=false
       for (final o in q.options) {
-        if (puzzle['is_clock'] == true) {
-          expect(o['clock_hour'], puzzle['clock_hour']);
-          expect(o['clock_minute'], puzzle['clock_minute']);
-        } else {
-          expect(o['content'], puzzle['content']);
+        expect(o['mirror_v'], isFalse);
+      }
+
+      final contents = q.options.map((o) => o['content'].toString()).toList();
+
+      if (q.type == 'mirror_text_num') {
+        // Numeric: four digits + mirrored permutations
+        for (final o in q.options) {
+          final c = o['content'].toString();
+          expect(RegExp(r'^\d+$').hasMatch(c), isTrue, reason: 'non-digit in numeric mirror question: $c');
+          expect(o['mirror_h'], isTrue);
         }
+
+        final mirrorStart = puzzleContent[puzzleContent.length - 1];
+        final mirrored = puzzleContent.split('').reversed.join();
+
+        // Exactly one option is the true mirrored content
+        final matches = q.options
+            .where((o) => o['content'] == mirrored && o['mirror_h'] == true && o['mirror_v'] == false)
+            .length;
+        expect(matches, 1, reason: 'should have exactly 1 correct mirrored answer');
+
+        // Three start with mirrored digit, one from original
+        final startCount = contents.where((c) => c.startsWith(mirrorStart)).length;
+        expect(startCount, 3, reason: 'should have 3 options starting with $mirrorStart');
+
+        // All are permutations of puzzle digits
+        final sortedPuzzle = (puzzleContent.split('')..sort()).join();
+        for (final c in contents) {
+          final sortedOpt = (c.split('')..sort()).join();
+          expect(sortedOpt, sortedPuzzle, reason: 'option $c is not a permutation of $puzzleContent');
+        }
+      } else if (q.type == 'mirror_text_letter') {
+        // Single letter: 4 different asymmetric letters
+        for (final o in q.options) {
+          final c = o['content'].toString();
+          expect(RegExp(r'^[BCDEFGJKLNPQRSYZ]$').hasMatch(c), isTrue);
+        }
+
+        final correct = q.options[q.correctIndex];
+        expect(correct['mirror_h'], isTrue);
+
+        final letterSet = contents.toSet();
+        expect(letterSet.length, 4, reason: 'all 4 letter options should be unique');
       }
     }
   });

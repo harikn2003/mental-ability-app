@@ -2017,223 +2017,175 @@ class QuestionGenerator {
   // 8. MIRROR TEXT
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion _mirrorText() {
-    // Single asymmetric letters (symmetric ones like A,H,I,M,O,T,U,V,W,X look same mirrored)
-    const letters = [
-      'B',
-      'C',
-      'D',
-      'E',
-      'F',
-      'G',
-      'J',
-      'K',
-      'L',
-      'N',
-      'P',
-      'Q',
-      'R',
-      'S',
-      'Y',
-      'Z',
+    const asymmetricLetters = [
+      'B', 'C', 'D', 'E', 'F', 'G', 'J', 'K', 'L', 'N', 'P', 'Q', 'R', 'S', 'Y', 'Z',
     ];
-    // Words and short strings from actual Navodaya exam papers
-    const words = [
-      'FAN',
-      'RUN',
-      'UNR',
-      'NKU',
-      'CLASS',
-      'KOON',
-      'VERBAL',
-      'STROKE',
-      'BUZZER',
-      'FORTIFY',
-      'VINAY',
-      'MALA',
-      'LITY',
-      'NIAL',
-      'GARH',
-      'VIR',
-      'STU',
-      'DIAN',
-      'HEN',
-      'FIX',
-      'KR',
-      'AB',
-      'NAME',
-      'RICE',
-      'BIRD',
-      'LEAF',
-      'FACE',
-      'GOLD',
-    ];
-    // Number strings that appear in Navodaya exams
-    const numbers = [
-      '634',
-      '2475',
-      '1869',
-      '3748',
-      '9261',
-      '5432',
-      '7813',
-      '4096',
-      '2634',
-      '1478',
-      '5923',
-      '3867',
-    ];
-    // removed unused `digits` helper
 
-    for (int attempt = 0; attempt < 20; attempt++) {
-      final sub = _r.nextInt(
-        4,
-      ); // 0=single letter, 1=word, 2=number string, 3=clock
-      late Map<String, dynamic> base;
-      late String sigKey;
-      switch (sub) {
-        case 0: // single asymmetric letter
-          final ch = letters[_r.nextInt(letters.length)];
-          sigKey = 'mirText:$ch';
-          base = {'content': ch, 'is_clock': false};
-          break;
-        case 1: // word / short string (most common in real exam)
-          final w = words[_r.nextInt(words.length)];
-          sigKey = 'mirText:$w';
-          base = {'content': w, 'is_clock': false};
-          break;
-        case 2: // number string
-          final n = numbers[_r.nextInt(numbers.length)];
-          sigKey = 'mirText:$n';
-          base = {'content': n, 'is_clock': false};
-          break;
-        default: // clock
-          final h = _r.nextInt(12) + 1;
-          final m2 = [0, 15, 30, 45][_r.nextInt(4)];
-          sigKey = 'mirText:${h}h${m2}m';
-          base = {'is_clock': true, 'clock_hour': h, 'clock_minute': m2};
+    String makeBaseNumber() {
+      while (true) {
+        final pool = '0123456789'.split('')..shuffle(_r);
+        final first = pool.firstWhere((d) => d != '0');
+        final picked = <String>[first];
+        for (final d in pool) {
+          if (d == first || picked.contains(d)) continue;
+          picked.add(d);
+          if (picked.length == 4) break;
+        }
+        if (picked.length == 4) return picked.join();
       }
+    }
+
+    for (int attempt = 0; attempt < 40; attempt++) {
+      final isLetter = _r.nextBool();
+      late String n, correctContent;
+      late List<String> wrongContents;
+      late String sigKey;
+
+      if (isLetter) {
+        n = asymmetricLetters[_r.nextInt(asymmetricLetters.length)];
+        correctContent = n;
+        wrongContents = [
+          asymmetricLetters[(asymmetricLetters.indexOf(n) + 1) % asymmetricLetters.length],
+          asymmetricLetters[(asymmetricLetters.indexOf(n) + 2) % asymmetricLetters.length],
+          asymmetricLetters[(asymmetricLetters.indexOf(n) + 3) % asymmetricLetters.length],
+        ];
+        final wSig = wrongContents..sort();
+        sigKey = 'mirTextLetter:$n|${wSig.join(',')}';
+      } else {
+        n = makeBaseNumber();
+        final chars = n.split('');
+        final mirrorStart = chars.last;
+        correctContent = chars.reversed.join();
+
+        String makeNumericJumble(Set<String> used, bool startWithMirror, bool avoidExactMirror) {
+          for (int i = 0; i < 24; i++) {
+            final local = List<String>.from(chars);
+            local.shuffle(_r);
+            if (startWithMirror) {
+              if (local.first != mirrorStart) continue;
+            } else if (local.first == mirrorStart) {
+              continue;
+            }
+            final cand = local.join();
+            if ((avoidExactMirror && cand == correctContent) || cand == n) continue;
+            if (used.add(cand)) return cand;
+          }
+          final tail = List<String>.from(chars.where((d) => d != mirrorStart));
+          tail.shuffle(_r);
+          final cand = startWithMirror ? '$mirrorStart${tail.join()}' : '${tail.join()}$mirrorStart';
+          if ((avoidExactMirror && cand == correctContent) || cand == n) {
+            return startWithMirror ? '$mirrorStart${tail.reversed.join()}' : '${tail.reversed.join()}$mirrorStart';
+          }
+          return cand;
+        }
+
+        final used = <String>{n};
+        final w1 = makeNumericJumble(used, true, true);
+        final w2 = makeNumericJumble(used, true, true);
+        final w3 = makeNumericJumble(used, false, false);
+        wrongContents = [w1, w2, w3];
+        final wSig = wrongContents..sort();
+        sigKey = 'mirTextNum:$n|${wSig.join(',')}';
+      }
+
       if (_seen(sigKey)) continue;
 
-      // Real Navodaya format: only LEFT-RIGHT mirror tested.
-      // 4 options: correct mirror + 3 wrong variants that look clearly different.
-      //
-      // For letters/words: wrong options use different rotation offsets so each
-      // option card looks distinct (not 4 nearly-identical copies).
-      // For clocks: wrong options are different times (hour/minute shifted).
-      //
-      // mirror_v removed — vertical flip is nearly invisible for most letters
-      // and doesn't appear in actual Navodaya papers.
+      final base = {'content': n, 'is_clock': false};
+      final correct = {
+        ...base,
+        'type': 'mirror_text',
+        'mirror_h': true,
+        'mirror_v': false,
+        'content': correctContent,
+      };
 
-      late List<Map<String, dynamic>> combos;
-      late int correctIdx;
+      final wrongOpts = wrongContents
+          .map(
+            (c) => {
+              ...base,
+              'type': 'mirror_text',
+              'content': c,
+              'mirror_h': isLetter ? _r.nextBool() : true,
+              'mirror_v': false,
+            },
+          )
+          .toList();
 
-      if (base['is_clock'] == true) {
-        // Clock: same time in all options; only mirror orientation changes.
-        final h = base['clock_hour'] as int;
-        final m2 = base['clock_minute'] as int;
-        mk(int dh, int dm, bool mir) =>
-            {
-          ...base,
-          'type': 'mirror_text',
-          'clock_hour': ((h + dh - 1) % 12) + 1,
-          'clock_minute': (m2 + dm) % 60,
-          'mirror_h': mir,
-          'mirror_v': false,
-        };
-        final correct = mk(0, 0, true); // correct mirror
-        final wrongs = [
-          mk(0, 0, false),
-          {...mk(0, 0, false), 'mirror_v': true},
-          {...mk(0, 0, true), 'mirror_v': true},
-        ];
-        wrongs.shuffle(_r);
-        final packed = _pack(correct, wrongs.take(3).toList());
-        combos = packed.opts;
-        correctIdx = packed.idx;
-      } else {
-        // Text/number: same content in all options; vary only mirror flags.
+      final packed = _pack(correct, wrongOpts);
 
-        final correct = {
-          ...base,
-          'type': 'mirror_text',
-          'mirror_h': true,
-          'mirror_v': false,
-        };
-        final wrongs = <Map<String, dynamic>>[
-          {
-            ...base,
-            'type': 'mirror_text',
-            'mirror_h': false,
-            'mirror_v': false,
-          },
-          {...base, 'type': 'mirror_text', 'mirror_h': false, 'mirror_v': true},
-          {...base, 'type': 'mirror_text', 'mirror_h': true, 'mirror_v': true},
-        ];
-        wrongs.shuffle(_r);
-        final packed = _pack(correct, wrongs.take(3).toList());
-        combos = packed.opts;
-        correctIdx = packed.idx;
+      final exact = packed.opts
+          .where(
+            (o) =>
+                o['content'] == correctContent &&
+                o['mirror_h'] == true &&
+                o['mirror_v'] == false,
+          )
+          .length;
+      if (exact != 1) continue;
+
+      if (!isLetter) {
+        final mirrorStart = n.split('').last;
+        final startCount = packed.opts.where((o) => o['content'].toString().startsWith(mirrorStart)).length;
+        if (startCount != 3) continue;
       }
 
       _markSeen(sigKey);
       return ReasoningQuestion(
         category: 'mirror_text',
-        type: 'mirror_text_$sub',
+        type: isLetter ? 'mirror_text_letter' : 'mirror_text_num',
         puzzle: {
           ...base,
           'type': 'mirror_text',
           'mirror_h': false,
           'mirror_v': false,
         },
-        options: combos,
-        correctIndex: correctIdx,
+        options: packed.opts,
+        correctIndex: packed.idx,
       );
     }
-    // Fallback
+
     final fb = [
       {
-        'content': 'B',
+        'content': '5742',
         'is_clock': false,
         'type': 'mirror_text',
         'mirror_h': true,
         'mirror_v': false,
       },
       {
-        'content': 'B',
-        'is_clock': false,
-        'type': 'mirror_text',
-        'mirror_h': false,
-        'mirror_v': false,
-      },
-      {
-        'content': 'B',
-        'is_clock': false,
-        'type': 'mirror_text',
-        'mirror_h': false,
-        'mirror_v': true,
-      },
-      {
-        'content': 'B',
+        'content': '5724',
         'is_clock': false,
         'type': 'mirror_text',
         'mirror_h': true,
-        'mirror_v': true,
+        'mirror_v': false,
+      },
+      {
+        'content': '5427',
+        'is_clock': false,
+        'type': 'mirror_text',
+        'mirror_h': true,
+        'mirror_v': false,
+      },
+      {
+        'content': '2457',
+        'is_clock': false,
+        'type': 'mirror_text',
+        'mirror_h': true,
+        'mirror_v': false,
       },
     ]..shuffle(_r);
     return ReasoningQuestion(
       category: 'mirror_text',
-      type: 'mirror_text_0',
+      type: 'mirror_text_num',
       puzzle: {
-        'content': 'B',
+        'content': '2475',
         'is_clock': false,
         'type': 'mirror_text',
         'mirror_h': false,
         'mirror_v': false,
       },
       options: fb,
-      correctIndex: fb.indexWhere(
-        (c) => c['content'] == 'B' && c['mirror_h'] == true,
-      ),
+      correctIndex: fb.indexWhere((c) => c['content'] == '5742'),
     );
   }
 
@@ -2352,29 +2304,20 @@ class QuestionGenerator {
           ..shuffle(_r);
     final altHx = altPositions.isNotEmpty
         ? (altPositions[0]['x'] as num).toDouble()
-        : (hx + 0.1).clamp(0.15, 0.45);
+        : (hx + 0.12).clamp(0.05, 0.45);
     final altHy = altPositions.isNotEmpty
         ? (altPositions[0]['y'] as num).toDouble()
-        : (hy + 0.1).clamp(0.15, 0.85);
+        : (hy + 0.12).clamp(0.05, 0.85);
+    final alt2Hx = altPositions.length > 1
+        ? (altPositions[1]['x'] as num).toDouble()
+        : (hx - 0.12).clamp(0.05, 0.45);
+    final alt2Hy = altPositions.length > 1
+        ? (altPositions[1]['y'] as num).toDouble()
+        : (hy - 0.12).clamp(0.05, 0.85);
 
-    // WRONG A: opposite axis / only vertical mirror for double fold
+    // WRONG A: same mirror-axis behavior but at a clearly different hole
+    // position (use altPositions[0]) so it doesn't look identical to correct.
     final wrongaHoles = foldType == 2
-        ? [
-            {'x': hx, 'y': hy},
-            {'x': 1.0 - hx, 'y': hy},
-          ] // only mirrored x (forgot y)
-        : foldType == 0
-        ? [
-            {'x': hx, 'y': hy},
-            {'x': hx, 'y': 1.0 - hy},
-          ]
-        : [
-            {'x': hx, 'y': hy},
-            {'x': 1.0 - hx, 'y': hy},
-          ];
-
-    // WRONG B: correct axis but different position
-    final wrongbHoles = foldType == 2
         ? [
             {'x': altHx, 'y': altHy},
             {'x': 1.0 - altHx, 'y': altHy},
@@ -2382,14 +2325,34 @@ class QuestionGenerator {
             {'x': 1.0 - altHx, 'y': 1.0 - altHy},
           ]
         : foldType == 0
+            ? [
+                {'x': altHx, 'y': altHy},
+                {'x': 1.0 - altHx, 'y': altHy},
+              ]
+            : [
+                {'x': altHx, 'y': altHy},
+                {'x': altHx, 'y': 1.0 - altHy},
+              ];
+
+    // WRONG B: correct axis but a different alternate position (altPositions[1])
+    // so both wrongA and wrongB are visually distinct from each other and from
+    // the correct answer.
+    final wrongbHoles = foldType == 2
         ? [
-            {'x': altHx, 'y': altHy},
-            {'x': 1.0 - altHx, 'y': altHy},
+            {'x': alt2Hx, 'y': alt2Hy},
+            {'x': 1.0 - alt2Hx, 'y': alt2Hy},
+            {'x': alt2Hx, 'y': 1.0 - alt2Hy},
+            {'x': 1.0 - alt2Hx, 'y': 1.0 - alt2Hy},
           ]
-        : [
-            {'x': altHx, 'y': altHy},
-            {'x': altHx, 'y': 1.0 - altHy},
-          ];
+        : foldType == 0
+            ? [
+                {'x': alt2Hx, 'y': alt2Hy},
+                {'x': 1.0 - alt2Hx, 'y': alt2Hy},
+              ]
+            : [
+                {'x': alt2Hx, 'y': alt2Hy},
+                {'x': alt2Hx, 'y': 1.0 - alt2Hy},
+              ];
 
     // WRONG C: single hole only (forgot unfolding multiplies holes)
     final wrongcHoles = [
