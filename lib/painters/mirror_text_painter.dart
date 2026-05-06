@@ -22,10 +22,17 @@ class MirrorTextPainter extends CustomPainter {
     final bool isClock = data['is_clock'] ?? false;
     final bool mirrorH = data['mirror_h'] ?? false;
     final bool mirrorV = data['mirror_v'] ?? false;
+    final String content = (data['content'] as String? ?? 'A').toUpperCase();
+    final bool isNumeric = RegExp(r'^\d+$').hasMatch(content);
 
     canvas.save();
     canvas.translate(size.width / 2, size.height / 2);
-    canvas.scale(mirrorH ? -1.0 : 1.0, mirrorV ? -1.0 : 1.0);
+
+    // For numeric content, never apply canvas mirroring (the number is already reversed by the generator)
+    // Only apply mirror transforms for letters/text that have visual mirror properties
+    if (!isNumeric) {
+      canvas.scale(mirrorH ? -1.0 : 1.0, mirrorV ? -1.0 : 1.0);
+    }
 
     if (isClock) {
       _drawClock(canvas, size);
