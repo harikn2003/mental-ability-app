@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -22,24 +23,42 @@ class MirrorTextPainter extends CustomPainter {
     final bool isClock = data['is_clock'] ?? false;
     final bool mirrorH = data['mirror_h'] ?? false;
     final bool mirrorV = data['mirror_v'] ?? false;
-    final String content = (data['content'] as String? ?? 'A').toUpperCase();
-    final bool isNumeric = RegExp(r'^\d+$').hasMatch(content);
 
+    // For text/numeric content with mirroring, render to picture first then transform
+    // This avoids distortion from direct canvas scaling on text
+    if (!isClock && (mirrorH || mirrorV)) {
+      _paintWithTransform(canvas, size, mirrorH, mirrorV);
+    } else {
+      canvas.save();
+      canvas.translate(size.width / 2, size.height / 2);
+      canvas.scale(mirrorH ? -1.0 : 1.0, mirrorV ? -1.0 : 1.0);
+
+      if (isClock) {
+        _drawClock(canvas, size);
+      } else {
+        _drawText(canvas, size);
+      }
+
+      canvas.restore();
+    }
+  }
+
+  void _paintWithTransform(Canvas canvas, Size size, bool mirrorH, bool mirrorV) {
+    // Render to picture first to avoid text distortion
+    final recorder = PictureRecorder();
+    final pictureCanvas = Canvas(recorder);
+
+    pictureCanvas.translate(size.width / 2, size.height / 2);
+    _drawText(pictureCanvas, size);
+
+    final picture = recorder.endRecording();
+
+    // Now apply transform to the rendered picture
     canvas.save();
     canvas.translate(size.width / 2, size.height / 2);
-
-    // For numeric content, never apply canvas mirroring (the number is already reversed by the generator)
-    // Only apply mirror transforms for letters/text that have visual mirror properties
-    if (!isNumeric) {
-      canvas.scale(mirrorH ? -1.0 : 1.0, mirrorV ? -1.0 : 1.0);
-    }
-
-    if (isClock) {
-      _drawClock(canvas, size);
-    } else {
-      _drawText(canvas, size);
-    }
-
+    canvas.scale(mirrorH ? -1.0 : 1.0, mirrorV ? -1.0 : 1.0);
+    canvas.translate(-size.width / 2, -size.height / 2);
+    canvas.drawPicture(picture);
     canvas.restore();
   }
 
