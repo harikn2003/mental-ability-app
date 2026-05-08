@@ -23,6 +23,7 @@ class MirrorTextPainter extends CustomPainter {
     final bool isClock = data['is_clock'] ?? false;
     final bool mirrorH = data['mirror_h'] ?? false;
     final bool mirrorV = data['mirror_v'] ?? false;
+    final String content = (data['content'] as String? ?? 'A').toUpperCase();
 
     // For text/numeric content with mirroring, render to picture first then transform
     // This avoids distortion from direct canvas scaling on text
@@ -44,7 +45,11 @@ class MirrorTextPainter extends CustomPainter {
   }
 
   void _paintWithTransform(Canvas canvas, Size size, bool mirrorH, bool mirrorV) {
-    // Render to picture first to avoid text distortion
+    // True glyph mirroring for all text content (digits, letters, words):
+    // Render the text to an offscreen picture first, then flip the canvas.
+    // This gives an authentic mirror effect — each glyph is individually
+    // flipped AND the visual order reverses, so e.g. "9" looks like "6",
+    // "2" looks backwards, exactly as seen in a real physical mirror.
     final recorder = PictureRecorder();
     final pictureCanvas = Canvas(recorder);
 
@@ -53,7 +58,6 @@ class MirrorTextPainter extends CustomPainter {
 
     final picture = recorder.endRecording();
 
-    // Now apply transform to the rendered picture
     canvas.save();
     canvas.translate(size.width / 2, size.height / 2);
     canvas.scale(mirrorH ? -1.0 : 1.0, mirrorV ? -1.0 : 1.0);

@@ -3,6 +3,13 @@ import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mental_ability_app/engine/question_generator.dart';
 
+/// Reverses a string — same logic as generator's reverseOf helper.
+String reverseOf(String s) =>
+    s
+        .split('')
+        .reversed
+        .join();
+
 String _canonical(dynamic value) {
   if (value is Map) {
     final entries = value.entries.toList()
@@ -300,62 +307,140 @@ void main() {
     }
   });
 
-  test('mirror text options are unique numeric mirrors and letters', () {
+  test('mirror text options follow requested mirror-jumble logic', () {
     for (int i = 0; i < 80; i++) {
       final q = QuestionGenerator.generate('mirror_text');
       final puzzle = Map<String, dynamic>.from(q.puzzle);
-      final puzzleContent = puzzle['content'].toString();
       final keys = q.options
-          .map((o) => '${o['content']}|${o['mirror_h']}|${o['mirror_v']}')
+          .map((
+          o) => '${o['content']}|${o['is_clock']}|${o['clock_hour']}|${o['clock_minute']}|${o['mirror_h']}|${o['mirror_v']}')
           .toSet();
       expect(keys.length, 4);
 
-      // All options have mirror_v=false
       for (final o in q.options) {
         expect(o['mirror_v'], isFalse);
       }
 
-      final contents = q.options.map((o) => o['content'].toString()).toList();
-
-      if (q.type == 'mirror_text_num') {
-        // Numeric: four digits + mirrored permutations
-        for (final o in q.options) {
-          final c = o['content'].toString();
-          expect(RegExp(r'^\d+$').hasMatch(c), isTrue, reason: 'non-digit in numeric mirror question: $c');
-          expect(o['mirror_h'], isTrue);
+      if (q.type == 'mirror_text_word') {
+        final puzzleContent = puzzle['content'].toString();
+        expect(RegExp(r'^[A-Z]{3,4}$').hasMatch(puzzleContent), isTrue);
+        final len = puzzleContent.length;
+        final contents = q.options.map((o) => o['content'].toString()).toList();
+        for (final c in contents) {
+          expect(RegExp(r'^[A-Z]{3,4}$').hasMatch(c), isTrue);
+          expect(c.length, len);
         }
 
-        final mirrorStart = puzzleContent[puzzleContent.length - 1];
-        final mirrored = puzzleContent.split('').reversed.join();
+        // ALL options must be mirrored
+        for (final o in q.options) {
+          expect(o['mirror_h'], true, reason: 'all options must be mirrored');
+        }
 
-        // Exactly one option is the true mirrored content
-        final matches = q.options
-            .where((o) => o['content'] == mirrored && o['mirror_h'] == true && o['mirror_v'] == false)
+        // Exactly 1 correct mirrored answer
+        final correctOpt = q.options[q.correctIndex];
+        expect(correctOpt['mirror_h'], true,
+            reason: 'correct answer must be mirrored');
+
+        // Correct content = the puzzle word itself.
+        // Painter flips canvas → shows mirror image of the word (visually different from question).
+        final lastLetter = puzzleContent[puzzleContent.length - 1];
+        expect(correctOpt['content'].toString(), puzzleContent,
+            reason: 'correct option content must equal the puzzle word');
+        expect(correctOpt['content'].toString().endsWith(lastLetter), true,
+            reason: 'correct answer must END with last letter ($lastLetter)');
+
+        // Exactly 3 options END with last letter (correct + 2 similar wrongs).
+        // Their mirrors all visually START with the same glyph-flipped letter.
+        final endCountMirrored = q.options
+            .where((o) =>
+        o['content'].toString().endsWith(lastLetter) && o['mirror_h'] == true)
             .length;
-        expect(matches, 1, reason: 'should have exactly 1 correct mirrored answer');
+        expect(endCountMirrored, 3,
+            reason: 'should have exactly 3 mirrored options ending with last letter ($lastLetter)');
 
-        // Three start with mirrored digit, one from original
-        final startCount = contents.where((c) => c.startsWith(mirrorStart)).length;
-        expect(startCount, 3, reason: 'should have 3 options starting with $mirrorStart');
-
-        // All are permutations of puzzle digits
+        // All options are permutations of same letters
         final sortedPuzzle = (puzzleContent.split('')..sort()).join();
         for (final c in contents) {
           final sortedOpt = (c.split('')..sort()).join();
-          expect(sortedOpt, sortedPuzzle, reason: 'option $c is not a permutation of $puzzleContent');
+          expect(sortedOpt, sortedPuzzle);
         }
-      } else if (q.type == 'mirror_text_letter') {
-        // Single letter: 4 different asymmetric letters
+      } else if (q.type == 'mirror_text_num') {
+        final puzzleContent = puzzle['content'].toString();
+        expect(RegExp(r'^\d{4}$').hasMatch(puzzleContent), isTrue);
+
+        final contents = q.options.map((o) => o['content'].toString()).toList();
+        for (final c in contents) {
+          expect(RegExp(r'^\d{4}$').hasMatch(c), isTrue);
+        }
+
+        // ALL options must be mirrored
         for (final o in q.options) {
-          final c = o['content'].toString();
-          expect(RegExp(r'^[BCDEFGJKLNPQRSYZ]$').hasMatch(c), isTrue);
+          expect(o['mirror_h'], true, reason: 'all options must be mirrored');
         }
 
-        final correct = q.options[q.correctIndex];
-        expect(correct['mirror_h'], isTrue);
+        // Exactly 1 correct mirrored answer
+        final correctOpt = q.options[q.correctIndex];
+        expect(correctOpt['mirror_h'], true,
+            reason: 'correct answer must be mirrored');
 
-        final letterSet = contents.toSet();
-        expect(letterSet.length, 4, reason: 'all 4 letter options should be unique');
+        // Correct content = the puzzle number itself.
+        // Painter reverses it → shows reverse(n) = true mirror (visually different from question).
+        final lastDigit = puzzleContent
+            .split('')
+            .last;
+        expect(correctOpt['content'].toString(), puzzleContent,
+            reason: 'correct option content must equal the puzzle number');
+        expect(correctOpt['content'].toString().endsWith(lastDigit), true,
+            reason: 'correct answer must END with last digit ($lastDigit)');
+
+        // Exactly 3 options END with last digit (correct + 2 similar wrongs).
+        // Their mirrors all visually START with lastDigit — look similar to the student.
+        final endWithLastAndMirrored = q.options
+            .where((o) =>
+        o['content'].toString().endsWith(lastDigit) && o['mirror_h'] == true)
+            .length;
+        expect(endWithLastAndMirrored, 3,
+            reason: 'should have exactly 3 mirrored options ending with last digit ($lastDigit)');
+
+        // All options are permutations of same digits
+        final sortedPuzzle = (puzzleContent.split('')
+          ..sort()).join();
+        for (final c in contents) {
+          final sortedOpt = (c.split('')
+            ..sort()).join();
+          expect(sortedOpt, sortedPuzzle);
+        }
+      } else if (q.type == 'mirror_text_clock') {
+        // All clock options should be mirrored
+        for (final o in q.options) {
+          expect(o['mirror_h'], isTrue);
+        }
+
+        expect(puzzle['is_clock'], isTrue);
+        final ph = puzzle['clock_hour'] as int;
+        final pm = puzzle['clock_minute'] as int;
+        expect(ph, inInclusiveRange(1, 12));
+        expect(pm % 5, 0);
+
+        for (final o in q.options) {
+          expect(o['is_clock'], isTrue);
+          expect(o['clock_hour'], inInclusiveRange(1, 12));
+          expect((o['clock_minute'] as int) % 5, 0);
+        }
+
+        final matches = q.options
+            .where(
+              (o) =>
+          o['is_clock'] == true &&
+              o['clock_hour'] == ph &&
+              o['clock_minute'] == pm &&
+              o['mirror_h'] == true,
+        )
+            .length;
+        expect(matches, 1,
+            reason: 'should have exactly 1 correct mirrored clock answer');
+      } else {
+        fail('unexpected mirror_text type: ${q.type}');
       }
     }
   });

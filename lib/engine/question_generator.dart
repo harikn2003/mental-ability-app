@@ -354,8 +354,10 @@ class QuestionGenerator {
           'is_clock': sample['is_clock'] ?? false,
           'clock_hour': sample['clock_hour'],
           'clock_minute': sample['clock_minute'],
-          'mirror_h': _r.nextBool(),
-          'mirror_v': _r.nextBool(),
+          // Keep mirror-text fallbacks in the same visual mode as generated
+          // options to avoid introducing inverted-only distractors.
+          'mirror_h': true,
+          'mirror_v': false,
         };
       }
       if (isGeoPiece) {
@@ -393,8 +395,8 @@ class QuestionGenerator {
     if (deduped.length > 3) deduped.removeRange(3, deduped.length);
 
     // Insert correct at a random position among the 4 slots
-    final pos = _r.nextInt(4);
     final finalList = List<Map<String, dynamic>>.from(deduped);
+    final pos = _r.nextInt(finalList.length + 1);
     finalList.insert(pos, Map<String, dynamic>.from(correct));
 
     // As a last-ditch safeguard ensure all 4 options are visually distinct;
@@ -2017,17 +2019,475 @@ class QuestionGenerator {
   // 8. MIRROR TEXT
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion _mirrorText() {
-    const asymmetricLetters = [
-      'B', 'C', 'D', 'E', 'F', 'G', 'J', 'K', 'L', 'N', 'P', 'Q', 'R', 'S', 'Y', 'Z',
+    const words3 = [
+      'ANT', 'ARM', 'BAG', 'BAT', 'BED', 'BEE', 'BOW', 'BOX', 'BUS', 'CAP',
+      'CAR', 'CAT', 'CUP', 'DOG', 'DRY', 'EAR', 'EGG', 'EYE', 'FAN', 'FIG',
+      'FOX', 'GAS', 'GEM', 'GOD', 'GUN', 'HAT', 'HEN', 'ICE', 'INK', 'JAM',
+      'JAR', 'JET', 'KEY', 'KID', 'LAP', 'LEG', 'LID', 'LIP', 'LOG', 'MAP',
+      'MAT', 'MUG', 'NET', 'NOD', 'NUT', 'OAR', 'OWL', 'PAD', 'PAN', 'PEN',
+      'PET', 'PIN', 'POT', 'RAT', 'RED', 'RUG', 'RUN', 'SAP', 'SAT', 'SEA',
+      'SKY', 'SUN', 'TAB', 'TAG', 'TAP', 'TEN', 'TOP', 'TOY', 'VAN', 'WEB',
+      'WET', 'WIN', 'YAK', 'YAM', 'ZIP',
     ];
 
+    const words4 = [
+      'ABLE',
+      'ACID',
+      'AGED',
+      'ALSO',
+      'AREA',
+      'ARMY',
+      'AWAY',
+      'AXIS',
+      'BABY',
+      'BACK',
+      'BALL',
+      'BAND',
+      'BANK',
+      'BASE',
+      'BATH',
+      'BEAR',
+      'BEAT',
+      'BELL',
+      'BELT',
+      'BEND',
+      'BEST',
+      'BIRD',
+      'BLOW',
+      'BLUE',
+      'BOAT',
+      'BODY',
+      'BOLT',
+      'BOMB',
+      'BOND',
+      'BOOK',
+      'BORN',
+      'BOSS',
+      'BOTH',
+      'BOWL',
+      'BULK',
+      'BURN',
+      'BUSH',
+      'BUSY',
+      'CAGE',
+      'CAKE',
+      'CALL',
+      'CALM',
+      'CAME',
+      'CAMP',
+      'CARD',
+      'CARE',
+      'CASE',
+      'CASH',
+      'CAST',
+      'CELL',
+      'CHAT',
+      'CHEF',
+      'CITY',
+      'CLAY',
+      'CLUB',
+      'COAL',
+      'COAT',
+      'CODE',
+      'COLD',
+      'COME',
+      'COOK',
+      'COOL',
+      'COPE',
+      'COPY',
+      'CORE',
+      'CORN',
+      'COST',
+      'CREW',
+      'CROP',
+      'DARK',
+      'DATA',
+      'DATE',
+      'DAWN',
+      'DEAL',
+      'DEAR',
+      'DEBT',
+      'DEEP',
+      'DESK',
+      'DIAL',
+      'DIET',
+      'DISH',
+      'DOOR',
+      'DOSE',
+      'DOWN',
+      'DRAW',
+      'DREW',
+      'DROP',
+      'DRUM',
+      'DUCK',
+      'DUST',
+      'EACH',
+      'EARN',
+      'EAST',
+      'EASY',
+      'EDGE',
+      'ELSE',
+      'EVEN',
+      'EVER',
+      'FACE',
+      'FACT',
+      'FAIL',
+      'FAIR',
+      'FALL',
+      'FARM',
+      'FAST',
+      'FATE',
+      'FEAR',
+      'FEED',
+      'FEEL',
+      'FEET',
+      'FELL',
+      'FELT',
+      'FILE',
+      'FILL',
+      'FILM',
+      'FIND',
+      'FINE',
+      'FIRE',
+      'FIRM',
+      'FISH',
+      'FLAG',
+      'FLAT',
+      'FLOW',
+      'FOOD',
+      'FOOT',
+      'FORD',
+      'FORM',
+      'FORT',
+      'FOUR',
+      'FREE',
+      'FROM',
+      'FUEL',
+      'FULL',
+      'FUND',
+      'GAIN',
+      'GAME',
+      'GATE',
+      'GEAR',
+      'GENE',
+      'GIFT',
+      'GIRL',
+      'GIVE',
+      'GLAD',
+      'GOAL',
+      'GOLD',
+      'GOLF',
+      'GONE',
+      'GOOD',
+      'GRAY',
+      'GROW',
+      'HAIR',
+      'HALF',
+      'HAND',
+      'HARD',
+      'HATE',
+      'HAVE',
+      'HEAD',
+      'HEAR',
+      'HEAT',
+      'HELD',
+      'HELP',
+      'HERE',
+      'HIGH',
+      'HILL',
+      'HOLD',
+      'HOLE',
+      'HOME',
+      'HOPE',
+      'HOUR',
+      'HUGE',
+      'HUNT',
+      'HURT',
+      'IDEA',
+      'INCH',
+      'INTO',
+      'IRON',
+      'ITEM',
+      'JACK',
+      'JOIN',
+      'JUMP',
+      'JURY',
+      'JUST',
+      'KEEP',
+      'KICK',
+      'KIND',
+      'KING',
+      'KNEE',
+      'KNOW',
+      'LACK',
+      'LADY',
+      'LAKE',
+      'LAND',
+      'LAST',
+      'LATE',
+      'LEAD',
+      'LEFT',
+      'LENS',
+      'LESS',
+      'LIFE',
+      'LIFT',
+      'LIKE',
+      'LINE',
+      'LINK',
+      'LIST',
+      'LIVE',
+      'LOAD',
+      'LOAN',
+      'LOCK',
+      'LONG',
+      'LOOK',
+      'LOST',
+      'LOVE',
+      'LUCK',
+      'MADE',
+      'MAIL',
+      'MAIN',
+      'MAKE',
+      'MALE',
+      'MANY',
+      'MARK',
+      'MASS',
+      'MATH',
+      'MEAL',
+      'MEAN',
+      'MEAT',
+      'MEET',
+      'MELT',
+      'MENU',
+      'MERE',
+      'MILD',
+      'MILK',
+      'MIND',
+      'MINE',
+      'MISS',
+      'MODE',
+      'MOON',
+      'MORE',
+      'MOST',
+      'MOVE',
+      'MUCH',
+      'MUST',
+      'NAME',
+      'NAVY',
+      'NEAR',
+      'NEAT',
+      'NECK',
+      'NEED',
+      'NEWS',
+      'NEXT',
+      'NICE',
+      'NINE',
+      'NOTE',
+      'ONCE',
+      'ONLY',
+      'OPEN',
+      'OVER',
+      'PACE',
+      'PACK',
+      'PAGE',
+      'PAIN',
+      'PAIR',
+      'PARK',
+      'PART',
+      'PASS',
+      'PAST',
+      'PATH',
+      'PEAK',
+      'PICK',
+      'PINK',
+      'PLAN',
+      'PLAY',
+      'PLOT',
+      'PLUS',
+      'POEM',
+      'POLE',
+      'POND',
+      'POOL',
+      'POOR',
+      'PORT',
+      'POST',
+      'PULL',
+      'PURE',
+      'PUSH',
+      'RACE',
+      'RAIN',
+      'RANK',
+      'RATE',
+      'READ',
+      'REAL',
+      'REAR',
+      'RELY',
+      'RENT',
+      'REST',
+      'RICE',
+      'RICH',
+      'RIDE',
+      'RING',
+      'RISE',
+      'RISK',
+      'ROAD',
+      'ROCK',
+      'ROLE',
+      'ROLL',
+      'ROOF',
+      'ROOM',
+      'ROOT',
+      'ROSE',
+      'RULE',
+      'SAFE',
+      'SAID',
+      'SAIL',
+      'SALT',
+      'SAME',
+      'SAND',
+      'SAVE',
+      'SEAT',
+      'SEED',
+      'SEEK',
+      'SEEM',
+      'SEEN',
+      'SELF',
+      'SELL',
+      'SEND',
+      'SHIP',
+      'SHOP',
+      'SHOT',
+      'SHOW',
+      'SHUT',
+      'SIDE',
+      'SIGN',
+      'SILK',
+      'SING',
+      'SINK',
+      'SIZE',
+      'SKIN',
+      'SLIP',
+      'SLOW',
+      'SNOW',
+      'SOFT',
+      'SOIL',
+      'SOLD',
+      'SOLE',
+      'SOME',
+      'SONG',
+      'SOON',
+      'SORT',
+      'SOUL',
+      'SPOT',
+      'STAR',
+      'STAY',
+      'STEP',
+      'STOP',
+      'SUCH',
+      'SUIT',
+      'SURE',
+      'TAKE',
+      'TALE',
+      'TALK',
+      'TANK',
+      'TASK',
+      'TEAM',
+      'TECH',
+      'TELL',
+      'TEND',
+      'TERM',
+      'TEST',
+      'TEXT',
+      'THAN',
+      'THAT',
+      'THEM',
+      'THEN',
+      'THIN',
+      'THIS',
+      'TIME',
+      'TINY',
+      'TOLD',
+      'TONE',
+      'TOOK',
+      'TOOL',
+      'TOUR',
+      'TOWN',
+      'TREE',
+      'TRIP',
+      'TRUE',
+      'TUNE',
+      'TURN',
+      'TYPE',
+      'UNIT',
+      'UPON',
+      'USED',
+      'USER',
+      'VARY',
+      'VAST',
+      'VERY',
+      'VIEW',
+      'VOTE',
+      'WAGE',
+      'WAIT',
+      'WAKE',
+      'WALK',
+      'WALL',
+      'WANT',
+      'WARM',
+      'WASH',
+      'WAVE',
+      'WAYS',
+      'WEAK',
+      'WEAR',
+      'WEEK',
+      'WELL',
+      'WENT',
+      'WERE',
+      'WEST',
+      'WHAT',
+      'WHEN',
+      'WHOM',
+      'WIDE',
+      'WIFE',
+      'WILD',
+      'WILL',
+      'WIND',
+      'WINE',
+      'WING',
+      'WIRE',
+      'WISE',
+      'WISH',
+      'WITH',
+      'WOOD',
+      'WORD',
+      'WORK',
+      'YARD',
+      'YEAR',
+      'YOUR',
+      'ZERO',
+      'ZONE',
+    ];
+
+    bool hasUniqueChars(String s) =>
+        s
+            .split('')
+            .toSet()
+            .length == s.length;
+
+    String reverseOf(String s) =>
+        s
+            .split('')
+            .reversed
+            .join();
+
     String makeBaseNumber() {
+      // Use all digits 0-9 for variety
       while (true) {
         final pool = '0123456789'.split('')..shuffle(_r);
         final first = pool.firstWhere((d) => d != '0');
         final picked = <String>[first];
         for (final d in pool) {
-          if (d == first || picked.contains(d)) continue;
+          if (picked.contains(d)) continue;
           picked.add(d);
           if (picked.length == 4) break;
         }
@@ -2035,107 +2495,372 @@ class QuestionGenerator {
       }
     }
 
-    for (int attempt = 0; attempt < 40; attempt++) {
-      final isLetter = _r.nextBool();
-      late String n, correctContent;
-      late List<String> wrongContents;
-      late String sigKey;
+    String makePermutation(String base,
+        Set<String> used, {
+          required bool startsWithLast,
+          required bool endsWithLast,
+          required String avoidA,
+          required String avoidB,
+        }) {
+      final chars = base.split('');
+      final last = chars.last;
 
-      if (isLetter) {
-        n = asymmetricLetters[_r.nextInt(asymmetricLetters.length)];
-        correctContent = n;
-        wrongContents = [
-          asymmetricLetters[(asymmetricLetters.indexOf(n) + 1) % asymmetricLetters.length],
-          asymmetricLetters[(asymmetricLetters.indexOf(n) + 2) % asymmetricLetters.length],
-          asymmetricLetters[(asymmetricLetters.indexOf(n) + 3) % asymmetricLetters.length],
-        ];
-        final wSig = wrongContents..sort();
-        sigKey = 'mirTextLetter:$n|${wSig.join(',')}';
-      } else {
-        n = makeBaseNumber();
-        final chars = n.split('');
-        final mirrorStart = chars.last;
-        correctContent = chars.reversed.join();
-
-        String makeNumericJumble(Set<String> used, bool startWithMirror, bool avoidExactMirror) {
-          for (int i = 0; i < 24; i++) {
-            final local = List<String>.from(chars);
-            local.shuffle(_r);
-            if (startWithMirror) {
-              if (local.first != mirrorStart) continue;
-            } else if (local.first == mirrorStart) {
-              continue;
-            }
-            final cand = local.join();
-            if ((avoidExactMirror && cand == correctContent) || cand == n) continue;
-            if (used.add(cand)) return cand;
-          }
-          final tail = List<String>.from(chars.where((d) => d != mirrorStart));
-          tail.shuffle(_r);
-          final cand = startWithMirror ? '$mirrorStart${tail.join()}' : '${tail.join()}$mirrorStart';
-          if ((avoidExactMirror && cand == correctContent) || cand == n) {
-            return startWithMirror ? '$mirrorStart${tail.reversed.join()}' : '${tail.reversed.join()}$mirrorStart';
-          }
-          return cand;
-        }
-
-        final used = <String>{n};
-        final w1 = makeNumericJumble(used, true, true);
-        final w2 = makeNumericJumble(used, true, true);
-        final w3 = makeNumericJumble(used, false, false);
-        wrongContents = [w1, w2, w3];
-        final wSig = wrongContents..sort();
-        sigKey = 'mirTextNum:$n|${wSig.join(',')}';
+      for (int i = 0; i < 48; i++) {
+        final local = List<String>.from(chars)
+          ..shuffle(_r);
+        final cand = local.join();
+        if (startsWithLast && !cand.startsWith(last)) continue;
+        if (!startsWithLast && cand.startsWith(last)) continue;
+        if (endsWithLast && !cand.endsWith(last)) continue;
+        if (!endsWithLast && cand.endsWith(last)) continue;
+        if (cand == avoidA || cand == avoidB) continue;
+        if (used.add(cand)) return cand;
       }
 
+      // deterministic fallback from all permutations if random attempts miss
+      final all = <String>{};
+      void permute(List<String> arr, int l) {
+        if (l == arr.length) {
+          all.add(arr.join());
+          return;
+        }
+        for (int i = l; i < arr.length; i++) {
+          final tmp = arr[l];
+          arr[l] = arr[i];
+          arr[i] = tmp;
+          permute(arr, l + 1);
+          final tmp2 = arr[l];
+          arr[l] = arr[i];
+          arr[i] = tmp2;
+        }
+      }
+
+      permute(List<String>.from(chars), 0);
+      final filtered = all.where((cand) {
+        if (startsWithLast && !cand.startsWith(last)) return false;
+        if (!startsWithLast && cand.startsWith(last)) return false;
+        if (endsWithLast && !cand.endsWith(last)) return false;
+        if (!endsWithLast && cand.endsWith(last)) return false;
+        if (cand == avoidA || cand == avoidB) return false;
+        if (used.contains(cand)) return false;
+        return true;
+      }).toList()
+        ..sort();
+      if (filtered.isNotEmpty) {
+        final pick = filtered.first;
+        used.add(pick);
+        return pick;
+      }
+
+      // final safe fallback (should be very rare with unique chars)
+      final fallback = startsWithLast ? reverseOf(base) : base;
+      used.add(fallback);
+      return fallback;
+    }
+
+    List<Map<String, dynamic>> makeClockDistractors(int h, int m) {
+      final minuteChoices = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+      final wrongs = <Map<String, dynamic>>[];
+      final used = <String>{'$h:$m'};
+
+      while (wrongs.length < 3) {
+        final nh = ((_r.nextInt(12) + 1));
+        final nm = minuteChoices[_r.nextInt(minuteChoices.length)];
+        final sig = '$nh:$nm';
+        if (used.add(sig)) {
+          wrongs.add({
+            'type': 'mirror_text',
+            'is_clock': true,
+            'clock_hour': nh,
+            'clock_minute': nm,
+            'mirror_h': true,
+            'mirror_v': false,
+          });
+        }
+      }
+      return wrongs;
+    }
+
+    for (int attempt = 0; attempt < 40; attempt++) {
+      // Keep all three families: numbers + words + clock.
+      final roll = _r.nextInt(100);
+      final isClock = roll < 25;
+      final isNumber = roll >= 25 && roll < 60;
+      late String sigKey;
+
+      if (isClock) {
+        final h = _r.nextInt(12) + 1;
+        final minuteChoices = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+        final m = minuteChoices[_r.nextInt(minuteChoices.length)];
+
+        final wrongClockSigs = makeClockDistractors(h, m)
+            .map((e) => '${e['clock_hour']}:${e['clock_minute']}')
+            .toList()
+          ..sort();
+        sigKey = 'mirTextClock:$h:$m|${wrongClockSigs.join(',')}';
+        if (_seen(sigKey)) continue;
+
+        final correct = {
+          'type': 'mirror_text',
+          'is_clock': true,
+          'clock_hour': h,
+          'clock_minute': m,
+          'mirror_h': true,
+          'mirror_v': false,
+        };
+        final wrongOpts = makeClockDistractors(h, m);
+        final packed = _pack(correct, wrongOpts);
+
+        final exact = packed.opts
+            .where(
+              (o) =>
+          o['is_clock'] == true &&
+              o['clock_hour'] == h &&
+              o['clock_minute'] == m &&
+              o['mirror_h'] == true &&
+              o['mirror_v'] == false,
+        )
+            .length;
+        if (exact != 1) continue;
+
+        _markSeen(sigKey);
+        return ReasoningQuestion(
+          category: 'mirror_text',
+          type: 'mirror_text_clock',
+          puzzle: {
+            'type': 'mirror_text',
+            'is_clock': true,
+            'clock_hour': h,
+            'clock_minute': m,
+            'mirror_h': false,
+            'mirror_v': false,
+          },
+          options: packed.opts,
+          correctIndex: packed.idx,
+        );
+      }
+
+      if (isNumber) {
+        final n = makeBaseNumber();
+        final lastDigit = n
+            .split('')
+            .last;
+        final used = <String>{n};
+
+        // All options are mirrored by painter (which reverses the digit string):
+        // Correct = n itself with mirror_h:true → painter shows reverse(n) = true mirror.
+        // Question shows n normally; correct option shows reverse(n) — visually different! ✅
+        // • Correct + 2 wrongs END with lastDigit: their mirrors all START with lastDigit
+        //   (similar-looking, hard to distinguish).
+        // • 1 distractor does NOT end with lastDigit: its mirror doesn't start with
+        //   lastDigit — obviously wrong.
+        final actualCorrect = n; // content=n, mirror_h:true → painter shows reverse(n)
+
+        // w1, w2: different permutations also ending with lastDigit
+        // (startsWithLast:false, endsWithLast:true in makePermutation
+        // where 'last' = n.split('').last = lastDigit)
+        final w1 = makePermutation(
+          n,
+          used,
+          startsWithLast: false,
+          endsWithLast: true,
+          avoidA: n,
+          avoidB: '',
+        );
+        final w2 = makePermutation(
+          n,
+          used,
+          startsWithLast: false,
+          endsWithLast: true,
+          avoidA: n,
+          avoidB: w1,
+        );
+        // w3 distractor: starts with lastDigit but does NOT end with it
+        final w3 = makePermutation(
+          n,
+          used,
+          startsWithLast: true,
+          endsWithLast: false,
+          avoidA: n,
+          avoidB: '',
+        );
+
+        final wrongContents = [w1, w2, w3]..sort();
+        sigKey = 'mirTextNum:$actualCorrect|${wrongContents.join(',')}';
+        if (_seen(sigKey)) continue;
+
+        // All options are MIRRORED (correctOpt content = n = puzzle content)
+        final correctOpt = {
+          'type': 'mirror_text',
+          'is_clock': false,
+          'content': actualCorrect,
+          'mirror_h': true,
+          'mirror_v': false,
+        };
+        final wrongOpts = [
+          {
+            'type': 'mirror_text',
+            'is_clock': false,
+            'content': w1,
+            'mirror_h': true,
+            'mirror_v': false,
+          },
+          {
+            'type': 'mirror_text',
+            'is_clock': false,
+            'content': w2,
+            'mirror_h': true,
+            'mirror_v': false,
+          },
+          {
+            'type': 'mirror_text',
+            'is_clock': false,
+            'content': w3,
+            'mirror_h': true,
+            'mirror_v': false,
+          },
+        ];
+        final packed = _pack(correctOpt, wrongOpts);
+
+        final exact = packed.opts
+            .where(
+              (o) =>
+          o['content'] == actualCorrect &&
+              o['mirror_h'] == true &&
+              o['mirror_v'] == false,
+        )
+            .length;
+        if (exact != 1) continue;
+
+        // Verify exactly 3 options END with lastDigit (correct + 2 similar wrongs).
+        // Their mirrors all START with lastDigit — look similar to the student.
+        final endCount = packed.opts
+            .where((o) =>
+        o['content'].toString().endsWith(lastDigit) && o['mirror_h'] == true)
+            .length;
+        if (endCount != 3) continue;
+
+        _markSeen(sigKey);
+        return ReasoningQuestion(
+          category: 'mirror_text',
+          type: 'mirror_text_num',
+          puzzle: {
+            'type': 'mirror_text',
+            'is_clock': false,
+            'content': n,
+            'mirror_h': false,
+            'mirror_v': false,
+          },
+          options: packed.opts,
+          correctIndex: packed.idx,
+        );
+      }
+
+      final use4 = _r.nextBool();
+      final bank = (use4 ? words4 : words3).where(hasUniqueChars).toList();
+      final word = bank[_r.nextInt(bank.length)];
+      final lastLetter = word
+          .split('')
+          .last;
+      final used = <String>{word};
+
+      // All options are mirrored by painter (canvas horizontal flip):
+      // Correct = word itself with mirror_h:true → painter shows mirror of word.
+      // Question shows word normally; correct option shows its mirror — visually different! ✅
+      // • Correct + 2 wrongs END with lastLetter: their mirrors all START with lastLetter
+      //   (all look similar — start with the same glyph-flipped letter).
+      // • 1 distractor does NOT end with lastLetter: its mirror doesn't start with
+      //   lastLetter — obviously wrong.
+      final actualCorrect = word; // content = word, mirror_h:true → painter shows mirror(word)
+
+      // w1, w2: different permutations also ending with lastLetter
+      final w1 = makePermutation(
+        word,
+        used,
+        startsWithLast: false,
+        endsWithLast: true,
+        avoidA: word,
+        avoidB: '',
+      );
+      final w2 = makePermutation(
+        word,
+        used,
+        startsWithLast: false,
+        endsWithLast: true,
+        avoidA: word,
+        avoidB: w1,
+      );
+      // w3 distractor: starts with lastLetter but does NOT end with it
+      final w3 = makePermutation(
+        word,
+        used,
+        startsWithLast: true,
+        endsWithLast: false,
+        avoidA: word,
+        avoidB: '',
+      );
+
+      final wrongList = [w1, w2, w3]..sort();
+      sigKey = 'mirTextWord:$word|${wrongList.join(',')}';
       if (_seen(sigKey)) continue;
 
-      final base = {'content': n, 'is_clock': false};
-      final correct = {
-        ...base,
+      final correctOpt = {
         'type': 'mirror_text',
+        'is_clock': false,
+        'content': actualCorrect,
         'mirror_h': true,
         'mirror_v': false,
-        'content': correctContent,
       };
-
-      final wrongOpts = wrongContents
-          .map(
-            (c) => {
-              ...base,
-              'type': 'mirror_text',
-              'content': c,
-              'mirror_h': isLetter ? _r.nextBool() : true,
-              'mirror_v': false,
-            },
-          )
-          .toList();
-
-      final packed = _pack(correct, wrongOpts);
-
+      final wrongOpts = [
+        {
+          'type': 'mirror_text',
+          'is_clock': false,
+          'content': w1,
+          'mirror_h': true,
+          'mirror_v': false,
+        },
+        {
+          'type': 'mirror_text',
+          'is_clock': false,
+          'content': w2,
+          'mirror_h': true,
+          'mirror_v': false,
+        },
+        {
+          'type': 'mirror_text',
+          'is_clock': false,
+          'content': w3,
+          'mirror_h': true,
+          'mirror_v': false,
+        },
+      ];
+      final packed = _pack(correctOpt, wrongOpts);
       final exact = packed.opts
           .where(
             (o) =>
-                o['content'] == correctContent &&
+            o['content'] == actualCorrect &&
                 o['mirror_h'] == true &&
                 o['mirror_v'] == false,
           )
           .length;
       if (exact != 1) continue;
 
-      if (!isLetter) {
-        final mirrorStart = n.split('').last;
-        final startCount = packed.opts.where((o) => o['content'].toString().startsWith(mirrorStart)).length;
-        if (startCount != 3) continue;
-      }
+      // Verify exactly 3 options END with lastLetter (correct + 2 similar wrongs).
+      // Their mirrors all START with the same glyph-flipped letter — look similar.
+      final endCount = packed.opts
+          .where((o) =>
+      o['content'].toString().endsWith(lastLetter) && o['mirror_h'] == true)
+          .length;
+      if (endCount != 3) continue;
 
       _markSeen(sigKey);
       return ReasoningQuestion(
         category: 'mirror_text',
-        type: isLetter ? 'mirror_text_letter' : 'mirror_text_num',
+        type: 'mirror_text_word',
         puzzle: {
-          ...base,
           'type': 'mirror_text',
+          'is_clock': false,
+          'content': word,
           'mirror_h': false,
           'mirror_v': false,
         },
@@ -2144,30 +2869,35 @@ class QuestionGenerator {
       );
     }
 
+    // Fallback: puzzle=1478, lastDigit='8'.
+    // Correct = '1478' itself with mirror_h:true → painter shows reverse('1478')='8741'.
+    // Question shows '1478'; correct option shows '8741' — visually different! ✅
+    // Correct + 2 wrongs END with '8'; distractor starts with '8' but doesn't end with it.
     final fb = [
       {
-        'content': '5742',
+        'content': '1478', // ends with 8 → mirrored shows 8741 ✅ correct
         'is_clock': false,
         'type': 'mirror_text',
         'mirror_h': true,
         'mirror_v': false,
       },
       {
-        'content': '5724',
+        'content': '1748', // ends with 8 → mirrored shows 8471 (similar wrong)
         'is_clock': false,
         'type': 'mirror_text',
         'mirror_h': true,
         'mirror_v': false,
       },
       {
-        'content': '5427',
+        'content': '4178', // ends with 8 → mirrored shows 8714 (similar wrong)
         'is_clock': false,
         'type': 'mirror_text',
         'mirror_h': true,
         'mirror_v': false,
       },
       {
-        'content': '2457',
+        'content': '8147',
+        // starts with 8, ends with 7 → mirrored shows 7418 (distractor)
         'is_clock': false,
         'type': 'mirror_text',
         'mirror_h': true,
@@ -2178,14 +2908,14 @@ class QuestionGenerator {
       category: 'mirror_text',
       type: 'mirror_text_num',
       puzzle: {
-        'content': '2475',
+        'content': '1478',
         'is_clock': false,
         'type': 'mirror_text',
         'mirror_h': false,
         'mirror_v': false,
       },
       options: fb,
-      correctIndex: fb.indexWhere((c) => c['content'] == '5742'),
+      correctIndex: fb.indexWhere((c) => c['content'] == '1478'),
     );
   }
 
