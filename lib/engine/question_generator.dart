@@ -118,8 +118,9 @@ class QuestionGenerator {
       // searched for duplicate events.
       if (debugDuplicateLogging) {
         try {
-          final keys = q.options.map((o) =>
-              _visibleKey(Map<String, dynamic>.from(o))).toList();
+          final keys = q.options
+              .map((o) => _visibleKey(Map<String, dynamic>.from(o)))
+              .toList();
           if (keys
               .toSet()
               .length < 4) {
@@ -127,8 +128,10 @@ class QuestionGenerator {
             for (final k in keys) {
               dupCounts[k] = (dupCounts[k] ?? 0) + 1;
             }
-            final dupKeys = dupCounts.entries.where((e) => e.value > 1).map((
-                e) => e.key).toList();
+            final dupKeys = dupCounts.entries
+                .where((e) => e.value > 1)
+                .map((e) => e.key)
+                .toList();
             final out = {
               'event': 'duplicate_options_detected',
               'category': category,
@@ -142,8 +145,8 @@ class QuestionGenerator {
             };
             // Print with a stable prefix so logs can be grepped easily.
             debugPrint(
-                'DUPLICATE_DETECTED: ${JsonEncoder.withIndent('').convert(
-                    out)}');
+              'DUPLICATE_DETECTED: ${JsonEncoder.withIndent('').convert(out)}',
+            );
           }
         } catch (e, st) {
           // Don't let logging break generation in production; print minimal info.
@@ -244,6 +247,7 @@ class QuestionGenerator {
                 (h) =>
                     '(${(h["x"] as num).toStringAsFixed(2)},${(h["y"] as num).toStringAsFixed(2)})',
               )
+              .toSet()
               .toList()
             ..sort();
       return 'punch|ax:${m["fold_axis"]}|holes:${holes.join("-")}';
@@ -323,10 +327,11 @@ class QuestionGenerator {
 
     // Helper to produce a type-appropriate fallback option
     Map<String, dynamic> makeFallback(Map<String, dynamic> sample) {
-      final bool isPunchHole = sample.containsKey('holes') ||
-          sample['type'] == 'punch_hole';
+      final bool isPunchHole =
+          sample.containsKey('holes') || sample['type'] == 'punch_hole';
       final bool isMirrorText =
-          sample.containsKey('mirror_h') || sample.containsKey('is_clock') ||
+          sample.containsKey('mirror_h') ||
+              sample.containsKey('is_clock') ||
               sample['type'] == 'mirror_text';
       final bool isGeoPiece = sample['type'] == 'geo_piece';
 
@@ -339,18 +344,21 @@ class QuestionGenerator {
           'type': 'punch_hole',
           'unfolded': true,
           'fold_axis': ax,
-          'holes': List.generate(n, (i) =>
-          {
-            'x': (hx + i * 0.12).clamp(0.05, 0.95),
-            'y': (hy + i * 0.08).clamp(0.05, 0.95)
-          }),
+          'holes': List.generate(
+            n,
+                (i) =>
+            {
+              'x': (hx + i * 0.12).clamp(0.05, 0.95),
+              'y': (hy + i * 0.08).clamp(0.05, 0.95),
+            },
+          ),
         };
       }
       if (isMirrorText) {
         return {
           'type': 'mirror_text',
-          'content': sample['content'] ?? sample['clock_hour']?.toString() ??
-              'A',
+          'content':
+          sample['content'] ?? sample['clock_hour']?.toString() ?? 'A',
           'is_clock': sample['is_clock'] ?? false,
           'clock_hour': sample['clock_hour'],
           'clock_minute': sample['clock_minute'],
@@ -408,10 +416,14 @@ class QuestionGenerator {
         .toSet()
         .length < 4 && safety < 40) {
       safety++;
-      for (int i = 0; i < finalList.length && finalList
+      for (
+      int i = 0;
+      i < finalList.length && finalList
           .map(_key)
           .toSet()
-          .length < 4; i++) {
+          .length < 4;
+      i++
+      ) {
         final k = _key(finalList[i]);
         // if this key collides with another, replace it
         if (finalList
@@ -1364,12 +1376,7 @@ class QuestionGenerator {
   // Outer shape stays fixed. Inner shape cycles through 3 different shapes.
   // Tests whether student notices inner-shape changes (common in real exam).
   static ReasoningQuestion _seriesInner() {
-    const outers = [
-      3,
-      5,
-      7,
-      8,
-    ]; // clearer containers for the inner progression
+    const outers = [3, 5, 7, 8]; // clearer containers for the inner progression
     const innerSeqs = [
       [2, 7, 8, 3], // triangle -> arrow -> L -> diamond
       [7, 2, 5, 8], // arrow -> triangle -> pentagon -> L
@@ -2020,14 +2027,81 @@ class QuestionGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion _mirrorText() {
     const words3 = [
-      'ANT', 'ARM', 'BAG', 'BAT', 'BED', 'BEE', 'BOW', 'BOX', 'BUS', 'CAP',
-      'CAR', 'CAT', 'CUP', 'DOG', 'DRY', 'EAR', 'EGG', 'EYE', 'FAN', 'FIG',
-      'FOX', 'GAS', 'GEM', 'GOD', 'GUN', 'HAT', 'HEN', 'ICE', 'INK', 'JAM',
-      'JAR', 'JET', 'KEY', 'KID', 'LAP', 'LEG', 'LID', 'LIP', 'LOG', 'MAP',
-      'MAT', 'MUG', 'NET', 'NOD', 'NUT', 'OAR', 'OWL', 'PAD', 'PAN', 'PEN',
-      'PET', 'PIN', 'POT', 'RAT', 'RED', 'RUG', 'RUN', 'SAP', 'SAT', 'SEA',
-      'SKY', 'SUN', 'TAB', 'TAG', 'TAP', 'TEN', 'TOP', 'TOY', 'VAN', 'WEB',
-      'WET', 'WIN', 'YAK', 'YAM', 'ZIP',
+      'ANT',
+      'ARM',
+      'BAG',
+      'BAT',
+      'BED',
+      'BEE',
+      'BOW',
+      'BOX',
+      'BUS',
+      'CAP',
+      'CAR',
+      'CAT',
+      'CUP',
+      'DOG',
+      'DRY',
+      'EAR',
+      'EGG',
+      'EYE',
+      'FAN',
+      'FIG',
+      'FOX',
+      'GAS',
+      'GEM',
+      'GOD',
+      'GUN',
+      'HAT',
+      'HEN',
+      'ICE',
+      'INK',
+      'JAM',
+      'JAR',
+      'JET',
+      'KEY',
+      'KID',
+      'LAP',
+      'LEG',
+      'LID',
+      'LIP',
+      'LOG',
+      'MAP',
+      'MAT',
+      'MUG',
+      'NET',
+      'NOD',
+      'NUT',
+      'OAR',
+      'OWL',
+      'PAD',
+      'PAN',
+      'PEN',
+      'PET',
+      'PIN',
+      'POT',
+      'RAT',
+      'RED',
+      'RUG',
+      'RUN',
+      'SAP',
+      'SAT',
+      'SEA',
+      'SKY',
+      'SUN',
+      'TAB',
+      'TAG',
+      'TAP',
+      'TEN',
+      'TOP',
+      'TOY',
+      'VAN',
+      'WEB',
+      'WET',
+      'WIN',
+      'YAK',
+      'YAM',
+      'ZIP',
     ];
 
     const words4 = [
@@ -2593,9 +2667,11 @@ class QuestionGenerator {
         final minuteChoices = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
         final m = minuteChoices[_r.nextInt(minuteChoices.length)];
 
-        final wrongClockSigs = makeClockDistractors(h, m)
-            .map((e) => '${e['clock_hour']}:${e['clock_minute']}')
-            .toList()
+        final wrongClockSigs =
+        makeClockDistractors(
+          h,
+          m,
+        ).map((e) => '${e['clock_hour']}:${e['clock_minute']}').toList()
           ..sort();
         sigKey = 'mirTextClock:$h:$m|${wrongClockSigs.join(',')}';
         if (_seen(sigKey)) continue;
@@ -2614,11 +2690,11 @@ class QuestionGenerator {
         final exact = packed.opts
             .where(
               (o) =>
-          o['is_clock'] == true &&
-              o['clock_hour'] == h &&
-              o['clock_minute'] == m &&
-              o['mirror_h'] == true &&
-              o['mirror_v'] == false,
+              o['is_clock'] == true &&
+                  o['clock_hour'] == h &&
+                  o['clock_minute'] == m &&
+                  o['mirror_h'] == true &&
+                  o['mirror_v'] == false,
         )
             .length;
         if (exact != 1) continue;
@@ -2654,7 +2730,8 @@ class QuestionGenerator {
         //   (similar-looking, hard to distinguish).
         // • 1 distractor does NOT end with lastDigit: its mirror doesn't start with
         //   lastDigit — obviously wrong.
-        final actualCorrect = n; // content=n, mirror_h:true → painter shows reverse(n)
+        final actualCorrect =
+            n; // content=n, mirror_h:true → painter shows reverse(n)
 
         // w1, w2: different permutations also ending with lastDigit
         // (startsWithLast:false, endsWithLast:true in makePermutation
@@ -2725,9 +2802,9 @@ class QuestionGenerator {
         final exact = packed.opts
             .where(
               (o) =>
-          o['content'] == actualCorrect &&
-              o['mirror_h'] == true &&
-              o['mirror_v'] == false,
+              o['content'] == actualCorrect &&
+                  o['mirror_h'] == true &&
+                  o['mirror_v'] == false,
         )
             .length;
         if (exact != 1) continue;
@@ -2735,8 +2812,11 @@ class QuestionGenerator {
         // Verify exactly 3 options END with lastDigit (correct + 2 similar wrongs).
         // Their mirrors all START with lastDigit — look similar to the student.
         final endCount = packed.opts
-            .where((o) =>
-        o['content'].toString().endsWith(lastDigit) && o['mirror_h'] == true)
+            .where(
+              (o) =>
+          o['content'].toString().endsWith(lastDigit) &&
+              o['mirror_h'] == true,
+        )
             .length;
         if (endCount != 3) continue;
 
@@ -2771,7 +2851,8 @@ class QuestionGenerator {
       //   (all look similar — start with the same glyph-flipped letter).
       // • 1 distractor does NOT end with lastLetter: its mirror doesn't start with
       //   lastLetter — obviously wrong.
-      final actualCorrect = word; // content = word, mirror_h:true → painter shows mirror(word)
+      final actualCorrect =
+          word; // content = word, mirror_h:true → painter shows mirror(word)
 
       // w1, w2: different permutations also ending with lastLetter
       final w1 = makePermutation(
@@ -2848,8 +2929,11 @@ class QuestionGenerator {
       // Verify exactly 3 options END with lastLetter (correct + 2 similar wrongs).
       // Their mirrors all START with the same glyph-flipped letter — look similar.
       final endCount = packed.opts
-          .where((o) =>
-      o['content'].toString().endsWith(lastLetter) && o['mirror_h'] == true)
+          .where(
+            (o) =>
+        o['content'].toString().endsWith(lastLetter) &&
+            o['mirror_h'] == true,
+      )
           .length;
       if (endCount != 3) continue;
 
@@ -2942,6 +3026,21 @@ class QuestionGenerator {
   //   axis=0: vertical fold   (paper folded left→right, crease is vertical centre)
   //   axis=1: horizontal fold (paper folded top→bottom, crease is horizontal centre)
   // ═══════════════════════════════════════════════════════════════════════════
+  // Serialises a list of hole maps to a canonical string for uniqueness checks.
+  static String _holesKey(List<Map<String, dynamic>> holes) {
+    final parts =
+    holes
+        .map(
+          (h) =>
+      '${(h['x'] as num).toStringAsFixed(4)},${(h['y'] as num).toStringAsFixed(
+          4)}',
+    )
+        .toSet()
+        .toList()
+      ..sort();
+    return parts.join('|');
+  }
+
   static ReasoningQuestion _punchHole() {
     // foldType: 0=vertical single fold, 1=horizontal single fold,
     //           2=double fold (vertical then horizontal → 4 holes when unfolded)
@@ -3021,10 +3120,7 @@ class QuestionGenerator {
             {'x': hx, 'y': 1.0 - hy},
           ];
 
-    // ── Distractors with VARIED positions so they don't look the same ────────
-    // Pick a nearby alternative hole position (different from the actual hole)
-    // for use in structural distractors — avoids all 4 options looking like
-    // "same paper, just different dot positions"
+    // ── Alt positions for uniqueness fallback ────────────────────────────────
     final altPositions =
         List<Map<String, num>>.from(positions)
             .where(
@@ -3045,62 +3141,180 @@ class QuestionGenerator {
         ? (altPositions[1]['y'] as num).toDouble()
         : (hy - 0.12).clamp(0.05, 0.85);
 
-    // WRONG A: same mirror-axis behavior but at a clearly different hole
-    // position (use altPositions[0]) so it doesn't look identical to correct.
+    // ── Small jitter for near-miss distractor (Wrong B) ───────────────────────
+    // Shifts the hole by ≈0.08 so the mirrored pair looks almost right.
+    final jitterX = _r.nextBool() ? 0.08 : -0.08;
+    final jitterY = _r.nextBool() ? 0.09 : -0.09;
+    // For vertical fold (axis=0) Y position matters most → jitter Y.
+    // For horizontal fold (axis=1) X position matters most → jitter X.
+    final nmHx = foldType == 0 ? hx : (hx + jitterX).clamp(0.08, 0.90);
+    final nmHy = foldType == 1 ? hy : (hy + jitterY).clamp(0.08, 0.90);
+
+    // ── WRONG A: opposite-axis mirror — the #1 student mistake ───────────────
+    // Student sees a vertical fold but reflects on the horizontal axis instead.
+    // For double fold this becomes "only mirror one axis" → 2 holes (under-unfold).
     final wrongaHoles = foldType == 2
         ? [
-            {'x': altHx, 'y': altHy},
-            {'x': 1.0 - altHx, 'y': altHy},
-            {'x': altHx, 'y': 1.0 - altHy},
-            {'x': 1.0 - altHx, 'y': 1.0 - altHy},
-          ]
+      // Treats it as a single horizontal fold only → 2 holes
+      {'x': hx, 'y': hy},
+      {'x': hx, 'y': 1.0 - hy},
+    ]
         : foldType == 0
-            ? [
-                {'x': altHx, 'y': altHy},
-                {'x': 1.0 - altHx, 'y': altHy},
-              ]
-            : [
-                {'x': altHx, 'y': altHy},
-                {'x': altHx, 'y': 1.0 - altHy},
-              ];
+        ? [
+      // Vertical fold but reflects on horizontal axis instead
+      {'x': hx, 'y': hy},
+      {'x': hx, 'y': 1.0 - hy},
+    ]
+        : [
+      // Horizontal fold but reflects on vertical axis instead
+      {'x': hx, 'y': hy},
+      {'x': 1.0 - hx, 'y': hy},
+    ];
 
-    // WRONG B: correct axis but a different alternate position (altPositions[1])
-    // so both wrongA and wrongB are visually distinct from each other and from
-    // the correct answer.
+    // ── WRONG B: near-miss — correct axis, hole shifted by ≈0.08 ─────────────
+    // The mirrored pair uses the right axis but the source hole is slightly off,
+    // so the gap between dots looks nearly identical to the correct answer.
+    // Students who don't measure carefully will be fooled.
     final wrongbHoles = foldType == 2
         ? [
+      {'x': nmHx, 'y': nmHy},
+      {'x': 1.0 - nmHx, 'y': nmHy},
+      {'x': nmHx, 'y': 1.0 - nmHy},
+      {'x': 1.0 - nmHx, 'y': 1.0 - nmHy},
+          ]
+        : foldType == 0
+        ? [
+      {'x': nmHx, 'y': nmHy},
+      {'x': 1.0 - nmHx, 'y': nmHy},
+    ]
+        : [
+      {'x': nmHx, 'y': nmHy},
+      {'x': nmHx, 'y': 1.0 - nmHy},
+    ];
+
+    // ── WRONG C: over-unfold — student imagines an extra fold ─────────────────
+    // Single fold: student imagines paper was double-folded → shows 4 holes.
+    // Double fold: uses an alt position so the 4-hole pattern looks similar to
+    // the correct answer but is spatially shifted (still plausible-looking).
+    final wrongcHoles = foldType == 2
+        ? [
+      {'x': altHx, 'y': altHy},
+      {'x': 1.0 - altHx, 'y': altHy},
+      {'x': altHx, 'y': 1.0 - altHy},
+      {'x': 1.0 - altHx, 'y': 1.0 - altHy},
+    ]
+        : [
+      // Single fold: 4 holes (over-unfolded) using alt position
             {'x': alt2Hx, 'y': alt2Hy},
             {'x': 1.0 - alt2Hx, 'y': alt2Hy},
             {'x': alt2Hx, 'y': 1.0 - alt2Hy},
             {'x': 1.0 - alt2Hx, 'y': 1.0 - alt2Hy},
-          ]
-        : foldType == 0
-            ? [
-                {'x': alt2Hx, 'y': alt2Hy},
-                {'x': 1.0 - alt2Hx, 'y': alt2Hy},
-              ]
-            : [
-                {'x': alt2Hx, 'y': alt2Hy},
-                {'x': alt2Hx, 'y': 1.0 - alt2Hy},
-              ];
-
-    // WRONG C: single hole only (forgot unfolding multiplies holes)
-    final wrongcHoles = [
-      {'x': hx, 'y': hy},
     ];
 
-    Map<String, dynamic> opt(List<Map<String, dynamic>> holes) =>
-        {
+    // ── Uniqueness guard: ensure all 4 option hole-sets are distinct ──────────
+    // Build a helper that computes the unfolded holes for a given raw position.
+    List<Map<String, dynamic>> unfoldPos(double px, double py) {
+      if (foldType == 2) {
+        return [
+          {'x': px, 'y': py},
+          {'x': 1.0 - px, 'y': py},
+          {'x': px, 'y': 1.0 - py},
+          {'x': 1.0 - px, 'y': 1.0 - py},
+        ];
+      } else if (foldType == 0) {
+        return [
+          {'x': px, 'y': py},
+          {'x': 1.0 - px, 'y': py},
+        ];
+      } else {
+        return [
+          {'x': px, 'y': py},
+          {'x': px, 'y': 1.0 - py},
+        ];
+      }
+    }
+
+    List<Map<String, dynamic>> distinctHoles(
+        List<Map<String, dynamic>> rawHoles) {
+      final out = <Map<String, dynamic>>[];
+      for (final h in rawHoles) {
+        bool duplicate = false;
+        for (final oh in out) {
+          final dx = (h['x'] as num) - (oh['x'] as num);
+          final dy = (h['y'] as num) - (oh['y'] as num);
+          if (dx * dx + dy * dy <
+              0.0004) { // 0.02 squared (collapse very close holes)
+            duplicate = true;
+            break;
+          }
+        }
+        if (!duplicate) out.add(h);
+      }
+      return out;
+    }
+
+    bool isVisuallyIdentical(List<Map<String, dynamic>> a,
+        List<Map<String, dynamic>> b) {
+      final distA = distinctHoles(a);
+      final distB = distinctHoles(b);
+      if (distA.length != distB.length) return false;
+      for (final ha in distA) {
+        bool foundMatch = false;
+        for (final hb in distB) {
+          final dx = (ha['x'] as num) - (hb['x'] as num);
+          final dy = (ha['y'] as num) - (hb['y'] as num);
+          if (dx * dx + dy * dy <
+              0.04) { // 0.20 squared (strict visual similarity threshold)
+            foundMatch = true;
+            break;
+          }
+        }
+        if (!foundMatch) return false;
+      }
+      return true;
+    }
+
+    final finalOptionsHoles = <List<Map<String, dynamic>>>[correctHoles];
+
+    void addUniqueOption(List<Map<String, dynamic>> candidate) {
+      List<Map<String, dynamic>> current = candidate;
+      int safety = 0;
+      while (safety < 40) {
+        bool collision = false;
+        for (final existing in finalOptionsHoles) {
+          if (isVisuallyIdentical(current, existing)) {
+            collision = true;
+            break;
+          }
+        }
+        if (!collision) {
+          finalOptionsHoles.add(current);
+          return;
+        }
+        // Modify candidate to try again with a valid new fold layout
+        final rx = 0.10 + _r.nextDouble() * 0.80;
+        final ry = 0.10 + _r.nextDouble() * 0.80;
+        current = unfoldPos(rx, ry);
+        safety++;
+      }
+      finalOptionsHoles.add(current);
+    }
+
+    addUniqueOption(wrongaHoles);
+    addUniqueOption(wrongbHoles);
+    addUniqueOption(wrongcHoles);
+
+    final options = finalOptionsHoles.map((holes) =>
+    {
       'type': 'punch_hole',
       'unfolded': true,
       'fold_axis': foldAxis,
       'holes': holes,
-    };
+    }).toList();
 
-    final correct = opt(correctHoles);
-    final wrongs = [opt(wrongaHoles), opt(wrongbHoles), opt(wrongcHoles)];
-
-    final r = _pack(correct, wrongs);
+    final correctOpt = options[0];
+    options.shuffle(_r);
+    final correctIndex = options.indexOf(correctOpt);
     _markSeen(sigKey);
     return ReasoningQuestion(
       category: 'punch_hole',
@@ -3109,18 +3323,12 @@ class QuestionGenerator {
         'type': 'punch_hole',
         'folded': true,
         'fold_axis': foldAxis,
-        'holes': [
-          {'x': hx, 'y': hy},
-        ],
+        'holes': [{'x': hx, 'y': hy}],
       },
-      options: r.opts,
-      correctIndex: r.idx,
+      options: options,
+      correctIndex: correctIndex,
     );
   }
-
-  // _unfold helper removed (unused) to silence analyzer warnings.
-
-  // ═══════════════════════════════════════════════════════════════════════════
   // 10. EMBEDDED FIGURE
   //
   // Design: Show a simple TARGET shape (triangle, square, diamond, arrow).

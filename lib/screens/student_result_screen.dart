@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../config/localization.dart';
 import '../engine/question_attempt.dart';
+import '../engine/reasoning_question.dart';
+import 'quiz_screen.dart';
 import 'session_config_screen.dart';
 import 'session_summary_screen.dart';
 
@@ -266,13 +268,60 @@ class StudentResultScreen extends StatelessWidget {
 
   // ── 5. Action buttons ──────────────────────────────────────────────────
   Widget _buildActions(BuildContext context) {
+    // Collect the exact ReasoningQuestion snapshots for wrong/skipped attempts
+    final wrongAttempts = attempts
+        .where((a) => !a.isCorrect)
+        .map((a) => a.question)
+        .toList();
+    final wrongCount = wrongAttempts.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Primary — try again
+        // ── Retry Wrong Questions (amber — only shown when there are wrongs) ──
+        if (wrongCount > 0) ...[
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      QuizScreen(
+                        mode: 'random',
+                        totalQuestions: wrongCount,
+                        timePerQuestion: 'unlimited',
+                        biasEnabled: false,
+                        retryQuestions: List<ReasoningQuestion>.unmodifiable(
+                          wrongAttempts,
+                        ),
+                      ),
+                ),
+                    (route) => false,
+              );
+            },
+            icon: const Icon(Icons.replay_rounded),
+            label: Text(
+              '${AppLocale.s('retry_wrong')} ($wrongCount ${AppLocale.s(
+                  'retry_wrong_count')})',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFF59E0B), // amber
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+
+        // ── Try Again — starts a brand-new session from config ────────────
         FilledButton.icon(
           onPressed: () {
-            // Pop all the way back to config screen
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(builder: (_) => const SessionConfigScreen()),
               (route) => false,
@@ -292,7 +341,8 @@ class StudentResultScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        // Secondary — detailed report (teacher view)
+
+        // ── Full report (teacher view) ─────────────────────────────────────
         OutlinedButton.icon(
           onPressed: () {
             Navigator.push(
