@@ -48,7 +48,9 @@ jobs:
         run: flutter test
 
       - name: Build APK
-        run: flutter build apk --release
+        run: |
+          rm -f android/gradle/gradle-daemon-jvm.properties
+          flutter build apk --release
 
       - name: Build App Bundle
         run: flutter build appbundle --release
