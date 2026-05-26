@@ -38,12 +38,30 @@ String visibleKey(Map<String, dynamic> m) {
   final int s = m['shape'] ?? 0;
   int rot = m['rotation'] ?? 0;
   bool mir = m['mirror'] ?? false;
+  final bool trap = (m['selective_mirror_trap'] ?? false) && ((m['lines'] ?? 0) > 0 || (m['inner'] ?? 0) > 0);
+
+  // Apply visual symmetry reductions to canonicalize visually identical states
   if (s == 0 || s == 1 || s == 4 || s == 6) {
     rot = 0;
     mir = false;
+  } else if (s == 3 || s == 5) {
+    rot = rot % 2;
+    mir = false;
+  } else if (s == 2 && mir) {
+    // Shape 2: Right-angle triangle. (mirror=true, rot) is visually identical to (mirror=false, 3-rot)
+    mir = false;
+    rot = 3 - rot;
+  } else if (s == 7 && mir) {
+    // Shape 7: Arrow. (mirror=true, rot) points LEFT/RIGHT/UP/DOWN identically to unmirrored counterparts:
+    mir = false;
+    if (rot == 0) {
+      rot = 2;
+    } else if (rot == 2) {
+      rot = 0;
+    }
   }
-  if (s == 3 || s == 5) rot = rot % 2;
-  return '$s,${m["filled"]},$rot,$mir,${m["dots"]},${m["inner"]},${m["lines"]},${m["missingCorner"]}';
+
+  return '$s,${m["filled"]},$rot,$mir,${m["dots"]},${m["inner"]},${m["lines"]},${m["missingCorner"]},$trap';
 }
 
 void main() {

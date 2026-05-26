@@ -297,7 +297,7 @@ void main() {
       final keys = q.options
           .map(
             (o) =>
-            '${o['shape']}|${o['rotation']}|${o['filled']}|${o['mirror']}|${o['dots']}',
+            '${o['shape']}|${o['rotation']}|${o['filled']}|${o['mirror']}|${o['dots']}|${o['selective_mirror_trap'] ?? false}',
           )
           .toSet();
       expect(keys.length, 4);
