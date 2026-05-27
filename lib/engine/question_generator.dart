@@ -1940,16 +1940,114 @@ class QuestionGenerator {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 8. MIRROR TEXT
+  // 8. MIRROR TEXT — ADVANCED DISTRACTION ENGINE
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion _mirrorText() {
-    const words3 = [
-      'ANT', 'ARM', 'BAG', 'BAT', 'BED', 'BEE', 'BOW', 'BOX', 'BUS', 'CAP',
-      'CAR', 'CAT', 'CUP', 'DOG', 'DRY', 'EAR', 'EGG', 'EYE', 'FAN', 'FIG',
-      'FOX', 'GAS', 'GEM', 'GOD', 'GUN', 'HAT', 'HEN', 'ICE', 'INK', 'JAM',
-      'JAR', 'WIN', 'YAK', 'ZIP'
-    ];
 
+  /// Helper: Mirror individual glyphs by reversing their visual representation.
+  /// Maps characters to their horizontally-mirrored counterparts.
+  static String _mirrorGlyph(String char) {
+    const glyphMirrors = {
+      '1': '1', '2': '2', '3': '3', '4': '4', '5': '5',
+      '6': '9', '7': '7', '8': '8', '9': '6', '0': '0',
+      'A': 'A', 'B': 'ᗺ', 'C': 'Ɔ', 'D': 'ᗡ', 'E': 'Ǝ',
+      'F': 'ⅎ', 'G': 'Ⴚ', 'H': 'H', 'I': 'I', 'J': 'ſ',
+      'K': 'Ⲣ', 'L': '⅃', 'M': 'M', 'N': 'N', 'O': 'O',
+      'P': 'Ԁ', 'Q': 'Ὸ', 'R': 'ᴚ', 'S': 'S', 'T': 'T',
+      'U': 'U', 'V': 'Ʌ', 'W': 'W', 'X': 'X', 'Y': '⅄',
+      'Z': 'Z',
+    };
+    return glyphMirrors[char] ?? char;
+  }
+
+  /// Strategy Correct: Reverse order AND mirror each glyph.
+  static String _strategyCorrect(String content) {
+    return content
+        .split('')
+        .reversed
+        .map(_mirrorGlyph)
+        .join();
+  }
+
+  /// Strategy A: Reverse ONLY the order, no glyph mirroring.
+  static String _strategyA(String content) {
+    return content.split('').reversed.join();
+  }
+
+  /// Strategy B: Vertical mirror (upside-down).
+  static String _strategyB(String content) {
+    const verticalMirrors = {
+      '0': '0', '1': '1', '2': 'Ɔ', '3': 'Ɛ', '4': '⅃', '5': '߁', '6': '9', '7': 'ㄥ', '8': '8', '9': '6',
+      'A': '∀', 'B': 'q', 'C': 'Ǝ', 'D': 'ᗡ', 'E': 'Ǝ', 'F': 'ⅎ', 'G': 'פ',
+      'H': 'H', 'I': 'I', 'J': 'ſ', 'K': 'Ⲣ', 'L': '˥', 'M': 'W', 'N': 'N', 'O': 'O',
+      'P': 'Ԁ', 'Q': 'Ὸ', 'R': 'ᴚ', 'S': 'S', 'T': '⊥', 'U': '∩', 'V': 'Ʌ', 'W': 'M', 'X': 'X', 'Y': '⅄', 'Z': 'Z'
+    };
+    return content
+        .split('')
+        .reversed
+        .map((c) => verticalMirrors[c] ?? c)
+        .join();
+  }
+
+  /// Strategy C: Keep original order, mirror each glyph.
+  static String _strategyC(String content) {
+    return content
+        .split('')
+        .map(_mirrorGlyph)
+        .join();
+  }
+
+  /// Strategy D: Reverse + mirror most glyphs, but keep one unmirrored (selective trap).
+  static String _strategyD(String content, {int trapIndex = -1}) {
+    if (trapIndex < 0) {
+      trapIndex = content.length - 1;
+    }
+    final chars = content.split('');
+    return chars
+        .reversed
+        .toList()
+        .asMap()
+        .entries
+        .map((e) {
+          final idx = e.key;
+          final char = e.value;
+          // Trap index in the reversed list
+          if (idx == trapIndex) {
+            return char; // Keep this one unmirrored
+          }
+          return _mirrorGlyph(char);
+        })
+        .join();
+  }
+
+  /// Strategy E: Reverse + mirror correctly, but swap two adjacent characters.
+  static String _strategyE(String content, {int swapPos = -1}) {
+    if (swapPos < 0) {
+      swapPos = 0;
+    }
+    final correct = _strategyCorrect(content);
+    final chars = correct.split('');
+    if (swapPos + 1 < chars.length) {
+      final tmp = chars[swapPos];
+      chars[swapPos] = chars[swapPos + 1];
+      chars[swapPos + 1] = tmp;
+    }
+    return chars.join();
+  }
+
+  /// Generate 5 distracted options using all strategies.
+  /// Returns map: { 'correct': String, 'strategyA': String, 'strategyB': String, ... }
+  static Map<String, String> _generateMirrorTextOptions(String content) {
+    return {
+      'correct': _strategyCorrect(content),
+      'strategyA': _strategyA(content),
+      'strategyB': _strategyB(content),
+      'strategyC': _strategyC(content),
+      'strategyD': _strategyD(content),
+      'strategyE': _strategyE(content),
+    };
+  }
+
+  static ReasoningQuestion _mirrorText() {
     const words4 = [
       'ACID', 'ALSO', 'AREA', 'AWAY', 'AXIS', 'BAND', 'BANK', 'BASE', 'BEAT',
       'BIRD', 'BLUE', 'BOAT', 'BODY', 'BULK', 'BURN', 'CAGE', 'CAKE', 'CAMP',
@@ -1986,377 +2084,120 @@ class QuestionGenerator {
       'WISE', 'WISH', 'WOOD', 'WORD', 'WORK', 'YARD', 'YEAR', 'YOUR', 'ZERO'
     ];
 
-    // High Density words bank
-    const words5 = [
-      'APPLE', 'BOARD', 'CHAIR', 'CLOCK', 'EARTH', 'HOUSE', 'LIGHT', 'PAPER', 'TABLE', 'WATER'
-    ];
-    const words6 = [
-      'BANANA', 'CAMERA', 'CIRCLE', 'FLOWER', 'ORANGE', 'PENCIL', 'SCHOOL', 'WINDOW', 'YELLOW'
-    ];
-
-    bool hasUniqueChars(String s) =>
-        s.split('').toSet().length == s.length;
-
-    String reverseOf(String s) =>
-        s.split('').reversed.join();
-
-    // Enhanced with dense length scaling
-    String makeBaseNumber({int length = 4}) {
-      while (true) {
-        final pool = '0123456789'.split('')..shuffle(_r);
-        final first = pool.firstWhere((d) => d != '0');
-        final picked = <String>[first];
-        for (final d in pool) {
-          if (picked.contains(d)) continue;
-          picked.add(d);
-          if (picked.length == length) break;
+    // Generate a larger, per-session pool of 4-digit strings instead of using
+    // a small static set. This reduces repetition across sessions and gives
+    // more variety for numeric mirror-text items.
+    List<String> _generateDigitPool(int count) {
+      final Set<String> pool = <String>{};
+      // Avoid trivial repeats like '1111' and prefer more varied digits.
+      while (pool.length < count) {
+        final sb = StringBuffer();
+        for (int i = 0; i < 4; i++) {
+          sb.write(_r.nextInt(10).toString());
         }
-        if (picked.length == length) return picked.join();
+        final s = sb.toString();
+        // Reject strings with all identical digits (e.g., '0000') to improve variety
+        if (s.split('').toSet().length == 1) continue;
+        pool.add(s);
       }
+      return pool.toList();
     }
 
-    String makePermutation(String base,
-        Set<String> used, {
-          required bool startsWithLast,
-          required bool endsWithLast,
-          required String avoidA,
-          required String avoidB,
-        }) {
-      final chars = base.split('');
-      final last = chars.last;
+    bool hasUniqueChars(String s) => s.split('').toSet().length == s.length;
 
-      for (int i = 0; i < 48; i++) {
-        final local = List<String>.from(chars)..shuffle(_r);
-        final cand = local.join();
-        if (startsWithLast && !cand.startsWith(last)) continue;
-        if (!startsWithLast && cand.startsWith(last)) continue;
-        if (endsWithLast && !cand.endsWith(last)) continue;
-        if (!endsWithLast && cand.endsWith(last)) continue;
-        if (cand == avoidA || cand == avoidB) continue;
-        if (used.add(cand)) return cand;
-      }
-
-      final all = <String>{};
-      void permute(List<String> arr, int l) {
-        if (l == arr.length) {
-          all.add(arr.join());
-          return;
-        }
-        for (int i = l; i < arr.length; i++) {
-          final tmp = arr[l];
-          arr[l] = arr[i];
-          arr[i] = tmp;
-          permute(arr, l + 1);
-          final tmp2 = arr[l];
-          arr[l] = arr[i];
-          arr[i] = tmp2;
-        }
-      }
-
-      permute(List<String>.from(chars), 0);
-      final filtered = all.where((cand) {
-        if (startsWithLast && !cand.startsWith(last)) return false;
-        if (!startsWithLast && cand.startsWith(last)) return false;
-        if (endsWithLast && !cand.endsWith(last)) return false;
-        if (!endsWithLast && cand.endsWith(last)) return false;
-        if (cand == avoidA || cand == avoidB) return false;
-        if (used.contains(cand)) return false;
-        return true;
-      }).toList()
-        ..sort();
-      if (filtered.isNotEmpty) {
-        final pick = filtered.first;
-        used.add(pick);
-        return pick;
-      }
-
-      final fallback = startsWithLast ? reverseOf(base) : base;
-      used.add(fallback);
-      return fallback;
-    }
-
-    List<Map<String, dynamic>> makeClockDistractors(int h, int m, {bool dense = false}) {
-      final minuteChoices = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
-      final wrongs = <Map<String, dynamic>>[];
-      final used = <String>{'$h:$m'};
-
-      while (wrongs.length < 3) {
-        final nh = ((_r.nextInt(12) + 1));
-        final nm = minuteChoices[_r.nextInt(minuteChoices.length)];
-        final sig = '$nh:$nm';
-        if (used.add(sig)) {
-          wrongs.add({
-            'type': 'mirror_text',
-            'is_clock': true,
-            'clock_hour': nh,
-            'clock_minute': nm,
-            'mirror_h': true,
-            'mirror_v': false,
-            if (dense) 'dense': true,
-          });
-        }
-      }
-      return wrongs;
-    }
+    // Create a per-session digit pool to draw more-varied numeric items.
+    final digitPool = _generateDigitPool(200);
 
     for (int attempt = 0; attempt < 40; attempt++) {
-      final roll = _r.nextInt(100);
-      final isClock = roll < 25;
-      final isNumber = roll >= 25 && roll < 60;
-      final dense = _r.nextBool(); // 50% density flag
-      late String sigKey;
+      // Randomly select content type
+      final isDigit = _r.nextBool();
+      final content = isDigit
+          ? digitPool[_r.nextInt(digitPool.length)]
+          : (words4.where((w) => hasUniqueChars(w)).toList())[_r.nextInt(words4.where((w) => hasUniqueChars(w)).toList().length)];
 
-      if (isClock) {
-        final h = _r.nextInt(12) + 1;
-        final minuteChoices = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
-        final m = minuteChoices[_r.nextInt(minuteChoices.length)];
-
-        final wrongClockSigs =
-        makeClockDistractors(h, m, dense: dense)
-            .map((e) => '${e['clock_hour']}:${e['clock_minute']}')
-            .toList()
-          ..sort();
-        sigKey = 'mirTextClock:$h:$m|${wrongClockSigs.join(',')}|dn$dense';
-        if (_seen(sigKey)) continue;
-
-        final correct = {
-          'type': 'mirror_text',
-          'is_clock': true,
-          'clock_hour': h,
-          'clock_minute': m,
-          'mirror_h': true,
-          'mirror_v': false,
-          if (dense) 'dense': true,
-        };
-
-        final wrongOpts = makeClockDistractors(h, m, dense: dense);
-
-        // Inject SELECTIVE MIRROR TRAP clock:
-        // Main clock dial mirrored, but hands keep original unmirrored angles
-        final th = ((h + 2) % 12) + 1;
-        final tm = (m + 15) % 60;
-        final trapClock = {
-          'type': 'mirror_text',
-          'is_clock': true,
-          'clock_hour': th,
-          'clock_minute': tm,
-          'mirror_h': true,
-          'mirror_v': false,
-          'selective_mirror_trap': true,
-          if (dense) 'dense': true,
-        };
-        wrongOpts[0] = trapClock; // replace first wrong with the trap
-
-        final packed = _pack(correct, wrongOpts);
-
-        final exact = packed.opts
-            .where((o) =>
-              o['is_clock'] == true &&
-              o['clock_hour'] == h &&
-              o['clock_minute'] == m &&
-              o['mirror_h'] == true &&
-              o['mirror_v'] == false &&
-              o['selective_mirror_trap'] != true)
-            .length;
-        if (exact != 1) continue;
-
-        _markSeen(sigKey);
-        return ReasoningQuestion(
-          category: 'mirror_text',
-          type: 'mirror_text_clock',
-          puzzle: {
-            'type': 'mirror_text',
-            'is_clock': true,
-            'clock_hour': h,
-            'clock_minute': m,
-            'mirror_h': false,
-            'mirror_v': false,
-            if (dense) 'dense': true,
-          },
-          options: packed.opts,
-          correctIndex: packed.idx,
-        );
-      }
-
-      if (isNumber) {
-        final numLength = 4;
-        final n = makeBaseNumber(length: numLength);
-        final lastDigit = n.split('').last;
-        final used = <String>{n};
-
-        final actualCorrect = n;
-
-        final w1 = makePermutation(
-          n,
-          used,
-          startsWithLast: false,
-          endsWithLast: true,
-          avoidA: n,
-          avoidB: '',
-        );
-        final w2 = makePermutation(
-          n,
-          used,
-          startsWithLast: false,
-          endsWithLast: true,
-          avoidA: n,
-          avoidB: w1,
-        );
-        final w3 = makePermutation(
-          n,
-          used,
-          startsWithLast: true,
-          endsWithLast: false,
-          avoidA: n,
-          avoidB: '',
-        );
-
-        final wrongContents = [w1, w2, w3]..sort();
-        sigKey = 'mirTextNum:$actualCorrect|${wrongContents.join(',')}|dn$dense';
-        if (_seen(sigKey)) continue;
-
-        final correctOpt = {
-          'type': 'mirror_text',
-          'is_clock': false,
-          'content': actualCorrect,
-          'mirror_h': true,
-          'mirror_v': false,
-          if (dense) 'dense': true,
-        };
-
-        final wrongOpts = [
-          {
-            'type': 'mirror_text',
-            'is_clock': false,
-            'content': w1,
-            'mirror_h': true,
-            'mirror_v': false,
-            if (dense) 'dense': true,
-            'selective_mirror_trap': true, // Add selective mirror trap
-          },
-          {
-            'type': 'mirror_text',
-            'is_clock': false,
-            'content': w2,
-            'mirror_h': true,
-            'mirror_v': false,
-            if (dense) 'dense': true,
-          },
-          {
-            'type': 'mirror_text',
-            'is_clock': false,
-            'content': w3,
-            'mirror_h': true,
-            'mirror_v': false,
-            if (dense) 'dense': true,
-          },
-        ];
-
-        final packed = _pack(correctOpt, wrongOpts);
-        final exact = packed.opts
-            .where((o) =>
-              o['content'] == actualCorrect &&
-              o['mirror_h'] == true &&
-              o['mirror_v'] == false)
-            .length;
-        if (exact != 1) continue;
-
-        _markSeen(sigKey);
-        return ReasoningQuestion(
-          category: 'mirror_text',
-          type: 'mirror_text_num',
-          puzzle: {
-            'type': 'mirror_text',
-            'is_clock': false,
-            'content': n,
-            'mirror_h': false,
-            'mirror_v': false,
-            if (dense) 'dense': true,
-          },
-          options: packed.opts,
-          correctIndex: packed.idx,
-        );
-      }
-
-      // Word question family
-      final bank = words4.where(hasUniqueChars).toList();
-
-      final word = bank[_r.nextInt(bank.length)];
-      final lastLetter = word.split('').last;
-      final used = <String>{word};
-
-      final actualCorrect = word;
-
-      final w1 = makePermutation(
-        word,
-        used,
-        startsWithLast: false,
-        endsWithLast: true,
-        avoidA: word,
-        avoidB: '',
-      );
-      final w2 = makePermutation(
-        word,
-        used,
-        startsWithLast: false,
-        endsWithLast: true,
-        avoidA: word,
-        avoidB: w1,
-      );
-      final w3 = makePermutation(
-        word,
-        used,
-        startsWithLast: true,
-        endsWithLast: false,
-        avoidA: word,
-        avoidB: '',
-      );
-
-      final wrongList = [w1, w2, w3]..sort();
-      sigKey = 'mirTextWord:$word|${wrongList.join(',')}|dn$dense';
+      final sigKey = 'mirTextAdv:$content';
       if (_seen(sigKey)) continue;
 
+      // Generate transformed strings for diagnostics (not used directly as option
+      // content). We'll build options using the original raw content and
+      // permutations thereof while keeping the painter-driven mirror flag
+      // consistent (mirror_h=true => left↔right flip in the painter). This
+      // avoids double-transforming the glyphs (which caused vertical/incorrect
+      // visual results).
+      final allOptions = _generateMirrorTextOptions(content);
+
+      // Helper: produce three permutation-based wrongs that keep the same
+      // multiset of characters and (for two of them) preserve the last
+      // character so that mirrored visuals look similar to the student.
+      List<String> makeWrongPermutations(String s) {
+        final len = s.length;
+        if (len <= 1) return [s, s, s];
+        final last = s.substring(len - 1);
+        final prefix = s.substring(0, len - 1).split('');
+
+        // w1: shuffle prefix then append last
+        final p1 = List<String>.from(prefix)..shuffle(_r);
+        final w1 = p1.join('') + last;
+
+        // w2: rotate prefix right then append last
+        final p2 = List<String>.from(prefix);
+        if (p2.isNotEmpty) {
+          final tail = p2.removeLast();
+          p2.insert(0, tail);
+        }
+        final w2 = p2.join('') + last;
+
+        // w3: simple rotate whole string
+        final w3 = s.substring(1) + s[0];
+
+        // Ensure uniqueness, otherwise fallback to other simple transforms
+        final out = <String>{};
+        for (final x in [w1, w2, w3]) {
+          if (out.length >= 3) break;
+          if (x != s) out.add(x);
+        }
+        // fill if needed
+        var cur = s;
+        var attempts = 0;
+        while (out.length < 3 && attempts < 10) {
+          cur = (cur.split('')..shuffle(_r)).join();
+          if (cur != s) out.add(cur);
+          attempts++;
+        }
+        return out.toList();
+      }
+
+      final wrongStrings = makeWrongPermutations(content);
+
+      // Build the correct option (raw content; painter will mirror it)
       final correctOpt = {
         'type': 'mirror_text',
         'is_clock': false,
-        'content': actualCorrect,
+        'content': content,
         'mirror_h': true,
         'mirror_v': false,
-        if (dense) 'dense': true,
+        if (allOptions.containsKey('strategyD')) 'dense': false,
       };
 
-      final wrongOpts = [
-        {
+      // Build wrong options from the generated permutations (also raw content)
+      final wrongOpts = <Map<String, dynamic>>[];
+      for (final s in wrongStrings) {
+        wrongOpts.add({
           'type': 'mirror_text',
           'is_clock': false,
-          'content': w1,
+          'content': s,
           'mirror_h': true,
           'mirror_v': false,
-          if (dense) 'dense': true,
-          'selective_mirror_trap': true, // Add selective mirror trap
-        },
-        {
-          'type': 'mirror_text',
-          'is_clock': false,
-          'content': w2,
-          'mirror_h': true,
-          'mirror_v': false,
-          if (dense) 'dense': true,
-        },
-        {
-          'type': 'mirror_text',
-          'is_clock': false,
-          'content': w3,
-          'mirror_h': true,
-          'mirror_v': false,
-          if (dense) 'dense': true,
-        },
-      ];
+        });
+      }
 
-      final packed = _pack(correctOpt, wrongOpts);
+      // Use _pack to validate against visual duplicates
+      final packed = _pack(correctOpt, wrongOpts.take(3).toList());
+
+      // Verify the correct option is present exactly once
       final exact = packed.opts
           .where((o) =>
-            o['content'] == actualCorrect &&
+            o['content'] == allOptions['correct'] &&
             o['mirror_h'] == true &&
             o['mirror_v'] == false)
           .length;
@@ -2369,41 +2210,42 @@ class QuestionGenerator {
         puzzle: {
           'type': 'mirror_text',
           'is_clock': false,
-          'content': word,
+          'content': content,
           'mirror_h': false,
           'mirror_v': false,
-          if (dense) 'dense': true,
         },
         options: packed.opts,
         correctIndex: packed.idx,
       );
     }
 
-    // Legacy fallback
-    final fb = [
+    // Fallback with explicit strategies
+    final fallbackContent = '1068';
+    final fallbackOptions = _generateMirrorTextOptions(fallbackContent);
+    final fallback = [
       {
-        'content': '1478',
+        'content': fallbackOptions['correct'],
         'is_clock': false,
         'type': 'mirror_text',
         'mirror_h': true,
         'mirror_v': false,
       },
       {
-        'content': '1748',
+        'content': fallbackOptions['strategyA'],
         'is_clock': false,
         'type': 'mirror_text',
         'mirror_h': true,
         'mirror_v': false,
       },
       {
-        'content': '4178',
+        'content': fallbackOptions['strategyC'],
         'is_clock': false,
         'type': 'mirror_text',
         'mirror_h': true,
         'mirror_v': false,
       },
       {
-        'content': '8147',
+        'content': fallbackOptions['strategyD'],
         'is_clock': false,
         'type': 'mirror_text',
         'mirror_h': true,
@@ -2413,16 +2255,16 @@ class QuestionGenerator {
 
     return ReasoningQuestion(
       category: 'mirror_text',
-      type: 'mirror_text_num',
+      type: 'mirror_text_word',
       puzzle: {
-        'content': '1478',
+        'content': fallbackContent,
         'is_clock': false,
         'type': 'mirror_text',
         'mirror_h': false,
         'mirror_v': false,
       },
-      options: fb,
-      correctIndex: fb.indexWhere((c) => c['content'] == '1478'),
+      options: fallback,
+      correctIndex: fallback.indexWhere((c) => c['content'] == fallbackOptions['correct']),
     );
   }
 
