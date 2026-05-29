@@ -18,7 +18,9 @@ String visibleKey(Map<String, dynamic> m) {
   // Mirror text / clock
   if (m.containsKey('mirror_h') || m.containsKey('is_clock')) {
     final ch = m['content'] ?? 'clk:${m["clock_hour"]}:${m["clock_minute"]}';
-    return 'txt|$ch|h:${m["mirror_h"]}|v:${m["mirror_v"]}';
+    final bool trap = m['selective_mirror_trap'] ?? false;
+    final int trapIdx = m['trap_char_index'] ?? -1;
+    return 'txt|$ch|h:${m["mirror_h"]}|v:${m["mirror_v"]}|trap:$trap|trapIdx:$trapIdx';
   }
   // Geo cell
   if (m['type'] == 'geo_cell') {

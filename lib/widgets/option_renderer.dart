@@ -394,20 +394,49 @@ class EnhancedMirrorTextPainter extends CustomPainter {
       fontSize = size.width * 0.22;
     }
 
-    final tp = TextPainter(
-      text: TextSpan(
-        text: content,
-        style: TextStyle(
-          fontSize: fontSize,
-          fontWeight: FontWeight.bold,
-          color: const Color(0xFF0F172A),
-          letterSpacing: content.length > 3 ? 1.5 : 0,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout(maxWidth: size.width * 1.8);
+    final double letterSpacing = content.length > 3 ? 1.5 : 0;
+    final textStyle = TextStyle(
+      fontSize: fontSize,
+      fontWeight: FontWeight.bold,
+      color: const Color(0xFF0F172A),
+      letterSpacing: letterSpacing,
+    );
 
-    tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+    // Measure each character to position them correctly
+    final painters = <TextPainter>[];
+    double totalWidth = 0;
+    for (int i = 0; i < content.length; i++) {
+      final tp = TextPainter(
+        text: TextSpan(text: content[i], style: textStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      painters.add(tp);
+      totalWidth += tp.width + (i < content.length - 1 ? letterSpacing : 0);
+    }
+
+    double currentX = -totalWidth / 2;
+    final int? trapIndex = data['trap_char_index'] as int?;
+
+    for (int i = 0; i < content.length; i++) {
+      final tp = painters[i];
+      final charCenterX = currentX + tp.width / 2;
+
+      canvas.save();
+      // Translate to character center
+      canvas.translate(charCenterX, 0.0);
+
+      // If selective mirror trap is active for this character, apply a local scale(-1, 1)
+      // to cancel out the global mirror scale(-1, 1).
+      if (selectiveMirrorTrap && (trapIndex == i || trapIndex == -99)) {
+        canvas.scale(-1.0, 1.0);
+      }
+
+      // Paint character centered
+      tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+      canvas.restore();
+
+      currentX += tp.width + letterSpacing;
+    }
 
     // If NOT selective mirror trap, draw decorators inside transformed canvas
     if (dense && !selectiveMirrorTrap) {
