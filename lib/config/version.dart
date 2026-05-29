@@ -22,10 +22,10 @@ class AppVersion {
   static const int patch = 0;
 
   /// Pre-release identifier (e.g., beta.0)
-  static const String preRelease = 'beta.1';
+  static const String preRelease = 'beta.2';
 
   /// Build number incremented on each release
-  static const int buildNumber = 1;
+  static const int buildNumber = 2;
 
   /// All available build codenames (Fruit names, alphabetically ordered)
   /// Cycles through on each build for easy verbal identification
@@ -33,7 +33,7 @@ class AppVersion {
   static const List<String> buildCodenames = [
     'Apricot',
     'Avocado',
-    'Banana',
+    // 'Banana',
     'Blackberry',
     'Blueberry',
     'Boysenberry',
