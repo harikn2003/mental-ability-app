@@ -69,11 +69,6 @@ class _QuizScreenState extends State<QuizScreen>
   Map<String, List<bool>> categoryPerformance = {};
 
   // ── Bias weights ──────────────────────────────────────────────────────────
-  // Initialised from widget.initialWeights (loaded from SharedPreferences).
-  // Falls back to 1 for any category not yet in storage.
-  // Wrong answer / skip → weight += 2 (up to max 10)
-  // Correct answer      → weight -= 1 (down to min 1)
-  // Saved to SharedPreferences after every change via _saveWeights().
   static const _kWeightsKey = 'bias_weights';
   static const _allCategories = [
     'pattern',
@@ -94,8 +89,7 @@ class _QuizScreenState extends State<QuizScreen>
   late Map<String, int> _weights;
 
   // ── Constants ─────────────────────────────────────────────────────────────
-  String get currentLang =>
-      AppLocale.current; // always reflects the globally selected language
+  String get currentLang => AppLocale.current;
   static const Color primary = Color(0xFF195DE6);
   static const Color background = Color(0xFFF6F6F8);
   static const Color surface = Colors.white;
@@ -111,7 +105,6 @@ class _QuizScreenState extends State<QuizScreen>
     return 1;
   }
 
-  // ── Current question shortcut ─────────────────────────────────────────────
   ReasoningQuestion get _currentQ => _questions[currentQuestionIndex];
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -119,7 +112,6 @@ class _QuizScreenState extends State<QuizScreen>
   void initState() {
     super.initState();
 
-    // Seed weights from persisted values — any category not in storage defaults to 1
     _weights = {
       for (final cat in _allCategories) cat: widget.initialWeights[cat] ?? 1,
     };
@@ -131,25 +123,18 @@ class _QuizScreenState extends State<QuizScreen>
     _pulseAnim = Tween<double>(begin: 1.0, end: 1.18).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-    // Clear generator history so this session gets fresh questions
-    QuestionGenerator.resetSession();
 
-    // Generate ONLY the first question — rest generated on-demand
+    QuestionGenerator.resetSession();
     _generateNextQuestion();
     _startTimer();
   }
 
-  // Write current weights to SharedPreferences — called after every answer
   Future<void> _saveWeights() async {
     if (!widget.biasEnabled) return;
     final prefs = await SharedPreferences.getInstance();
-    // Only save categories that were seeded into this session.
-    // If initialWeights was a subset (e.g. weak-areas session), writing all
-    // 10 categories would reset the strong ones back to 1. Instead, only
-    // update the keys that this session actually knows about.
     final sessionCats = widget.initialWeights.isNotEmpty
         ? widget.initialWeights.keys.toSet()
-        : _weights.keys.toSet(); // full session — save everything
+        : _weights.keys.toSet();
     for (final entry in _weights.entries) {
       if (sessionCats.contains(entry.key)) {
         await prefs.setInt('${_kWeightsKey}_${entry.key}', entry.value);
@@ -164,7 +149,6 @@ class _QuizScreenState extends State<QuizScreen>
     super.dispose();
   }
 
-  // ── Bias: pick a category ─────────────────────────────────────────────────
   String _pickCategory() {
     if (widget.mode == 'linear') {
       final cat = _linearOrder[_linearCursor % _linearOrder.length];
@@ -182,7 +166,6 @@ class _QuizScreenState extends State<QuizScreen>
     return _weights.keys.first;
   }
 
-  // ── Generate a single question, avoiding exact duplicates ─────────────────
   String _canonical(dynamic value) {
     if (value is Map) {
       final entries = value.entries.toList()
@@ -208,7 +191,6 @@ class _QuizScreenState extends State<QuizScreen>
   }
 
   void _generateNextQuestion() {
-    // Retry flow: replay known incorrect questions first.
     if (_questions.length < widget.retryQuestions.length) {
       final retryQ = widget.retryQuestions[_questions.length];
       final sig = _questionSignature(retryQ);
@@ -229,7 +211,6 @@ class _QuizScreenState extends State<QuizScreen>
     _questions.add(q);
   }
 
-  // ── Update bias weights after each answer ─────────────────────────────────
   void _updateWeights(String category, bool correct) {
     if (!widget.biasEnabled) return;
 
@@ -241,11 +222,9 @@ class _QuizScreenState extends State<QuizScreen>
       }
     });
 
-    // Persist immediately — fire-and-forget, doesn't block UI
     _saveWeights();
   }
 
-  // ── Timer ─────────────────────────────────────────────────────────────────
   void _startTimer() {
     _timer?.cancel();
     secondsElapsedForCurrent = 0;
@@ -273,7 +252,6 @@ class _QuizScreenState extends State<QuizScreen>
     });
   }
 
-  // ── Answer handling ───────────────────────────────────────────────────────
   void _handleOptionTap(String option) {
     if (isAnswered) return;
     final selected = int.parse(option);
@@ -286,7 +264,6 @@ class _QuizScreenState extends State<QuizScreen>
     final selIdx = optionSelected != null ? int.tryParse(optionSelected) : null;
     final timeSecs = secondsElapsedForCurrent;
 
-    // Haptic feedback — distinct patterns for right vs wrong
     if (correct) {
       HapticFeedback.lightImpact();
     } else {
@@ -314,7 +291,6 @@ class _QuizScreenState extends State<QuizScreen>
           timeSpentSeconds: timeSecs,
         ),
       );
-      // Lock Next for 1.2s after wrong answer so student sees the correct option
       if (!correct) {
         _nextLocked = true;
         Future.delayed(const Duration(milliseconds: 1200), () {
@@ -348,13 +324,12 @@ class _QuizScreenState extends State<QuizScreen>
         ),
       );
     });
-    _updateWeights(cat, false); // skip counts as wrong for bias
+    _updateWeights(cat, false);
   }
 
   void _nextQuestion() {
     final isLast = currentQuestionIndex >= widget.totalQuestions - 1;
     if (isLast) {
-      // Persist session to Hive history
       final catCorrect = <String, int>{};
       final catTotal = <String, int>{};
       for (final entry in categoryPerformance.entries) {
@@ -366,7 +341,6 @@ class _QuizScreenState extends State<QuizScreen>
                     timeSpentPerQuestion.length)
                 .round()
           : 0;
-      // Serialize attempts into plain maps for Hive storage
       final snapshots = _attempts
           .map(
             (a) => <dynamic, dynamic>{
@@ -413,7 +387,6 @@ class _QuizScreenState extends State<QuizScreen>
       return;
     }
 
-    // Generate the NEXT question now (weights are already updated)
     _generateNextQuestion();
 
     setState(() {
@@ -426,9 +399,47 @@ class _QuizScreenState extends State<QuizScreen>
     });
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // UI helpers
-  // ═══════════════════════════════════════════════════════════════════════════
+  // ── Exit Lifecycle ────────────────────────────────────────────────────────
+  Future<bool> _showExitConfirmation() async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text(
+          AppLocale.get(currentLang, 'abandon_quiz_title'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: Text(AppLocale.get(currentLang, 'abandon_quiz_msg')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              AppLocale.get(currentLang, 'cancel'),
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: error,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              AppLocale.get(currentLang, 'exit'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  // ── UI helpers ─────────────────────────────────────────────────────────────
   String _getTopicLabel(String category) {
     final labels = {
       'pattern': AppLocale.get(currentLang, 'topic_pattern'),
@@ -471,8 +482,6 @@ class _QuizScreenState extends State<QuizScreen>
       _attempts.where((a) => a.selectedIndex != null).length;
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Build
-  // ═══════════════════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     if (_questions.isEmpty) {
@@ -481,38 +490,46 @@ class _QuizScreenState extends State<QuizScreen>
 
     final double progress = (currentQuestionIndex + 1) / widget.totalQuestions;
 
-    return Scaffold(
-      backgroundColor: background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(progress, _currentQ.category),
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.vertical,
-                physics: const ClampingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildQuestionFigure(),
-                    const SizedBox(height: 20),
-                    _buildOptions(),
-                    const SizedBox(height: 14),
-                    if (isAnswered) _buildResultMessage(),
-                  ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldExit = await _showExitConfirmation();
+        if (shouldExit && context.mounted) {
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: background,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(progress, _currentQ.category),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildQuestionFigure(),
+                      const SizedBox(height: 20),
+                      _buildOptions(),
+                      const SizedBox(height: 14),
+                      if (isAnswered) _buildResultMessage(),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+        floatingActionButton: _buildBottomActions(),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: _buildBottomActions(),
     );
   }
 
-  // ── Header ────────────────────────────────────────────────────────────────
   Widget _buildHeader(double progress, String category) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -540,7 +557,6 @@ class _QuizScreenState extends State<QuizScreen>
           const SizedBox(height: 10),
           Row(
             children: [
-              // Topic pill
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -557,13 +573,10 @@ class _QuizScreenState extends State<QuizScreen>
                   ),
                 ),
               ),
-
-              // Bias indicator (only visible when bias is on and a weight is elevated)
               if (widget.biasEnabled) ...[
                 const SizedBox(width: 6),
                 _buildBiasIndicator(category),
               ],
-
               const Spacer(),
               _buildTimerWidget(),
               const SizedBox(width: 12),
@@ -585,11 +598,9 @@ class _QuizScreenState extends State<QuizScreen>
     );
   }
 
-  /// Small dot that shows the current bias weight for this topic.
-  /// Green = low weight (easy), orange = medium, red = high weight (weak area).
   Widget _buildBiasIndicator(String category) {
     final weight = _weights[category] ?? 1;
-    if (weight <= 1) return const SizedBox.shrink(); // no dot when equal weight
+    if (weight <= 1) return const SizedBox.shrink();
 
     Color dotColor;
     String tooltip;
@@ -689,7 +700,6 @@ class _QuizScreenState extends State<QuizScreen>
         decoration: BoxDecoration(
           color: success.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
-          // rounded rectangle, not fully circular
           border: Border.all(color: success.withValues(alpha: 0.25)),
         ),
         child: Row(
@@ -698,7 +708,7 @@ class _QuizScreenState extends State<QuizScreen>
           children: [
             Text(
               '$score/$attempted',
-              style: TextStyle(
+              style: const TextStyle(
                 color: success,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -710,7 +720,6 @@ class _QuizScreenState extends State<QuizScreen>
     );
   }
 
-  // ── Question figure ───────────────────────────────────────────────────────
   Widget _buildQuestionFigure() {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -729,20 +738,15 @@ class _QuizScreenState extends State<QuizScreen>
     );
   }
 
-  // ── Options ───────────────────────────────────────────────────────────────
   Widget _buildOptions() {
-    // Punch hole and mirror text/shape options need taller cards — the painters
-    // use more vertical space than a simple shape.
     final cat = _currentQ.category;
     final double aspectRatio = (cat == 'punch_hole' || cat == 'mirror_text')
         ? 0.85
         : (cat == 'embedded')
-        ? 0.95
-        : (cat == 'mirror_shape')
-        ? 1.1 // mirror shape options need slightly more height
-        : (cat == 'geo_completion')
-        ? 1.0 // geo now uses shape figures like pattern
-        : 1.0;
+            ? 0.95
+            : (cat == 'mirror_shape')
+                ? 1.1
+                : 1.0;
 
     return GridView.count(
       shrinkWrap: true,
@@ -759,7 +763,7 @@ class _QuizScreenState extends State<QuizScreen>
     final optionData = _currentQ.options[index];
     final isSelected = selectedOption == index.toString();
     final isCorrectOption = index == _currentQ.correctIndex;
-    final label = String.fromCharCode(65 + index); // A, B, C, D
+    final label = String.fromCharCode(65 + index);
 
     Color bgColor = surface;
     Color borderColor = Colors.grey.shade200;
@@ -801,9 +805,7 @@ class _QuizScreenState extends State<QuizScreen>
         ),
         child: Stack(
           children: [
-            // Shape figure centred
             Center(child: OptionRenderer(data: optionData)),
-            // A/B/C/D label — top-left corner always visible
             Positioned(
               top: 7,
               left: 9,
@@ -816,7 +818,6 @@ class _QuizScreenState extends State<QuizScreen>
                 ),
               ),
             ),
-            // Correct / wrong badge — top-right corner after answering
             if (badge != null) Positioned(top: 7, right: 7, child: badge),
           ],
         ),
@@ -825,17 +826,14 @@ class _QuizScreenState extends State<QuizScreen>
   }
 
   Widget _badge(IconData icon, Color color) => Container(
-    padding: const EdgeInsets.all(3),
-    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-    child: Icon(icon, size: 12, color: Colors.white),
-  );
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        child: Icon(icon, size: 12, color: Colors.white),
+      );
 
-  // ── Result message ────────────────────────────────────────────────────────
   Widget _buildResultMessage() {
     final isSkipped = selectedOption == null;
-    final correctLetter = String.fromCharCode(
-      65 + _currentQ.correctIndex,
-    ); // A/B/C/D
+    final correctLetter = String.fromCharCode(65 + _currentQ.correctIndex);
     Color bg;
     Color fg;
     IconData icon;
@@ -850,8 +848,7 @@ class _QuizScreenState extends State<QuizScreen>
       bg = Colors.grey.shade100;
       fg = Colors.grey.shade600;
       icon = Icons.skip_next_rounded;
-      text =
-          '${AppLocale.get(currentLang, 'skipped_answer_is')} $correctLetter';
+      text = '${AppLocale.get(currentLang, 'skipped_answer_is')} $correctLetter';
     } else if (isCorrect) {
       bg = success.withValues(alpha: 0.1);
       fg = success;
@@ -885,7 +882,6 @@ class _QuizScreenState extends State<QuizScreen>
             ],
           ),
         ),
-        // ── Coordinator bias chart — hidden behind a toggle ────────────────
         if (widget.biasEnabled && widget.mode == 'random') ...[
           const SizedBox(height: 10),
           GestureDetector(
@@ -893,10 +889,10 @@ class _QuizScreenState extends State<QuizScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
+                const Icon(
                   Icons.analytics_outlined,
                   size: 13,
-                  color: const Color(0xFF94A3B8),
+                  color: Color(0xFF94A3B8),
                 ),
                 const SizedBox(width: 4),
                 Text(
@@ -929,8 +925,6 @@ class _QuizScreenState extends State<QuizScreen>
     );
   }
 
-  /// Shows a mini bar chart of all 10 category weights after each answer,
-  /// so the student/coordinator can see which topics are being focused on.
   Widget _buildWeightPreview() {
     final maxW = _weights.values.reduce(max).toDouble();
     final shortLabels = {
@@ -966,7 +960,7 @@ class _QuizScreenState extends State<QuizScreen>
               const SizedBox(width: 5),
               Text(
                 AppLocale.get(currentLang, 'bias_weights'),
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF64748B),
@@ -981,11 +975,8 @@ class _QuizScreenState extends State<QuizScreen>
             children: _weights.entries.map((e) {
               final isCurrentCat = e.key == _currentQ.category;
               final barH = 4.0 + (e.value / maxW) * 28.0;
-              final barColor = e.value <= 1
-                  ? success
-                  : e.value <= 4
-                  ? warning
-                  : error;
+              final barColor =
+                  e.value <= 1 ? success : e.value <= 4 ? warning : error;
               final marker = isCurrentCat
                   ? Container(
                       width: 4,
@@ -1017,9 +1008,8 @@ class _QuizScreenState extends State<QuizScreen>
                       style: TextStyle(
                         fontSize: 7.5,
                         color: isCurrentCat ? primary : Colors.grey.shade500,
-                        fontWeight: isCurrentCat
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+                        fontWeight:
+                            isCurrentCat ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                   ],
@@ -1034,142 +1024,179 @@ class _QuizScreenState extends State<QuizScreen>
 
   // ── Bottom actions ────────────────────────────────────────────────────────
   Widget _buildBottomActions() {
-    if (!isAnswered) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [_skipButton()],
-        ),
-      );
-    }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          if (skippedCount > 0) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.skip_next_rounded,
-                    size: 16,
-                    color: Colors.grey.shade600,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '$skippedCount ${AppLocale.get(currentLang, "skipped_count")}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
+          _leaveButton(),
+          const SizedBox(width: 12),
+          if (!isAnswered) ...[
+            const Spacer(),
+            _skipButton(),
+          ] else ...[
+            if (skippedCount > 0) ...[
+              const Spacer(),
+              _buildSkippedPill(),
+              const SizedBox(width: 10),
+            ],
+            Expanded(child: _nextButton()),
           ],
-          Expanded(
-            child: FloatingActionButton.extended(
-              heroTag: 'next_btn',
-              onPressed: _nextLocked ? null : _nextQuestion,
-              backgroundColor: _nextLocked ? Colors.grey.shade400 : primary,
-              elevation: _nextLocked ? 0 : 4,
-              label: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_nextLocked) ...[
-                    const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.white70,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      AppLocale.get(currentLang, 'look_at'),
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ] else ...[
-                    Text(
-                      currentQuestionIndex < widget.totalQuestions - 1
-                          ? AppLocale.get(currentLang, 'next_question')
-                          : AppLocale.get(currentLang, 'finish'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(
-                      Icons.arrow_forward_rounded,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _skipButton() => GestureDetector(
-    onTap: _skipQuestion,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+  Widget _leaveButton() => GestureDetector(
+        onTap: () async {
+          final shouldExit = await _showExitConfirmation();
+          if (shouldExit && mounted) {
+            Navigator.pop(context);
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: error.withValues(alpha: 0.4)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.skip_next_rounded, size: 18, color: Colors.grey.shade600),
-          const SizedBox(width: 6),
-          Text(
-            AppLocale.get(currentLang, 'skip'),
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.close_rounded, size: 18, color: error),
+              const SizedBox(width: 6),
+              Text(
+                AppLocale.get(currentLang, 'leave_quiz'),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: error,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  Widget _skipButton() => GestureDetector(
+        onTap: _skipQuestion,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          decoration: BoxDecoration(
+            color: surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.grey.shade300),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.skip_next_rounded,
+                  size: 18, color: Colors.grey.shade600),
+              const SizedBox(width: 6),
+              Text(
+                AppLocale.get(currentLang, 'skip'),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  Widget _buildSkippedPill() => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.skip_next_rounded,
+              size: 16,
               color: Colors.grey.shade600,
             ),
-          ),
+            const SizedBox(width: 4),
+            Text(
+              '$skippedCount ${AppLocale.get(currentLang, "skipped_count")}',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _nextButton() {
+    return FloatingActionButton.extended(
+      heroTag: 'next_btn',
+      onPressed: _nextLocked ? null : _nextQuestion,
+      backgroundColor: _nextLocked ? Colors.grey.shade400 : primary,
+      elevation: _nextLocked ? 0 : 4,
+      label: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (_nextLocked) ...[
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              AppLocale.get(currentLang, 'look_at'),
+              style: const TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ] else ...[
+            Text(
+              currentQuestionIndex < widget.totalQuestions - 1
+                  ? AppLocale.get(currentLang, 'next_question')
+                  : AppLocale.get(currentLang, 'finish'),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(
+              Icons.arrow_forward_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
+          ],
         ],
       ),
-    ),
-  );
+    );
+  }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Press-scale wrapper: shrinks to 96% on tap-down, springs back on release.
-// Gives instant tactile feedback without any animation controller boilerplate.
-// ─────────────────────────────────────────────────────────────────────────────
 class _PressScaleCard extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
@@ -1184,7 +1211,6 @@ class _PressScaleCardState extends State<_PressScaleCard> {
   double _scale = 1.0;
 
   void _onTapDown(_) => setState(() => _scale = 0.95);
-
   void _onTapUp(_) => setState(() => _scale = 1.0);
   void _onTapCancel() => setState(() => _scale = 1.0);
 

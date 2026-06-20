@@ -52,6 +52,11 @@ class AppLocale {
       'correct_msg': 'Correct! Well done.',
       'wrong_msg': 'Wrong — correct answer is Option',
       'skipped_count': 'skipped',
+      'leave_quiz': 'Leave Quiz',
+      'abandon_quiz_title': 'Abandon Quiz?',
+      'abandon_quiz_msg':
+          'Are you sure you want to leave this session? Your current progress for this quiz will not be saved.',
+      'exit': 'Exit',
 
       // ── Topic labels for quiz header ─────────────────────────────────────
       'topic_pattern': 'PATTERN COMPLETION',
@@ -246,6 +251,11 @@ class AppLocale {
       'correct_msg': 'बरोबर! शाबास.',
       'wrong_msg': 'चुकीचे — बरोबर उत्तर पर्याय',
       'skipped_count': 'वगळलेले',
+      'leave_quiz': 'चाचणी सोडा',
+      'abandon_quiz_title': 'चाचणी सोडायची का?',
+      'abandon_quiz_msg':
+          'तुम्हाला खात्री आहे का की तुम्हाला ही चाचणी सोडायची आहे? तुमची प्रगती जतन केली जाणार नाही.',
+      'exit': 'बाहेर पडा',
 
       // ── Topic labels ─────────────────────────────────────────────────────
       'topic_pattern': 'आकृती पूर्णता',
@@ -437,6 +447,11 @@ class AppLocale {
       'correct_msg': 'सही! बहुत बढ़िया।',
       'wrong_msg': 'गलत — सही उत्तर विकल्प',
       'skipped_count': 'छोड़ा गया',
+      'leave_quiz': 'क्विज़ छोड़ें',
+      'abandon_quiz_title': 'क्विज़ छोड़ें?',
+      'abandon_quiz_msg':
+          'क्या आप वाकई यह सत्र छोड़ना चाहते हैं? आपकी वर्तमान प्रगति सहेज नहीं जाएगी।',
+      'exit': 'बाहर निकलें',
 
       // ── Topic labels for quiz header ─────────────────────────────────────
       'topic_pattern': 'आकृति पूर्णता',
