@@ -590,7 +590,16 @@ class _QuizScreenState extends State<QuizScreen>
             ],
           ),
           const SizedBox(height: 8),
-          Center(child: _buildScorePill()),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _leaveHeaderButton(),
+              ),
+              _buildScorePill(),
+            ],
+          ),
           const SizedBox(height: 8),
           Container(height: 1, color: Colors.grey.shade200),
         ],
@@ -1027,26 +1036,23 @@ class _QuizScreenState extends State<QuizScreen>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          _leaveButton(),
-          const SizedBox(width: 12),
           if (!isAnswered) ...[
-            const Spacer(),
             _skipButton(),
           ] else ...[
             if (skippedCount > 0) ...[
-              const Spacer(),
-              _buildSkippedPill(),
-              const SizedBox(width: 10),
+              Flexible(child: _buildSkippedPill()),
+              const SizedBox(width: 12),
             ],
-            Expanded(child: _nextButton()),
+            _nextButton(),
           ],
         ],
       ),
     );
   }
 
-  Widget _leaveButton() => GestureDetector(
+  Widget _leaveHeaderButton() => GestureDetector(
         onTap: () async {
           final shouldExit = await _showExitConfirmation();
           if (shouldExit && mounted) {
@@ -1054,28 +1060,21 @@ class _QuizScreenState extends State<QuizScreen>
           }
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: error.withValues(alpha: 0.4)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: error.withValues(alpha: 0.3)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.close_rounded, size: 18, color: error),
-              const SizedBox(width: 6),
+              const Icon(Icons.close_rounded, size: 16, color: error),
+              const SizedBox(width: 4),
               Text(
                 AppLocale.get(currentLang, 'leave_quiz'),
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                   color: error,
                 ),
@@ -1153,7 +1152,7 @@ class _QuizScreenState extends State<QuizScreen>
       backgroundColor: _nextLocked ? Colors.grey.shade400 : primary,
       elevation: _nextLocked ? 0 : 4,
       label: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           if (_nextLocked) ...[
             const SizedBox(
@@ -1181,14 +1180,14 @@ class _QuizScreenState extends State<QuizScreen>
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: 15,
+                fontSize: 14,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 4),
             const Icon(
               Icons.arrow_forward_rounded,
               color: Colors.white,
-              size: 18,
+              size: 16,
             ),
           ],
         ],
