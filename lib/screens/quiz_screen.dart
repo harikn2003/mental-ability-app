@@ -20,6 +20,7 @@ class QuizScreen extends StatefulWidget {
   final int totalQuestions;
   final String timePerQuestion;
   final bool biasEnabled;
+  final bool isHardMode;
   final Map<String, int> initialWeights; // persisted from previous session
   final List<ReasoningQuestion> retryQuestions;
 
@@ -29,6 +30,7 @@ class QuizScreen extends StatefulWidget {
     required this.totalQuestions,
     required this.timePerQuestion,
     this.biasEnabled = true,
+    this.isHardMode = false,
     this.initialWeights = const {},
     this.retryQuestions = const [],
   });
@@ -204,7 +206,7 @@ class _QuizScreenState extends State<QuizScreen>
     int attempts = 0;
     do {
       final category = _pickCategory();
-      q = QuestionGenerator.generate(category);
+      q = QuestionGenerator.generate(category, isHardMode: widget.isHardMode);
       attempts++;
     } while (_seenSignatures.contains(_questionSignature(q)) && attempts < 40);
     _seenSignatures.add(_questionSignature(q));

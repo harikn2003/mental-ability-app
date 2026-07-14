@@ -33,6 +33,9 @@ class AppLocale {
           'This will clear all saved bias weights and start fresh. Your weak area history will be lost.',
       'cancel': 'Cancel',
       'reset': 'Reset',
+      'difficulty': 'DIFFICULTY',
+      'easy': 'Easy',
+      'hard': 'Hard',
 
       // ── Quiz Screen ──────────────────────────────────────────────────────
       'find_the': 'FIND THE',
@@ -232,6 +235,9 @@ class AppLocale {
           'यामुळे सर्व बायस वेट मिटतील आणि नव्याने सुरुवात होईल. कमकुवत विषयांचा इतिहास नष्ट होईल.',
       'cancel': 'रद्द करा',
       'reset': 'रीसेट',
+      'difficulty': 'काठिण्य पातळी',
+      'easy': 'सोपे',
+      'hard': 'कठिण',
 
       // ── Quiz Screen ──────────────────────────────────────────────────────
       'find_the': 'खालीलपैकी ओळखा',
@@ -428,6 +434,9 @@ class AppLocale {
           'यह सभी बायस वेट साफ़ करेगा और नई शुरुआत करेगा। आपकी कमज़ोर क्षेत्रों की जानकारी मिट जाएगी।',
       'cancel': 'रद्द करें',
       'reset': 'रीसेट',
+      'difficulty': 'काठिण्य पातळी',
+      'easy': 'सोपे',
+      'hard': 'कठिण',
 
       // ── Quiz Screen ──────────────────────────────────────────────────────
       'find_the': 'ढूँढिए',

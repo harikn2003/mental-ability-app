@@ -15,7 +15,6 @@ class QuestionGenerator {
   // Random source. Made non-final so tests can seed the generator for
   // deterministic behavior.
   static Random _r = Random();
-  static const bool _jnvstHardMode = true;
 
   /// When enabled generator will print a structured JSON line for any
   /// generated question whose options contain visually-duplicate keys.
@@ -105,9 +104,9 @@ class QuestionGenerator {
     return weightedValues[_r.nextInt(weightedValues.length)];
   }
 
-  static ReasoningQuestion generate(String category) {
+  static ReasoningQuestion generate(String category, {bool isHardMode = false}) {
     for (int attempt = 0; attempt < 80; attempt++) {
-      final q = _generateRaw(category);
+      final q = _generateRaw(category, isHardMode: isHardMode);
       // Diagnostic logging: detect visual-duplicate options and emit a
       // structured JSON blob so device logs (adb/flutter logs) can be
       // searched for duplicate events.
@@ -150,20 +149,21 @@ class QuestionGenerator {
     }
     // Safety valve: if a category is fully exhausted in a long session, return
     // the latest generated instance instead of stalling generation.
-    final fallback = _generateRaw(category);
+    final fallback = _generateRaw(category, isHardMode: isHardMode);
     _markQuestionIfNew(fallback);
     return fallback;
   }
 
-  static ReasoningQuestion _generateRaw(String category) {
+  static ReasoningQuestion _generateRaw(String category,
+      {bool isHardMode = false}) {
     switch (category) {
       case 'odd_man':
-        return _oddMan();
+        return _oddMan(isHardMode: isHardMode);
       case 'figure_match':
         return _figureMatch();
       case 'pattern':
         {
-          final pv = _jnvstHardMode
+          final pv = isHardMode
               ? _pickWeighted([3, 2, 3, 1, 3, 2, 0])
               : _r.nextInt(3);
           if (pv == 0) return _matrixShapeCycle();
@@ -172,7 +172,7 @@ class QuestionGenerator {
           return _matrixDualRule();
         }
       case 'figure_series':
-        return (_jnvstHardMode
+        return (isHardMode
             ? [
                 _seriesRotFill,
                 _seriesDotsRot,
@@ -191,11 +191,11 @@ class QuestionGenerator {
                 _seriesInner,
                 _seriesDotsRot,
                 _seriesMorph,
-              ])[_jnvstHardMode ? _r.nextInt(8) : _r.nextInt(7)]();
+              ])[isHardMode ? _r.nextInt(8) : _r.nextInt(7)]();
       case 'analogy':
-        return _analogy();
+        return _analogy(isHardMode: isHardMode);
       case 'geo_completion':
-        return _geoCompletion();
+        return _geoCompletion(isHardMode: isHardMode);
       case 'mirror_shape':
         return _mirrorShape();
       case 'mirror_text':
@@ -588,9 +588,9 @@ class QuestionGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   // 1. ODD MAN OUT
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion _oddMan() {
+  static ReasoningQuestion _oddMan({bool isHardMode = false}) {
     for (int attempt = 0; attempt < 30; attempt++) {
-      final v = _r.nextInt(8); // 8 variants
+      final v = isHardMode ? _r.nextInt(12) : _r.nextInt(8);
       final cp = _r.nextInt(4);
       List<Map<String, dynamic>> opts;
       String sigKey;
@@ -706,7 +706,7 @@ class QuestionGenerator {
             );
             break;
           }
-        default:
+        case 7:
           {
             final outer = _r.nextInt(4) + 1;
             final inner = _r.nextInt(3) + 1;
@@ -716,6 +716,68 @@ class QuestionGenerator {
               4,
               (i) => _f(outer, rot: rot, filled: i == cp, inner: inner),
             );
+            break;
+          }
+        case 8: // Variant 8: Rotation vs Mirror Trap (Hard)
+          {
+            final s = [2, 7, 8][_r.nextInt(3)];
+            final baseRot = _r.nextInt(4);
+            final filled = _r.nextBool();
+            sigKey = 'oddI:s$s,br$baseRot,f$filled,cp$cp';
+            opts = List.generate(4, (i) {
+              if (i == cp) {
+                return _f(s, rot: baseRot, filled: filled, mirror: true);
+              } else {
+                return _f(s,
+                    rot: (baseRot + i) % 4, filled: filled, mirror: false);
+              }
+            });
+            break;
+          }
+        case 9: // Variant 9: Side count vs Dot count (Hard)
+          {
+            final shapes = [1, 2, 5, 6];
+            final sideCounts = {1: 4, 2: 3, 5: 5, 6: 6};
+            final baseShapes = List<int>.from(shapes)..shuffle(_r);
+            sigKey = 'oddJ:bs${baseShapes.join()},cp$cp';
+            opts = List.generate(4, (i) {
+              final s = baseShapes[i];
+              int d = sideCounts[s]!;
+              if (i == cp) d = (d == 3) ? 4 : d - 1;
+              return _f(s, dots: d);
+            });
+            break;
+          }
+        case 10: // Variant 10: Missing Corner (Hard)
+          {
+            final s = 1; // square
+            final majC = _r.nextInt(4) + 1;
+            int oddC;
+            do {
+              oddC = _r.nextInt(4) + 1;
+            } while (oddC == majC);
+            sigKey = 'oddK:m$majC,o$oddC,cp$cp';
+            opts = List.generate(
+                4, (i) => _f(s, missingCorner: i == cp ? oddC : majC));
+            break;
+          }
+        default: // Variant 11: Inner shape vs Outer shape sides (Hard)
+          {
+            final shapes = [1, 2, 3, 5, 6];
+            final baseS = shapes[_r.nextInt(shapes.length)];
+            int diffS;
+            do {
+              diffS = shapes[_r.nextInt(shapes.length)];
+            } while (diffS == baseS);
+
+            sigKey = 'oddL:bs$baseS,ds$diffS,cp$cp';
+            opts = List.generate(4, (i) {
+              if (i == cp) {
+                return _f(baseS, inner: diffS + 1);
+              } else {
+                return _f(baseS, inner: baseS + 1);
+              }
+            });
             break;
           }
       }
@@ -1528,11 +1590,11 @@ class QuestionGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   // 5. ANALOGY
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion _analogy() {
+  static ReasoningQuestion _analogy({bool isHardMode = false}) {
     const allAsym = [2, 3, 7, 8];
 
     for (int attempt = 0; attempt < 40; attempt++) {
-      final rule = _jnvstHardMode
+      final rule = isHardMode
           ? _pickWeighted([8, 9, 4, 6, 2, 8, 0, 1])
           : _r.nextInt(8);
 
@@ -1769,18 +1831,18 @@ class QuestionGenerator {
     return out;
   }
 
-  static ReasoningQuestion _geoCompletion() {
+  static ReasoningQuestion _geoCompletion({bool isHardMode = false}) {
     for (int attempt = 0; attempt < 40; attempt++) {
-      final shape = _jnvstHardMode
+      final shape = isHardMode
           ? [0, 0, 0, 0, 1, 2][_r.nextInt(6)]
           : _r.nextInt(3);
       final maxCut = _geoMaxCut(shape);
-      final cut = (shape == 0 && _jnvstHardMode)
+      final cut = (shape == 0 && isHardMode)
           ? [4, 5, 6, 7, 4, 5, 6, 7, 2, 3, 0, 1][_r.nextInt(12)]
           : _r.nextInt(maxCut);
       final shownPiece = _r.nextInt(2);
       final targetPiece = 1 - shownPiece;
-      final template = _jnvstHardMode
+      final template = isHardMode
           ? [0, 1, 0, 2, 1, 3, 0][_r.nextInt(7)]
           : _r.nextInt(4);
       final sigKey = 'geo6:sh$shape,c$cut,sp$shownPiece,t$template';

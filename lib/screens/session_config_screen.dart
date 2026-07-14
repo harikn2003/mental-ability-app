@@ -19,6 +19,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
   String selectedTime = '2m';
   String selectedMode = 'random'; // 'random' or 'odd_man', etc.
   bool isBiasEnabled = true;
+  bool isHardMode = false;
   String currentLang = 'EN';
 
   // Pull-to-refresh + auto-scroll
@@ -444,6 +445,25 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
             )
                 .toList(),
           ),
+          const SizedBox(height: 16),
+
+          // Setting 3: Difficulty
+          _buildSettingRow(
+            icon: Icons.trending_up_rounded,
+            label: AppLocale.get(currentLang, 'difficulty'),
+            children: [
+              _buildDifficultyChip(
+                label: AppLocale.get(currentLang, 'easy'),
+                isSelected: !isHardMode,
+                onTap: () => setState(() => isHardMode = false),
+              ),
+              _buildDifficultyChip(
+                label: AppLocale.get(currentLang, 'hard'),
+                isSelected: isHardMode,
+                onTap: () => setState(() => isHardMode = true),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -858,6 +878,50 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
     );
   }
 
+  Widget _buildDifficultyChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.only(right: 8),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? primary : surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected ? primary : Colors.grey.withOpacity(0.3),
+              width: 1.5,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: primary.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? Colors.white : textMain,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildChip({
     required String label,
     required bool isSelected,
@@ -928,6 +992,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                         timePerQuestion: selectedTime,
                         biasEnabled: true,
                         initialWeights: weakWeights,
+                        isHardMode: isHardMode,
                       ),
                 ),
               ).then((_) => _onReturn());
@@ -943,6 +1008,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                   timePerQuestion: selectedTime,
                   biasEnabled: isBiasEnabled,
                   initialWeights: isBiasEnabled ? _savedWeights : {},
+                  isHardMode: isHardMode,
                 ),
               ),
             ).then((_) => _onReturn());
