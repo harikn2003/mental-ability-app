@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../painters/punch_painter.dart';
+import '../painters/sandia_painter.dart';
 
 /// OptionRenderer — renders one answer option.
 /// Dispatches to the correct painter/widget based on 'type'.
@@ -16,7 +17,9 @@ class OptionRenderer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final type = data['type'] as String? ?? '';
-
+    if (type == 'sandia_cell') {
+      return SandiaWidget(data: data, size: size);
+    }
     if (type == 'symbol_grid') {
       final symbols = (data['symbols'] as List).cast<String>();
       return _SymbolGridOption(symbols: symbols, size: size);

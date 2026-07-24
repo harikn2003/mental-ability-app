@@ -3,9 +3,11 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import 'hard_question_generator.dart';
 import 'reasoning_question.dart';
 
 /// QuestionGenerator
+/// Main entry point for question generation across the app.
 /// Single vocabulary: FigurePainter data keys.
 /// All 10 question types, deterministic distractors.
 ///
@@ -36,12 +38,14 @@ class QuestionGenerator {
   static void resetSession() {
     _history.clear();
     _questionHistory.clear();
+    HardQuestionGenerator.resetSession();
   }
 
   /// Seed the internal random source with a deterministic value.
   /// Used specifically in visual unit tests to ensure repeatable coverage.
   static void seed(int s) {
     _r = Random(s);
+    HardQuestionGenerator.seed(s);
   }
 
   static bool _seen(String sig) => _history.contains(sig);
@@ -104,9 +108,16 @@ class QuestionGenerator {
     return weightedValues[_r.nextInt(weightedValues.length)];
   }
 
+  /// Main generator entry point.
+  /// Routes to [HardQuestionGenerator] if [isHardMode] is true,
+  /// otherwise runs the easy/standard generator logic below.
   static ReasoningQuestion generate(String category, {bool isHardMode = false}) {
+    if (isHardMode) {
+      return HardQuestionGenerator.generate(category);
+    }
+
     for (int attempt = 0; attempt < 80; attempt++) {
-      final q = _generateRaw(category, isHardMode: isHardMode);
+      final q = _generateRaw(category, isHardMode: false);
       // Diagnostic logging: detect visual-duplicate options and emit a
       // structured JSON blob so device logs (adb/flutter logs) can be
       // searched for duplicate events.
@@ -149,7 +160,7 @@ class QuestionGenerator {
     }
     // Safety valve: if a category is fully exhausted in a long session, return
     // the latest generated instance instead of stalling generation.
-    final fallback = _generateRaw(category, isHardMode: isHardMode);
+    final fallback = _generateRaw(category, isHardMode: false);
     _markQuestionIfNew(fallback);
     return fallback;
   }
@@ -174,24 +185,24 @@ class QuestionGenerator {
       case 'figure_series':
         return (isHardMode
             ? [
-                _seriesRotFill,
-                _seriesDotsRot,
-                _seriesMorph,
-                _seriesAltDual,
-                _seriesInner,
-                _seriesDots,
-                _seriesRotation,
-                _seriesAltDual,
-              ]
+          _seriesRotFill,
+          _seriesDotsRot,
+          _seriesMorph,
+          _seriesAltDual,
+          _seriesInner,
+          _seriesDots,
+          _seriesRotation,
+          _seriesAltDual,
+        ]
             : [
-                _seriesRotation,
-                _seriesDots,
-                _seriesFillToggle,
-                _seriesRotFill,
-                _seriesInner,
-                _seriesDotsRot,
-                _seriesMorph,
-              ])[isHardMode ? _r.nextInt(8) : _r.nextInt(7)]();
+          _seriesRotation,
+          _seriesDots,
+          _seriesFillToggle,
+          _seriesRotFill,
+          _seriesInner,
+          _seriesDotsRot,
+          _seriesMorph,
+        ])[isHardMode ? _r.nextInt(8) : _r.nextInt(7)]();
       case 'analogy':
         return _analogy(isHardMode: isHardMode);
       case 'geo_completion':
@@ -211,17 +222,17 @@ class QuestionGenerator {
 
   // ── Shape data helper ─────────────────────────────────────────────────────
   static Map<String, dynamic> _f(
-    int shape, {
-    bool filled = false,
-    int rot = 0,
-    bool mirror = false,
-    int dots = 0,
-    int inner = 0,
-    int lines = 0,
-    int missingCorner = 0,
-    bool dense = false,
-    bool selectiveMirrorTrap = false,
-  }) => {
+      int shape, {
+        bool filled = false,
+        int rot = 0,
+        bool mirror = false,
+        int dots = 0,
+        int inner = 0,
+        int lines = 0,
+        int missingCorner = 0,
+        bool dense = false,
+        bool selectiveMirrorTrap = false,
+      }) => {
     'shape': shape,
     'filled': filled,
     'rotation': rot,
@@ -246,7 +257,7 @@ class QuestionGenerator {
     if (m.containsKey('holes') && m.containsKey('unfolded')) {
       final holes = (m['holes'] as List)
           .map((h) =>
-              '(${(h["x"] as num).toStringAsFixed(2)},${(h["y"] as num).toStringAsFixed(2)})')
+      '(${(h["x"] as num).toStringAsFixed(2)},${(h["y"] as num).toStringAsFixed(2)})')
           .toList()
         ..sort();
       return 'punch|ax:${m["fold_axis"]}|holes:${holes.join("-")}';
@@ -286,15 +297,9 @@ class QuestionGenerator {
       rot = rot % 2;
       mir = false;
     } else if (s == 2 && mir) {
-      // Shape 2: Right-angle triangle. (mirror=true, rot) is visually identical to (mirror=false, 3-rot)
       mir = false;
       rot = 3 - rot;
     } else if (s == 7 && mir) {
-      // Shape 7: Arrow. (mirror=true, rot) points LEFT/RIGHT/UP/DOWN identically to unmirrored counterparts:
-      // (true, 0) -> (false, 2) [points LEFT]
-      // (true, 1) -> (false, 1) [points DOWN]
-      // (true, 2) -> (false, 0) [points RIGHT]
-      // (true, 3) -> (false, 3) [points UP]
       mir = false;
       if (rot == 0) {
         rot = 2;
@@ -340,7 +345,7 @@ class QuestionGenerator {
     // Embedded option mutation
     if (m['type'] == 'embedded_option') {
       final shapes = List<Map<String, dynamic>>.from(
-        (m['shapes'] as List).map((s) => Map<String, dynamic>.from(s as Map))
+          (m['shapes'] as List).map((s) => Map<String, dynamic>.from(s as Map))
       );
       if (shapes.isNotEmpty) {
         final idx = _r.nextInt(shapes.length);
@@ -357,7 +362,7 @@ class QuestionGenerator {
     // Punch hole mutation
     if (m.containsKey('holes') && m.containsKey('unfolded')) {
       final holes = List<Map<String, dynamic>>.from(
-        (m['holes'] as List).map((h) => Map<String, dynamic>.from(h as Map))
+          (m['holes'] as List).map((h) => Map<String, dynamic>.from(h as Map))
       );
       if (holes.isNotEmpty) {
         final idx = _r.nextInt(holes.length);
@@ -427,9 +432,9 @@ class QuestionGenerator {
   /// Removes any wrong that is visually identical to [correct] first.
   /// Returns options list (always 4) + correct index.
   static ({List<Map<String, dynamic>> opts, int idx}) _pack(
-    Map<String, dynamic> correct,
-    List<Map<String, dynamic>> wrongs,
-  ) {
+      Map<String, dynamic> correct,
+      List<Map<String, dynamic>> wrongs,
+      ) {
     final correctIndex = _r.nextInt(4);
     final List<Map<String, dynamic>?> options = List.filled(4, null);
 
@@ -462,7 +467,7 @@ class QuestionGenerator {
           'fold_axis': ax,
           'holes': List.generate(
             n,
-            (i) => {
+                (i) => {
               'x': (hx + i * 0.12).clamp(0.05, 0.95),
               'y': (hy + i * 0.08).clamp(0.05, 0.95),
             },
@@ -604,7 +609,7 @@ class QuestionGenerator {
             sigKey = 'oddA:s$s,r$rot,maj$maj,cp$cp';
             opts = List.generate(
               4,
-              (i) => _f(s, rot: rot, filled: i == cp ? !maj : maj),
+                  (i) => _f(s, rot: rot, filled: i == cp ? !maj : maj),
             );
             break;
           }
@@ -626,7 +631,7 @@ class QuestionGenerator {
             sigKey = 'oddB:b$base,o$odd,r$rot,f$filled,cp$cp';
             opts = List.generate(
               4,
-              (i) => _f(i == cp ? odd : base, rot: rot, filled: filled),
+                  (i) => _f(i == cp ? odd : base, rot: rot, filled: filled),
             );
             break;
           }
@@ -639,7 +644,7 @@ class QuestionGenerator {
             sigKey = 'oddC:s$s,r$rot,cp$cp';
             opts = List.generate(
               4,
-              (i) => _f(s, rot: rot, dots: i == cp ? oddD : majD),
+                  (i) => _f(s, rot: rot, dots: i == cp ? oddD : majD),
             );
             break;
           }
@@ -652,7 +657,7 @@ class QuestionGenerator {
             sigKey = 'oddD:s$s,f$filled,mr$majRot,cp$cp';
             opts = List.generate(
               4,
-              (i) => _f(s, rot: i == cp ? oddRot : majRot, filled: filled),
+                  (i) => _f(s, rot: i == cp ? oddRot : majRot, filled: filled),
             );
             break;
           }
@@ -665,7 +670,7 @@ class QuestionGenerator {
             sigKey = 'oddE:s$s,r$rot,i$innerS,cp$cp';
             opts = List.generate(
               4,
-              (i) =>
+                  (i) =>
                   _f(s, rot: rot, filled: filled, inner: i == cp ? innerS : 0),
             );
             break;
@@ -682,7 +687,7 @@ class QuestionGenerator {
             sigKey = 'oddF:o$outer,r$rot,mi$majInner,oi$oddInner,cp$cp';
             opts = List.generate(
               4,
-              (i) => _f(
+                  (i) => _f(
                 outer,
                 rot: rot,
                 filled: false,
@@ -701,7 +706,7 @@ class QuestionGenerator {
             sigKey = 'oddG:s$s,r$rot,f$filled,md$majD,cp$cp';
             opts = List.generate(
               4,
-              (i) =>
+                  (i) =>
                   _f(s, rot: rot, filled: filled, dots: i == cp ? oddD : majD),
             );
             break;
@@ -714,7 +719,7 @@ class QuestionGenerator {
             sigKey = 'oddH:o$outer,i$inner,r$rot,cp$cp';
             opts = List.generate(
               4,
-              (i) => _f(outer, rot: rot, filled: i == cp, inner: inner),
+                  (i) => _f(outer, rot: rot, filled: i == cp, inner: inner),
             );
             break;
           }
@@ -1131,7 +1136,7 @@ class QuestionGenerator {
 
       final seq = List.generate(
         3,
-        (i) => _f(
+            (i) => _f(
           shape,
           rot: (start + i) % 4,
           filled: filled,
@@ -1215,7 +1220,7 @@ class QuestionGenerator {
 
       final seq = List.generate(
         3,
-        (i) => _f(shape, dots: (start + step * i).clamp(0, 4), filled: filled),
+            (i) => _f(shape, dots: (start + step * i).clamp(0, 4), filled: filled),
       );
       if (!_hasVisibleVariation(seq)) continue;
       final ans = _f(shape, dots: ansD, filled: filled);
@@ -1269,7 +1274,7 @@ class QuestionGenerator {
 
       final seq = List.generate(
         3,
-        (i) => _f(shape, rot: (startRot + i) % 4, filled: fill(i), dots: dots),
+            (i) => _f(shape, rot: (startRot + i) % 4, filled: fill(i), dots: dots),
       );
       if (!_hasVisibleVariation(seq)) continue;
       final ans = _f(
@@ -1337,7 +1342,7 @@ class QuestionGenerator {
       bool fill(int i) => i.isEven ? startFill : !startFill;
       final seq = List.generate(
         3,
-        (i) => _f(shapes[i], rot: (startRot + i) % 4, filled: fill(i)),
+            (i) => _f(shapes[i], rot: (startRot + i) % 4, filled: fill(i)),
       );
       final ans = _f(shapes[3], rot: (startRot + 3) % 4, filled: fill(3));
 
@@ -1383,7 +1388,7 @@ class QuestionGenerator {
 
       final seq = List.generate(
         3,
-        (i) => _f(
+            (i) => _f(
           shape,
           rot: (startR + i) % 4,
           filled: i.isEven ? startF : !startF,
@@ -1442,7 +1447,7 @@ class QuestionGenerator {
 
       final figures = List.generate(
         3,
-        (i) => _f(outer, filled: filled, inner: seq[i]),
+            (i) => _f(outer, filled: filled, inner: seq[i]),
       );
       if (!_hasVisibleVariation(figures)) continue;
       final ansInner = seq[3];
@@ -1490,7 +1495,7 @@ class QuestionGenerator {
 
       final seq = List.generate(
         3,
-        (i) => _f(
+            (i) => _f(
           shape,
           rot: (startR + i) % 4,
           dots: (startD + i).clamp(0, 4),
@@ -1962,12 +1967,6 @@ class QuestionGenerator {
         mirror: true,
       );
 
-      // Create wrong pool containing pure spatial transformations of the target shape:
-      // - w1: Same rot/fill/dots, but mirror = false (original unmirrored target)
-      // - w2: Same rot/fill/dots, but mirror = true and rotation offset by 90 degrees
-      // - w3: Same rot/fill/dots, but mirror = true and rotation offset by 180 degrees
-      // - w4: Same rot/fill/dots, but mirror = true and rotation offset by 270 degrees
-      // - w5: Same rot/fill/dots, but mirror = false and rotation offset by 180 degrees
       final wrongPool = <Map<String, dynamic>>[
         _f(shape, rot: rot, filled: filled, dots: dots, mirror: false),
         _f(shape, rot: (rot + 1) % 4, filled: filled, dots: dots, mirror: true),
@@ -2004,7 +2003,6 @@ class QuestionGenerator {
   static ReasoningQuestion _mirrorText() {
     String pickBaseContent(bool isDigit) {
       if (isDigit) {
-        // Generate a random 4-digit number with unique digits
         final List<int> digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]..shuffle(_r);
         if (digits[0] == 0) {
           final temp = digits[0];
@@ -2013,7 +2011,6 @@ class QuestionGenerator {
         }
         return digits.take(4).join('');
       } else {
-        // Generate a random 4-letter word with unique uppercase letters
         const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
         final List<String> chars = letters.split('')..shuffle(_r);
         return chars.take(4).join('');
@@ -2048,12 +2045,12 @@ class QuestionGenerator {
     }
 
     Map<String, dynamic> buildOption(
-      String strategy,
-      String sourceContent, {
-      required bool isDigit,
-      int? trapIndex,
-      int? swapPos,
-    }) {
+        String strategy,
+        String sourceContent, {
+          required bool isDigit,
+          int? trapIndex,
+          int? swapPos,
+        }) {
       bool mirrorH = true;
       bool mirrorV = false;
       bool selectiveMirrorTrap = false;
@@ -2120,10 +2117,10 @@ class QuestionGenerator {
     }
 
     Map<String, dynamic> mutateCandidate(
-      Map<String, dynamic> candidate, {
-      required bool isDigit,
-      required int mutationAttempt,
-    }) {
+        Map<String, dynamic> candidate, {
+          required bool isDigit,
+          required int mutationAttempt,
+        }) {
       final strategy = candidate['mirror_strategy'] as String? ?? 'A';
       var source = (candidate['mirror_source'] as String?) ?? '';
 
@@ -2142,7 +2139,7 @@ class QuestionGenerator {
         );
       } else if (strategy == 'D') {
         final currentSwap = candidate['mirror_swap_pos'] as int? ?? 0;
-        final maxSwap = source.length - 3; // Keep swap within prefix to preserve last letter
+        final maxSwap = source.length - 3;
         if (maxSwap <= 0 || (mutationAttempt % (maxSwap + 1) == 0 && mutationAttempt > 0)) {
           source = permutePrefix(source);
         }
@@ -2157,17 +2154,16 @@ class QuestionGenerator {
         source = permutePrefix(source);
         return buildOption(strategy, source, isDigit: isDigit);
       } else {
-        // Strategy B: always keep last letter not matching original last
         source = permuteStringNotEndingWithLast(source);
         return buildOption(strategy, source, isDigit: isDigit);
       }
     }
 
     Map<String, dynamic> resolveUniqueCandidate(
-      Map<String, dynamic> initial,
-      Set<String> seenKeys, {
-      required bool isDigit,
-    }) {
+        Map<String, dynamic> initial,
+        Set<String> seenKeys, {
+          required bool isDigit,
+        }) {
       var current = Map<String, dynamic>.from(initial);
       for (int i = 0; i < 120; i++) {
         final key = _visibleKey(current);
@@ -2192,8 +2188,6 @@ class QuestionGenerator {
       options[correctIndex] = correct;
       seenKeys.add(_visibleKey(correct));
 
-      // Always include Strategy B (ends with first letter)
-      // Pick 2 other strategies from A, C, D (ends with last letter)
       final otherStrategies = ['A', 'C', 'D']..shuffle(_r);
       final strategies = ['B', otherStrategies[0], otherStrategies[1]]..shuffle(_r);
       int strategyIdx = 0;
@@ -2204,22 +2198,22 @@ class QuestionGenerator {
         final strategy = strategies[strategyIdx++];
         final candidate = switch (strategy) {
           'A' => buildOption(
-              'A',
-              permutePrefix(content),
-              isDigit: isDigit,
-            ),
+            'A',
+            permutePrefix(content),
+            isDigit: isDigit,
+          ),
           'C' => buildOption(
-              'C',
-              permutePrefix(content),
-              isDigit: isDigit,
-              trapIndex: 0,
-            ),
+            'C',
+            permutePrefix(content),
+            isDigit: isDigit,
+            trapIndex: 0,
+          ),
           'D' => buildOption(
-              'D',
-              content,
-              isDigit: isDigit,
-              swapPos: _r.nextInt(content.length - 2),
-            ),
+            'D',
+            content,
+            isDigit: isDigit,
+            swapPos: _r.nextInt(content.length - 2),
+          ),
           _ => buildOption(strategy, content, isDigit: isDigit),
         };
 
@@ -2283,12 +2277,14 @@ class QuestionGenerator {
       correctIndex: fallbackPacked.idx,
     );
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // 9. PUNCH HOLE
   // ═══════════════════════════════════════════════════════════════════════════
   static String _holesKey(List<Map<String, dynamic>> holes) {
     final parts = holes
         .map((h) =>
-            '${(h['x'] as num).toStringAsFixed(4)},${(h['y'] as num).toStringAsFixed(4)}')
+    '${(h['x'] as num).toStringAsFixed(4)},${(h['y'] as num).toStringAsFixed(4)}')
         .toSet()
         .toList()
       ..sort();
@@ -2551,7 +2547,6 @@ class QuestionGenerator {
         });
       }
 
-      // Pack embedded options sequentially via visual canonical fingerprint
       final packed = _pack(correct, wrongs);
 
       _markSeen(sigKey);
