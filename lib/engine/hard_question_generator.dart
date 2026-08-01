@@ -214,9 +214,19 @@ class HardQuestionGenerator {
       _oddManChangeFillPattern,
       _oddManFillPatternRepetition,
       _oddManTranslationalNumerosity,
-      _oddManLogicalCombination,
       _oddManArithmetic,
       _oddManConstantAttribute,
+      // NOTE: _oddManLogicalCombination is intentionally left out of
+      // rotation. It went through two rounds of bugfixes (arbitrary
+      // shape-category signal -> fill-darkness signal; dot colliding with
+      // the candidate shape -> repositioned) and users still couldn't
+      // solve it reliably. The remaining problem is structural, not a
+      // rendering bug: it asks a solver to read three separate small
+      // signals (key shade, candidate shade, a corner dot) and combine
+      // them through a hidden AND/OR/XOR operator - too much simultaneous
+      // inference for a 4-option glance-and-answer format. Left the
+      // function defined below in case a future redesign wants to reuse
+      // pieces of it, but it should stay out of the active pool.
     ];
     return subTypes[_r.nextInt(subTypes.length)]();
   }
@@ -322,6 +332,18 @@ class HardQuestionGenerator {
   /// the background feature's fill.
   /// - 3 majority: fg fill = cycle.next(bg fill)
   /// - 1 odd: fg fill breaks that one-step adjacency
+  ///
+  /// BUGFIX: 'black' used to be a valid bg starting shade. Since it's the
+  /// last entry in the cycle, "next" wrapped it around to 'white' - so on
+  /// whichever option got a black background, the foreground would jump to
+  /// the LIGHTEST possible fill instead of getting darker. A solver trying
+  /// to infer "the front shape is always a bit darker than the back one"
+  /// would hit that option and see the opposite, which reads as a
+  /// contradiction rather than a pattern. 'black' is now excluded from the
+  /// bg starting pool, so fg is always genuinely darker than bg, no
+  /// exceptions.
+  static const List<String> _changeFillBgPool = ['white', 'grey40', 'grey10'];
+
   static ReasoningQuestion _oddManChangeFillPattern() {
     final bgShape = _randomShape();
     final fgShape = _randomShape([bgShape]);
@@ -332,12 +354,9 @@ class HardQuestionGenerator {
     final bgRot = [0, 90, 180, 270][_r.nextInt(4)];
     final fgRot = [0, 90, 180, 270][_r.nextInt(4)];
 
-    // Each of the 4 options gets a distinct starting point in the 4-value cycle.
-    final startIndices = [0, 1, 2, 3]..shuffle(_r);
-
     final options = <Map<String, dynamic>>[];
     for (int i = 0; i < 4; i++) {
-      final bgFill = _fillCycle[startIndices[i]];
+      final bgFill = _changeFillBgPool[_r.nextInt(_changeFillBgPool.length)];
       final correctFg = SandiaFillCompat.next(bgFill);
       String fgFill = correctFg;
       if (i == oddIndex) {
@@ -367,6 +386,16 @@ class HardQuestionGenerator {
   /// same fill pattern (fill pattern is "repeated", not advanced).
   /// - 3 majority: shapeA.fill == shapeB.fill
   /// - 1 odd: shapeA.fill != shapeB.fill
+  ///
+  /// BUGFIX: shapeA and shapeB were 0.55 wide each, centered only 0.36
+  /// apart (cx 0.32 / 0.68) - their bounding areas overlapped by roughly a
+  /// third. For wide shapes like triangle or trapezoid this made the two
+  /// supposedly-separate shapes visually merge into one composite blob
+  /// (e.g. a circle appearing to sit "inside" a triangle instead of beside
+  /// it), which defeats a rule that depends on reading them as two
+  /// distinct fills. They're now smaller and spaced further apart, with a
+  /// safety margin so even the widest shape pairing stays visually
+  /// separate.
   static ReasoningQuestion _oddManFillPatternRepetition() {
     final shapeA = _randomShape();
     final shapeB = _randomShape([shapeA]);
@@ -387,8 +416,8 @@ class HardQuestionGenerator {
       }
 
       options.add(_cell([
-        _feature(shapeA, w: 0.55, h: 0.55, rot: rotA, cx: 0.32, cy: 0.5, fill: fillA),
-        _feature(shapeB, w: 0.55, h: 0.55, rot: rotB, cx: 0.68, cy: 0.5, fill: fillB),
+        _feature(shapeA, w: 0.4, h: 0.4, rot: rotA, cx: 0.26, cy: 0.5, fill: fillA),
+        _feature(shapeB, w: 0.4, h: 0.4, rot: rotB, cx: 0.74, cy: 0.5, fill: fillB),
       ], gridBox: true));
     }
 
@@ -493,6 +522,9 @@ class HardQuestionGenerator {
     }
   }
 
+  // RETIRED - not called from _generateHardOddMan's subTypes list. See the
+  // note where it used to be registered, above.
+  // ignore: unused_element
   static ReasoningQuestion _oddManLogicalCombination() {
     final op = ['and', 'or', 'xor'][_r.nextInt(3)];
     final oddIndex = _r.nextInt(4);
@@ -521,10 +553,18 @@ class HardQuestionGenerator {
 
       final features = <Map<String, dynamic>>[
         _feature(keyShape, w: 0.3, h: 0.3, cx: 0.22, cy: 0.22, fill: keyFill),
-        _feature(candidateShape, w: 0.62, h: 0.62, rot: rotations[i], cx: 0.55, cy: 0.58, fill: candidateFill),
+        _feature(candidateShape, w: 0.56, h: 0.56, rot: rotations[i], cx: 0.5, cy: 0.6, fill: candidateFill),
       ];
       if (dotPresent) {
-        features.add(_feature('ellipse', w: 0.14, h: 0.14, cx: 0.85, cy: 0.85, fill: 'black'));
+        // BUGFIX: this used to sit at (0.85, 0.85), right at the edge of
+        // (and for some shape/rotation combos, overlapping) the candidate
+        // shape's own bounding area - when both were dark-filled, the dot
+        // visually merged into the candidate and "present vs absent"
+        // became a coin flip. The top-right corner stays clear of both the
+        // key marker (top-left) and the candidate (center/bottom), so the
+        // dot is unambiguous regardless of what shape or rotation the
+        // candidate has.
+        features.add(_feature('ellipse', w: 0.12, h: 0.12, cx: 0.87, cy: 0.15, fill: 'black'));
       }
 
       options.add(_cell(features, gridBox: true));
@@ -545,14 +585,34 @@ class HardQuestionGenerator {
   /// `b` dots, row C has `c` dots. The rule is c = a + b.
   /// - 3 majority: c == a + b (a, b vary freely per option)
   /// - 1 odd: c is off by +-1 from the correct sum
+  /// BUGFIX: dot spacing is cx = (i+1)/(count+1), so with counts up to 6-7
+  /// (a,b were each 1-3, c = a+b could reach 6, or 7 for the odd option)
+  /// the gap between adjacent dot centers shrank to ~0.14 while each dot
+  /// was 0.13 wide - they nearly touched and the row read as one solid
+  /// dark blob instead of countable individual dots, making the whole
+  /// point of the rule (comparing counts) impossible to do by eye. a and b
+  /// are now capped at 1-2 (max row count 4, or 5 for the odd option),
+  /// and dots are drawn smaller, so every row stays clearly countable.
   static List<Map<String, dynamic>> _dotRow(int count, double cy, String fill) {
     final features = <Map<String, dynamic>>[];
     for (int i = 0; i < count; i++) {
       final cx = (i + 1) / (count + 1);
-      features.add(_feature('ellipse', w: 0.13, h: 0.13, cx: cx, cy: cy, fill: fill));
+      features.add(_feature('ellipse', w: 0.1, h: 0.1, cx: cx, cy: cy, fill: fill));
     }
     return features;
   }
+
+  /// BUGFIX (round 2): even with countable dots, rows B and C sit right
+  /// next to each other (cy 0.5 / 0.78) and both use fairly dark fills
+  /// (grey40 / black) - close enough in shade that the two rows visually
+  /// read as one merged block, so a solver can't tell where "row B" ends
+  /// and "row C" begins, which makes verifying c = a + b impossible even
+  /// though every individual dot is countable. Two thin divider bars now
+  /// explicitly split the cell into 3 bands, so the row grouping is a
+  /// structural fact of the layout, not something that depends on the
+  /// fills being different enough to tell apart.
+  static Map<String, dynamic> _rowDivider(double cy) =>
+      _feature('rectangle', w: 0.86, h: 0.02, cx: 0.5, cy: cy, fill: 'grey10');
 
   static ReasoningQuestion _oddManArithmetic() {
     final oddIndex = _r.nextInt(4);
@@ -562,8 +622,8 @@ class HardQuestionGenerator {
 
     final options = <Map<String, dynamic>>[];
     for (int i = 0; i < 4; i++) {
-      final a = 1 + _r.nextInt(3); // 1-3
-      final b = 1 + _r.nextInt(3); // 1-3
+      final a = 1 + _r.nextInt(2); // 1-2
+      final b = 1 + _r.nextInt(2); // 1-2
       int c = a + b;
       if (i == oddIndex) {
         final delta = _r.nextBool() ? 1 : -1;
@@ -572,9 +632,11 @@ class HardQuestionGenerator {
       }
 
       final features = <Map<String, dynamic>>[
-        ..._dotRow(a, 0.22, fillA),
-        ..._dotRow(b, 0.5, fillB),
-        ..._dotRow(c, 0.78, fillC),
+        ..._dotRow(a, 0.2, fillA),
+        _rowDivider(0.36),
+        ..._dotRow(b, 0.52, fillB),
+        _rowDivider(0.68),
+        ..._dotRow(c, 0.84, fillC),
       ];
       options.add(_cell(features, gridBox: true));
     }
