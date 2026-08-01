@@ -6,6 +6,7 @@ import '../config/localization.dart';
 import '../painters/figure_painter.dart';
 import '../painters/mirror_text_painter.dart';
 import '../painters/punch_painter.dart';
+import '../painters/sandia_painter.dart';
 
 /// QuestionRenderer — renders the puzzle area for all 10 question types.
 /// All shapes use FigurePainter (same vocabulary as the generator).
@@ -53,6 +54,9 @@ class QuestionRenderer extends StatelessWidget {
         size: Size(size, size),
         painter: MirrorTextPainter(data),
       );
+    }
+    if (data['type'] == 'sandia_cell') {
+      return SandiaWidget(data: data, size: size);
     }
     if (data['type'] == 'symbol_grid') {
       final symbols = (data['symbols'] as List).cast<String>();
