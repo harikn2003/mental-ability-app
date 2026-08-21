@@ -63,6 +63,8 @@ class HardQuestionGenerator {
         return _generateHardOddMan();
       case 'pattern':
         return _generateFullSandiaMatrix(complexity: complexity);
+      case 'figure_match':
+        return _generateHardFigureMatch();
       case 'figure_series':
         return _generateDenseMultiLayerSeries();
       case 'analogy':
@@ -803,6 +805,207 @@ class HardQuestionGenerator {
       puzzle: {'type': 'odd_man'},
       options: options,
       correctIndex: oddIndex,
+    );
+  }
+
+  // ===========================================================================
+  // 1b. HARD FIGURE MATCH
+  //
+  // Same puzzle contract as the existing easy-mode _figureMatch() in
+  // question_generator.dart: {'type': 'figure_match', 'target': <cell>} plus
+  // 4 options, one of which is the true match. Rendered via 'sandia_cell' /
+  // SandiaWidget (same pipeline as odd_man and pattern) rather than the
+  // older EnhancedFigurePainter vocabulary, for the same reasons hard mode
+  // uses it elsewhere: continuous shape proportions, a wider fill palette,
+  // and the shape/rendering infrastructure already built and tested.
+  //
+  // DESIGN NOTE - why there are corner markers at all: a genuine "spot the
+  // exact match" question needs a mirror trap (an option that LOOKS like a
+  // valid rotation of the target but is actually a reflection of it - not
+  // reachable by rotation alone). None of the 6 shapes in this vocabulary
+  // are individually chiral (triangle, tee, and trapezoid are all built
+  // left-right symmetric), so mirroring the main shape alone changes
+  // nothing visible - the trap would be undetectable, not just hard. Small
+  // markers at two corners of the figure make the WHOLE composition
+  // asymmetric, which is what actually makes a mirror distinguishable from
+  // a rotation.
+  //
+  // BUGFIX: a single circular marker used to sit only 0.26 from center,
+  // which overlapped the shapes' own silhouettes once two overlaid shapes
+  // (up to ~1.0 wide) were introduced - it read as messy, sitting on top
+  // of shape edges instead of clearly next to them. Markers are pushed out
+  // to 0.37 now, and the main shapes are sized to leave room for that.
+  // Also swapped the plain circle for two differently-shaped markers (a
+  // small triangle and a small square) - both because a bare dot read as
+  // visual noise rather than a deliberate reference point, and because two
+  // independent markers (a solver has to check both corners, and a
+  // distractor might only get ONE of them wrong) is real added difficulty
+  // rather than the same one check with worse contrast.
+  // ===========================================================================
+
+  static const List<List<double>> _cornerOffsets = [
+    [-0.37, -0.37], // TL
+    [0.37, -0.37], // TR
+    [0.37, 0.37], // BR
+    [-0.37, 0.37], // BL
+  ];
+
+  static int _mirrorCorner(int c) => const [1, 0, 3, 2][c];
+  static int _rotateCorner(int c, int rotDeg) => (c + (rotDeg ~/ 90)) % 4;
+
+  /// BUGFIX: the marker's POSITION was correctly rotated (via _rotateCorner
+  /// above), but the marker's own SHAPE was always drawn at rot:0 - so as
+  /// the figure rotated, the triangle marker moved to the right corner but
+  /// kept pointing the same fixed direction instead of turning with the
+  /// rest of the figure. Invisible on the square marker (a square looks
+  /// identical at every 90-degree turn) but obviously wrong on the
+  /// triangle, which is exactly what was being reported. The marker now
+  /// rotates by the same `rot` as the main shapes. No special handling
+  /// needed for `mirror` here specifically - the triangle is itself
+  /// left-right symmetric (same reason it can't carry a mirror trap on its
+  /// own), so a mirrored-then-rotated triangle looks identical to a
+  /// plain rotated one; only its corner position (already handled above)
+  /// carries the mirror information.
+  static Map<String, dynamic> _markerFeature(String shape, int cornerIndex, int rot, bool mirror) {
+    final cc = mirror ? _mirrorCorner(cornerIndex) : cornerIndex;
+    final finalCorner = _rotateCorner(cc, rot);
+    final off = _cornerOffsets[finalCorner];
+    return _feature(shape, w: 0.16, h: 0.16, rot: rot, cx: 0.5 + off[0], cy: 0.5 + off[1], fill: 'black');
+  }
+
+  static Map<String, dynamic> _figureMatchCell({
+    required String outerShape,
+    required String innerShape,
+    required double outerW,
+    required double outerH,
+    required double innerW,
+    required double innerH,
+    required String outerFill,
+    required String innerFill,
+    required int rot,
+    required int markerACorner,
+    required int markerBCorner,
+    required bool mirror,
+    int? overrideMarkerACorner,
+    int? overrideMarkerBCorner,
+  }) {
+    return _cell([
+      _feature(outerShape, w: outerW, h: outerH, rot: rot, fill: outerFill),
+      _feature(innerShape, w: innerW, h: innerH, rot: rot, fill: innerFill),
+      overrideMarkerACorner != null
+          ? _feature('triangle', w: 0.16, h: 0.16, rot: rot, cx: 0.5 + _cornerOffsets[overrideMarkerACorner][0], cy: 0.5 + _cornerOffsets[overrideMarkerACorner][1], fill: 'black')
+          : _markerFeature('triangle', markerACorner, rot, mirror),
+      overrideMarkerBCorner != null
+          ? _feature('rectangle', w: 0.13, h: 0.13, rot: rot, cx: 0.5 + _cornerOffsets[overrideMarkerBCorner][0], cy: 0.5 + _cornerOffsets[overrideMarkerBCorner][1], fill: 'black')
+          : _markerFeature('rectangle', markerBCorner, rot, mirror),
+    ], gridBox: true);
+  }
+
+  /// ANTI-SHORTCUT / complexity: two independently-checkable overlaid
+  /// shapes (concentric, like the ChangeFillPattern/ScalingRepetition
+  /// nesting elsewhere) plus two independently-checkable corner markers -
+  /// a solver has to verify outer shape, inner shape, outer fill, inner
+  /// fill, rotation, AND both markers, all at once. Difficulty comes from
+  /// there being more to check, not from any individual difference being
+  /// harder to SEE.
+  static ReasoningQuestion _generateHardFigureMatch() {
+    final outerShape = _randomShape();
+    final innerShape = _randomShape([outerShape]);
+    final dims = _sgmRandomDims();
+    final outerW = dims[0] * 0.92;
+    final outerH = dims[1] * 0.92;
+    final innerW = outerW * 0.5;
+    final innerH = outerH * 0.5;
+    final outerFill = _fillCycle[_r.nextInt(_fillCycle.length)];
+    final innerFill = (_fillCycle.where((f) => f != outerFill).toList()..shuffle(_r)).first;
+    final markerACorner = _r.nextInt(4);
+    final markerBCorner = ([0, 1, 2, 3]..remove(markerACorner))[_r.nextInt(3)];
+    final targetRot = [0, 90, 180, 270][_r.nextInt(4)];
+
+    Map<String, dynamic> build({
+      required int rot,
+      required bool mirror,
+      String? oShape,
+      String? iShape,
+      String? oFill,
+      String? iFill,
+      int? overrideMarkerACorner,
+      int? overrideMarkerBCorner,
+    }) =>
+        _figureMatchCell(
+          outerShape: oShape ?? outerShape,
+          innerShape: iShape ?? innerShape,
+          outerW: outerW, outerH: outerH, innerW: innerW, innerH: innerH,
+          outerFill: oFill ?? outerFill, innerFill: iFill ?? innerFill,
+          rot: rot, markerACorner: markerACorner, markerBCorner: markerBCorner, mirror: mirror,
+          overrideMarkerACorner: overrideMarkerACorner, overrideMarkerBCorner: overrideMarkerBCorner,
+        );
+
+    final target = build(rot: targetRot, mirror: false);
+
+    // Correct answer: the SAME figure (same two shapes, same two fills,
+    // same two corner markers), shown at a rotation different from the
+    // target's own. This is the whole point of the exercise - recognizing
+    // that two different-looking orientations are the same rigid figure,
+    // not matching pixels directly.
+    final correctRot = ([0, 90, 180, 270]..remove(targetRot))[_r.nextInt(3)];
+    final correct = build(rot: correctRot, mirror: false);
+
+    // 7 possible distractor kinds - 3 chosen per question, so the specific
+    // mix of what's being tested varies question to question.
+    final kinds = ['mirror', 'fillOuter', 'fillInner', 'shapeOuter', 'shapeInner', 'markerA', 'markerB']..shuffle(_r);
+    final distractors = <Map<String, dynamic>>[];
+    for (final kind in kinds.take(3)) {
+      final rot = [0, 90, 180, 270][_r.nextInt(4)];
+      switch (kind) {
+        case 'mirror':
+        // The chirality trap: identical figure, but reflected. Looks
+        // like it could be a rotation at a glance - isn't one.
+          distractors.add(build(rot: rot, mirror: true));
+          break;
+        case 'fillOuter':
+          final wrong = (_fillCycle.where((f) => f != outerFill).toList()..shuffle(_r)).first;
+          distractors.add(build(rot: rot, mirror: false, oFill: wrong));
+          break;
+        case 'fillInner':
+          final wrong = (_fillCycle.where((f) => f != innerFill).toList()..shuffle(_r)).first;
+          distractors.add(build(rot: rot, mirror: false, iFill: wrong));
+          break;
+        case 'shapeOuter':
+          final wrong = _randomShape([outerShape, innerShape]);
+          distractors.add(build(rot: rot, mirror: false, oShape: wrong));
+          break;
+        case 'shapeInner':
+          final wrong = _randomShape([outerShape, innerShape]);
+          distractors.add(build(rot: rot, mirror: false, iShape: wrong));
+          break;
+        case 'markerA':
+        // Right shapes, right fills, right rotation, marker B correct -
+        // but marker A sits somewhere no rotation of the target could
+        // put it. Only ONE of the two markers is wrong.
+          final correctA = _rotateCorner(markerACorner, rot);
+          final wrongA = ([0, 1, 2, 3]..remove(correctA))[_r.nextInt(3)];
+          distractors.add(build(rot: rot, mirror: false, overrideMarkerACorner: wrongA));
+          break;
+        case 'markerB':
+        default:
+          final correctB = _rotateCorner(markerBCorner, rot);
+          final wrongB = ([0, 1, 2, 3]..remove(correctB))[_r.nextInt(3)];
+          distractors.add(build(rot: rot, mirror: false, overrideMarkerBCorner: wrongB));
+          break;
+      }
+    }
+
+    final correctIndex = _r.nextInt(4);
+    final options = <Map<String, dynamic>>[...distractors];
+    options.insert(correctIndex, correct);
+
+    return ReasoningQuestion(
+      category: 'figure_match',
+      type: 'figure_match_hard',
+      puzzle: {'type': 'figure_match', 'target': target},
+      options: options,
+      correctIndex: correctIndex,
     );
   }
 

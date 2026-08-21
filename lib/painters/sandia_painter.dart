@@ -134,6 +134,7 @@ class SandiaPainter extends CustomPainter {
     final double cxFrac = ((f['cx'] as num?) ?? 0.5).toDouble();
     final double cyFrac = ((f['cy'] as num?) ?? 0.5).toDouble();
     final String fillKey = f['fill'] as String? ?? 'white';
+    final bool mirror = f['mirror'] as bool? ?? false;
 
     final double cellPx = min(size.width, size.height);
     final double w = wFrac * cellPx * scale;
@@ -152,6 +153,12 @@ class SandiaPainter extends CustomPainter {
 
     canvas.save();
     canvas.translate(center.dx, center.dy);
+    // Mirror BEFORE rotate, matching how a rigid figure would actually be
+    // reflected then turned - mirror-then-rotate and rotate-then-mirror are
+    // not the same operation, and this order is what makes a mirrored
+    // figure's positional accent marks land somewhere a pure rotation could
+    // never put them.
+    if (mirror) canvas.scale(-1.0, 1.0);
     canvas.rotate(rot * pi / 180.0);
 
     if (shape == 'line') {
