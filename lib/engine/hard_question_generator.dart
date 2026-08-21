@@ -951,9 +951,15 @@ class HardQuestionGenerator {
     final correctRot = ([0, 90, 180, 270]..remove(targetRot))[_r.nextInt(3)];
     final correct = build(rot: correctRot, mirror: false);
 
-    // 7 possible distractor kinds - 3 chosen per question, so the specific
-    // mix of what's being tested varies question to question.
-    final kinds = ['mirror', 'fillOuter', 'fillInner', 'shapeOuter', 'shapeInner', 'markerA', 'markerB']..shuffle(_r);
+    // ANTI-SHORTCUT: fillOuter/fillInner/shapeOuter/shapeInner are all
+    // rotation-invariant - you can spot a wrong fill or wrong shape type
+    // with a direct glance, no rotation reasoning required at all. When
+    // those kinds got drawn, a solver could eliminate 3 options via plain
+    // attribute-matching and never engage with the actual point of the
+    // question. Distractors are now always exactly these 3 - the ones
+    // that genuinely require figuring out what the target looks like
+    // after rotating it, not just scanning for a mismatched color.
+    final kinds = ['mirror', 'markerA', 'markerB']..shuffle(_r);
     final distractors = <Map<String, dynamic>>[];
     for (final kind in kinds.take(3)) {
       final rot = [0, 90, 180, 270][_r.nextInt(4)];
@@ -962,22 +968,6 @@ class HardQuestionGenerator {
         // The chirality trap: identical figure, but reflected. Looks
         // like it could be a rotation at a glance - isn't one.
           distractors.add(build(rot: rot, mirror: true));
-          break;
-        case 'fillOuter':
-          final wrong = (_fillCycle.where((f) => f != outerFill).toList()..shuffle(_r)).first;
-          distractors.add(build(rot: rot, mirror: false, oFill: wrong));
-          break;
-        case 'fillInner':
-          final wrong = (_fillCycle.where((f) => f != innerFill).toList()..shuffle(_r)).first;
-          distractors.add(build(rot: rot, mirror: false, iFill: wrong));
-          break;
-        case 'shapeOuter':
-          final wrong = _randomShape([outerShape, innerShape]);
-          distractors.add(build(rot: rot, mirror: false, oShape: wrong));
-          break;
-        case 'shapeInner':
-          final wrong = _randomShape([outerShape, innerShape]);
-          distractors.add(build(rot: rot, mirror: false, iShape: wrong));
           break;
         case 'markerA':
         // Right shapes, right fills, right rotation, marker B correct -
