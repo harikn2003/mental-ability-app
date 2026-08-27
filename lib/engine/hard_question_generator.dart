@@ -57,6 +57,75 @@ class HardQuestionGenerator {
     return _buildQuestionForCategory(category, complexity);
   }
 
+  /// Testing-only. Exposes the exact same symmetry-aware visibility key
+  /// used internally by generate()'s own dedup check (line ~47 above), so
+  /// external test/diagnostic code can verify option distinctness without
+  /// re-implementing (and risking drifting from) that logic. See
+  /// test/hard_generator_diagnostics_test.dart.
+  static List<String> debugOptionVisibleKeys(ReasoningQuestion q) => q.options.map(_visibleKey).toList();
+
+  /// Testing-only. Walks a question's puzzle + options looking for any
+  /// rendered feature whose effective on-screen size (w*scale or h*scale)
+  /// falls under [minFraction] of the cell - the exact failure mode behind
+  /// every "too small to see" bug found by hand this session (dot markers,
+  /// compounded scale-down chains, etc). Returns a human-readable line per
+  /// offender so a test can print them for review; empty list means none
+  /// found. Only understands the 'sandia_cell' authentic schema (pattern,
+  /// odd_man, figure_match) - figure_series/analogy use a different legacy
+  /// int-based schema this does not walk, so an empty result for those
+  /// categories means "not checked", not "confirmed fine".
+  static List<String> debugTinyFeatureWarnings(ReasoningQuestion q, {double minFraction = 0.12}) {
+    final warnings = <String>[];
+    void walkCell(Map<String, dynamic> cell, String label) {
+      if (cell['type'] != 'sandia_cell') return;
+      final layers = cell['layers'] as List? ?? [];
+      for (int li = 0; li < layers.length; li++) {
+        final feats = (layers[li] as Map)['features'] as List? ?? [];
+        for (int fi = 0; fi < feats.length; fi++) {
+          final f = feats[fi] as Map;
+          final w = ((f['w'] as num?) ?? 0.5).toDouble();
+          final h = ((f['h'] as num?) ?? 0.5).toDouble();
+          final scale = ((f['scale'] as num?) ?? 1.0).toDouble();
+          final effW = w * scale, effH = h * scale;
+          if (effW < minFraction || effH < minFraction) {
+            warnings.add('$label layer[$li] feature[$fi] shape=${f['shape']} '
+                'effW=${effW.toStringAsFixed(3)} effH=${effH.toStringAsFixed(3)} (min=$minFraction)');
+          }
+        }
+      }
+    }
+
+    final cells = q.puzzle['cells'] as List?;
+    if (cells != null) {
+      for (int i = 0; i < cells.length; i++) {
+        final c = cells[i] as Map<String, dynamic>;
+        if (c['empty'] == true) continue;
+        walkCell(c, 'context-cell[$i]');
+      }
+    }
+    for (int i = 0; i < q.options.length; i++) {
+      walkCell(q.options[i], 'option[$i]');
+    }
+    return warnings;
+  }
+
+  /// Testing-only. For 'pattern' questions specifically: independently
+  /// re-checks the same "row/column giveaway" condition _sgmHasRowColGiveaway
+  /// guards against at generation time (two OTHER cells sharing the missing
+  /// cell's row or column being visually identical to each other, letting
+  /// the answer be guessed without any real reasoning) - reimplemented here
+  /// against the returned puzzle data only, as a regression trip-wire that
+  /// doesn't depend on that internal guard staying correct.
+  static bool debugHasRowColGiveaway(ReasoningQuestion q) {
+    if (q.puzzle['type'] != 'matrix') return false;
+    final cells = q.puzzle['cells'] as List;
+    String keyOf(int i) => jsonEncode(cells[i]);
+    // cells is row-major 3x3, index 8 (row2,col2) is the missing cell.
+    // row match: cells[6] (r2c0) vs cells[7] (r2c1); col match: cells[2]
+    // (r0c2) vs cells[5] (r1c2).
+    return keyOf(6) == keyOf(7) || keyOf(2) == keyOf(5);
+  }
+
   static ReasoningQuestion _buildQuestionForCategory(String category, int complexity) {
     switch (category) {
       case 'odd_man':
@@ -914,8 +983,8 @@ class HardQuestionGenerator {
     final dims = _sgmRandomDims();
     final outerW = dims[0] * 0.92;
     final outerH = dims[1] * 0.92;
-    final innerW = outerW * 0.5;
-    final innerH = outerH * 0.5;
+    final innerW = max(outerW * 0.5, 0.15);
+    final innerH = max(outerH * 0.5, 0.15);
     final outerFill = _fillCycle[_r.nextInt(_fillCycle.length)];
     final innerFill = (_fillCycle.where((f) => f != outerFill).toList()..shuffle(_r)).first;
     final markerACorner = _r.nextInt(4);
@@ -1152,8 +1221,18 @@ class HardQuestionGenerator {
         final chain = _sgmChain(transform, r, c);
         final seed = chainSeed.putIfAbsent(chain, () {
           final dims = _sgmRandomDims();
+          // Must draw from _fillCycle, not _basicFillPool: this seed fill
+          // can become the anchor for a chained 'changeFill' supplemental
+          // (SandiaFillCompat.next steps through _fillCycle only), and
+          // _basicFillPool's 'grey75' isn't a member of that cycle -
+          // indexOf returns -1 and next() silently resets to 'white'
+          // instead of stepping one shade darker. Since which supplements
+          // get picked happens after this seed is chosen, there's no safe
+          // way to know in advance whether this fill will stay purely
+          // cosmetic - always seed from the cycle it might need to step
+          // through.
           return _sgmCellAttrs(
-              shape: _randomShape(), w: dims[0], h: dims[1], fill: _basicFillPool[_r.nextInt(_basicFillPool.length)]);
+              shape: _randomShape(), w: dims[0], h: dims[1], fill: _fillCycle[_r.nextInt(_fillCycle.length)]);
         });
         grid[r][c] = _sgmCopy(seed);
       }
@@ -1161,15 +1240,35 @@ class HardQuestionGenerator {
   }
 
   /// Logical AND/OR/XOR: exact port of SGMLayer's special-case derivation -
-  /// the top-left 2x2 gets independent random {shapeX, shapeY} membership
-  /// sets, row 0 and row 1's third column is derived by combining that
-  /// row's first two cells, then row 2 is derived by combining rows 0 and 1
-  /// column-by-column. This is the real algorithm (row-combine, then
-  /// column-combine), not the odd-man-out generator's darkness stand-in.
+  /// the top-left 2x2 gets independent random subset membership from a
+  /// shared pool, row 0 and row 1's third column is derived by combining
+  /// that row's first two cells, then row 2 is derived by combining rows 0
+  /// and 1 column-by-column.
+  ///
+  /// Corrected against the actual Java source (BaseSGMStructureFeatureGenerator
+  /// + AbstractLogicOperationSGMStructureFeature + SGMSurfaceFeatureGenerator):
+  /// the pool is 3-5 distinct shapes (not 2), every surface feature is always
+  /// generated dead-center of the cell with no positional offset anywhere in
+  /// the source, and logic-operation shapes are restricted to WHITE fill only
+  /// (allowedFillPatterns = [WhiteSGMFillPattern] in the generator) - i.e.
+  /// outline-only. So a cell showing multiple pool members renders them all
+  /// centered on the same point, each its own fixed size, nesting as visible
+  /// concentric outlines - never side-by-side, never filled. Each base
+  /// location gets a random SUBSET of the pool (any size, including several
+  /// at once), not a single yes/no per shape.
   static void _sgmApplyLogicBase(List<List<Map<String, dynamic>>> grid, String op) {
-    final pool = _shapePool.toList()..shuffle(_r);
-    final shapeX = pool[0];
-    final shapeY = pool[1];
+    final poolSize = _r.nextInt(3) + 3; // 3-5, matches MIN/MAX_SURFACE_FEATURES_FOR_LOGIC_OPERATION
+    final shapesUsed = <String>{};
+    final pool = <String>[];
+    while (pool.length < poolSize) {
+      final shape = _randomShape();
+      if (shapesUsed.contains(shape)) continue; // Java: unique shapes per pool
+      shapesUsed.add(shape);
+      final dims = _sgmRandomDims();
+      // Encode as a self-describing id ("shape:w:h") so the final cell sets
+      // carry everything render needs without a separate id->shape map.
+      pool.add('$shape:${dims[0]}:${dims[1]}');
+    }
 
     Set<String> combine(Set<String> a, Set<String> b) {
       switch (op) {
@@ -1186,21 +1285,42 @@ class HardQuestionGenerator {
       }
     }
 
-    Set<String> randomSubset() {
-      final s = <String>{};
-      if (_r.nextBool()) s.add(shapeX);
-      if (_r.nextBool()) s.add(shapeY);
-      return s;
-    }
-
+    // Port of AbstractLogicOperationSGMStructureFeature's assignment loop:
+    // randomly assign pool members to each of the 4 base locations (any
+    // subset size, zero allowed mid-loop) until every pool member has been
+    // used somewhere AND every location ended up non-empty. Capped for
+    // Dart's sake (Java's loop has no cap either, but this converges in a
+    // handful of tries for pool sizes 3-5 over 4 locations; the fallback
+    // guarantees termination without ever violating either constraint).
     List<List<Set<String>>> base;
-    // Retry if the 2x2 seed is entirely empty (nothing to see / combine).
+    int attempts = 0;
     do {
-      base = [
-        [randomSubset(), randomSubset()],
-        [randomSubset(), randomSubset()],
-      ];
-    } while (base[0][0].isEmpty && base[0][1].isEmpty && base[1][0].isEmpty && base[1][1].isEmpty);
+      base = List.generate(2, (_) => List.generate(2, (_) => <String>{}));
+      for (final id in pool) {
+        final loc = _r.nextInt(4);
+        base[loc ~/ 2][loc % 2].add(id);
+      }
+      attempts++;
+    } while (attempts < 50 &&
+        (base[0][0].isEmpty ||
+            base[0][1].isEmpty ||
+            base[1][0].isEmpty ||
+            base[1][1].isEmpty ||
+            !pool.every((id) => base[0][0].contains(id) || base[0][1].contains(id) || base[1][0].contains(id) || base[1][1].contains(id))));
+    if (attempts >= 50) {
+      // Deterministic fallback: round-robin the pool across the 4
+      // locations so every constraint holds even if random assignment
+      // kept missing it.
+      base = List.generate(2, (_) => List.generate(2, (_) => <String>{}));
+      for (int i = 0; i < pool.length; i++) {
+        base[i % 2][(i ~/ 2) % 2].add(pool[i]);
+      }
+      // Guarantee every location non-empty by also seeding it with a
+      // random pool member if the round-robin left any empty.
+      for (int loc = 0; loc < 4; loc++) {
+        if (base[loc ~/ 2][loc % 2].isEmpty) base[loc ~/ 2][loc % 2].add(pool[_r.nextInt(pool.length)]);
+      }
+    }
 
     final sets = List.generate(3, (_) => List<Set<String>>.filled(3, {}));
     sets[0][0] = base[0][0];
@@ -1249,7 +1369,23 @@ class HardQuestionGenerator {
               next['rot'] = ((previous['rot'] as double) + 45) % 360;
               break;
             case 'scaling':
-              next['scale'] = (previous['scale'] as double) * 0.66;
+            // BUGFIX: uncapped, this compounds every step along the
+            // chain. Most transforms only chain 2-3 cells deep, but a
+            // transform like cornerOut can put all 8 non-anchor cells in
+            // one chain - eight compounding x0.66 steps shrinks a shape
+            // to under 5% of its size well before the missing cell, at
+            // which point every answer option renders as the same
+            // barely-visible speck no matter what actually differs
+            // between them. Floor it so it always stays legible.
+            // Floor recalculated against the actual minimum base size:
+            // _sgmRandomDims' smallest tier is 0.25, so the floor must
+            // clear 0.12/0.25 = 0.48 to guarantee legibility regardless
+            // of which base size this chain started from - 0.42 (last
+            // round's floor) was picked to stop catastrophic shrink but
+            // was never checked against that minimum, so it could still
+            // land under the legibility threshold on its own with no
+            // further compounding needed (0.25 x 0.42 = 0.105).
+              next['scale'] = max(0.55, (previous['scale'] as double) * 0.66);
               break;
             case 'fillRepetition':
               next['fill'] = previous['fill'];
@@ -1272,12 +1408,24 @@ class HardQuestionGenerator {
 
   static List<Map<String, dynamic>> _sgmAttrsToFeatures(Map<String, dynamic> attrs) {
     if (attrs['logicShapes'] != null) {
-      final shapes = (attrs['logicShapes'] as Set<String>).toList();
-      final features = <Map<String, dynamic>>[];
-      for (int i = 0; i < shapes.length; i++) {
-        features.add(_feature(shapes[i], w: 0.4, h: 0.4, cx: i == 0 ? 0.28 : 0.72, cy: 0.5, fill: i == 0 ? 'grey40' : 'black'));
-      }
-      return features;
+      // Port of SGMSurfaceFeatureGenerator: every surface feature is always
+      // generated dead-center of the cell (SGMPoint(halfSize, halfSize)) -
+      // there's no positional offset logic anywhere in the source. Logic
+      // operations additionally restrict shapes to WHITE fill only
+      // (allowedFillPatterns.add(new WhiteSGMFillPattern()) in
+      // BaseSGMStructureFeatureGenerator), i.e. outline-only, so several
+      // shapes in one cell nest as visible concentric outlines rather than
+      // needing an offset or a solid fill to stay distinguishable - each
+      // pool member's own fixed size (encoded in its id) is what keeps them
+      // tellable apart, exactly like the real tool.
+      final ids = (attrs['logicShapes'] as Set<String>).toList()..sort();
+      return [
+        for (final id in ids)
+              () {
+            final parts = id.split(':');
+            return _feature(parts[0], w: double.parse(parts[1]), h: double.parse(parts[2]), fill: 'white');
+          }(),
+      ];
     }
     final count = attrs['count'] as int;
     if (count > 1) {
@@ -1294,12 +1442,70 @@ class HardQuestionGenerator {
     ];
   }
 
+  /// True if either of the two OTHER visible cells sharing the held-out
+  /// cell's row (2,0 & 2,1) - or column (0,2 & 1,2) - are visually
+  /// identical to each other. When that happens the missing cell is
+  /// guessable directly from those two matching neighbours (e.g. "both
+  /// other cells in this row are blank, so the third must be too") without
+  /// ever engaging the actual rule - most commonly hit by a logic layer
+  /// whose AND of two disjoint single-shape seeds produces an empty set at
+  /// more than one spot, blanking out a whole row or column.
+  static bool _sgmHasRowColGiveaway(List<List<Map<String, dynamic>>> grid) {
+    final rowMatch = _sgmAttrsVisibleKey(grid[2][0]) == _sgmAttrsVisibleKey(grid[2][1]);
+    final colMatch = _sgmAttrsVisibleKey(grid[0][2]) == _sgmAttrsVisibleKey(grid[1][2]);
+    return rowMatch || colMatch;
+  }
+
   static Map<String, dynamic> _sgmCellAt(List<List<List<Map<String, dynamic>>>> layerGrids, int r, int c) {
     final layers = <Map<String, dynamic>>[];
-    for (final grid in layerGrids) {
-      layers.add({'features': _sgmAttrsToFeatures(grid[r][c])});
+    // Two overlapping layers used to need a size-ordering hack and a
+    // same-fill-swap hack to stay legible, because fills were rendered
+    // fully opaque. Both are gone now that SandiaFill renders the
+    // original tool's real semi-transparent alpha (see its doc comment):
+    // a later layer drawn on top no longer blots out an earlier one, and
+    // two layers that happen to share a fill still show a visibly darker
+    // overlap where they intersect, since alpha genuinely compounds. This
+    // is the same fix the actual Sandia tool relies on, not a workaround.
+    for (int li = 0; li < layerGrids.length; li++) {
+      layers.add({'features': _sgmAttrsToFeatures(layerGrids[li][r][c])});
     }
     return {'type': 'sandia_cell', 'grid_box': true, 'layers': layers};
+  }
+
+  /// Per-cell visible signature used to detect a layer that renders
+  /// pixel-identical across the whole grid (e.g. a 'cornerOut' base - one
+  /// shared seed for every cell - paired with a 'fillRepetition'
+  /// supplemental, which is a no-op on top of an already-constant fill).
+  /// Same symmetry normalization as _visibleKey: a shape that looks the
+  /// same at two different 'rot' values must hash the same, or this would
+  /// under-detect and let a genuinely-invisible layer through.
+  static String _sgmAttrsVisibleKey(Map<String, dynamic> attrs) {
+    if (attrs['logicShapes'] != null) {
+      return 'logic:${(attrs['logicShapes'] as Set<String>).toList()..sort()}';
+    }
+    final String shape = attrs['shape'] as String;
+    int rot = (attrs['rot'] as double).round() % 360;
+    // rectangle and ellipse (never square/circular here - _sgmRandomDims
+    // guarantees w != h) both look identical after a 180-degree turn.
+    if (shape == 'rectangle' || shape == 'ellipse') rot = rot % 180;
+    return 'sh:$shape-w:${attrs['w']}-h:${attrs['h']}-r:$rot-sc:${attrs['scale']}-f:${attrs['fill']}-cnt:${attrs['count']}';
+  }
+
+  /// True if this layer shows at least one real difference across the 8
+  /// visible context cells (everything except the held-out bottom-right).
+  /// A layer that fails this contributes nothing a solver could reason
+  /// from - the whole point of showing 8 example cells.
+  static bool _sgmLayerHasVisibleVariation(List<List<Map<String, dynamic>>> grid) {
+    String? first;
+    for (int r = 0; r < 3; r++) {
+      for (int c = 0; c < 3; c++) {
+        if (r == 2 && c == 2) continue;
+        final key = _sgmAttrsVisibleKey(grid[r][c]);
+        first ??= key;
+        if (key != first) return true;
+      }
+    }
+    return false;
   }
 
   static Map<String, String> _sgmRandomSupplement() => {
@@ -1342,7 +1548,19 @@ class HardQuestionGenerator {
         do {
           supp = _sgmRandomSupplement();
           guard++;
-        } while (usedTypes.contains(supp['type']) && guard < 10);
+          // BUGFIX: 'scaling' and 'numerosity' both shrink the same
+          // attrs['scale'] value - numerosity's own grid-packing formula
+          // (0.75/numPositions) multiplies directly on top of whatever
+          // 'scaling' already floored it to, so the two together can land
+          // well under the legibility floor even after that floor was
+          // raised (e.g. 0.55 x 0.375 x smallest base width 0.25 = 0.05).
+          // Raising the scaling floor further to compensate would flatten
+          // its own visible step-size rule when it runs alone, so excluded
+          // the combination at the source instead.
+        } while ((usedTypes.contains(supp['type']) ||
+            (usedTypes.contains('scaling') && supp['type'] == 'numerosity') ||
+            (usedTypes.contains('numerosity') && supp['type'] == 'scaling')) &&
+            guard < 10);
         usedTypes.add(supp['type']!);
         supplements.add(supp);
       }
@@ -1372,26 +1590,38 @@ class HardQuestionGenerator {
     List<Map<String, dynamic>> layerConfigs;
     String recipe;
     int attempts = 0;
+    List<List<List<Map<String, dynamic>>>> layerGrids;
     do {
       final numLayers = _r.nextInt(10) < layerChance ? 2 : 1;
       layerConfigs = List.generate(numLayers, (_) => _sgmRandomLayerConfig(complexity));
       recipe = _sgmRecipeSignature(layerConfigs);
       attempts++;
-    } while (_recentPatternRecipes.contains(recipe) && attempts < 30);
+
+      layerGrids = [
+        for (final cfg in layerConfigs)
+          _sgmBuildLayer(
+            isLogic: cfg['isLogic'] as bool,
+            baseTransform: cfg['baseTransform'] as String,
+            logicOp: cfg['logicOp'] as String,
+            supplements: cfg['supplements'] as List<Map<String, String>>,
+          )
+      ];
+      // BUGFIX: a base transform that seeds every cell identically (e.g.
+      // 'cornerOut') paired with a supplemental that's a no-op on top of
+      // that (e.g. 'fillRepetition' holding an already-constant fill)
+      // renders 8 pixel-identical context cells - no rule a solver could
+      // ever see. Require at least one layer to show real variation; retry
+      // the whole layer build (same budget as the recipe-cooldown retry)
+      // otherwise, since it's cheap and this is the root cause, not a
+      // cosmetic tweak.
+    } while ((_recentPatternRecipes.contains(recipe) ||
+        !layerGrids.any(_sgmLayerHasVisibleVariation) ||
+        layerGrids.any(_sgmHasRowColGiveaway)) &&
+        attempts < 30);
 
     _recentPatternRecipes.add(recipe);
     while (_recentPatternRecipes.length > _patternCooldown) {
       _recentPatternRecipes.removeAt(0);
-    }
-
-    final layerGrids = <List<List<Map<String, dynamic>>>>[];
-    for (final cfg in layerConfigs) {
-      layerGrids.add(_sgmBuildLayer(
-        isLogic: cfg['isLogic'] as bool,
-        baseTransform: cfg['baseTransform'] as String,
-        logicOp: cfg['logicOp'] as String,
-        supplements: cfg['supplements'] as List<Map<String, String>>,
-      ));
     }
 
     // Build the 8 context cells (everything except the held-out bottom-right).
@@ -1510,7 +1740,17 @@ class HardQuestionGenerator {
       final shapePool = _shapePool.where((s) => s != refCell['shape']).toList()..shuffle(_r);
       final targetShape = shapePool.first;
       final targetFill = SandiaFillCompat.next(refCell['fill'] as String);
-      final targetScale = (refCell['scale'] as double) * 0.7;
+      // BUGFIX: this is a separate shrink from the chain-supplemental
+      // 'scaling' floor above - it multiplies on top of whatever
+      // refCell['scale'] already is (which could itself already be at that
+      // floor), so raising that floor alone couldn't close this. Only ever
+      // used to build a WRONG-answer option (the correct option and every
+      // context cell inherit refCell['scale'] unmodified), which is why it
+      // wasn't caught by the earlier fixes: those only ever generated
+      // findings against context cells and the chain itself. Floored the
+      // same way: 0.5 x the smallest possible base width (0.25) = 0.125,
+      // clearing the 0.12 legibility threshold.
+      final targetScale = max(0.5, (refCell['scale'] as double) * 0.7);
       final refW = refCell['w'] as double;
       final refH = refCell['h'] as double;
 

@@ -5,24 +5,30 @@ import 'package:flutter/material.dart';
 /// SANDIA FILL PATTERNS
 /// Ported from gov.sandia.cognition.generator.matrix.fillpattern.*
 ///
-/// The Java tool stores each pattern as a semi-transparent Paint (color, alpha)
-/// meant to be composited over a white AWT panel background:
-///   White  -> Color(1.0, 1.0, 1.0, a=0.00)
-///   Grey75 -> Color(0.75,0.75,0.75, a=0.40)
-///   Grey40 -> Color(0.40,0.40,0.40, a=0.50)
-///   Grey10 -> Color(0.10,0.10,0.10, a=0.60)
-///   Black  -> Color(0.00,0.00,0.00, a=0.75)
-/// Flutter's CustomPainter draws onto a transparent surface, so those alpha
-/// blends are pre-flattened here (blended = src*a + white*(1-a)) into opaque
-/// RGB so the on-screen result matches the original tool exactly.
+/// The Java tool stores each pattern as a genuinely semi-transparent Paint
+/// composited over a white AWT panel background (exact source values):
+///   White  -> Color(1.0, 1.0, 1.0, a=0.00)  (WhiteSGMFillPattern)
+///   Grey75 -> Color(0.75,0.75,0.75, a=0.40) (Grey75SGMFillPattern)
+///   Grey40 -> Color(0.40,0.40,0.40, a=0.50) (Grey40SGMFillPattern)
+///   Grey10 -> Color(0.10,0.10,0.10, a=0.60) (Grey10SGMFillPattern)
+///   Black  -> Color(0.00,0.00,0.00, a=0.75) (BlackSGMFillPattern)
+///
+/// This used to be pre-flattened into opaque RGB (blended against a plain
+/// white background) to save a `withOpacity` call. That's only equivalent
+/// to the original for a SINGLE shape - the moment a second, real alpha
+/// value is why two overlapping layers stay readable in the actual tool:
+/// the overlap darkens instead of one layer just blotting out the other.
+/// Rendering the real alpha directly (not pre-flattened) is both more
+/// authentic and the actual fix for overlapping layers, so this now keeps
+/// the alpha instead of collapsing it.
 /// ===========================================================================
 class SandiaFill {
   static const Map<String, Color> palette = {
-    'white': Color(0xFFFFFFFF), // WhiteSGMFillPattern
-    'grey75': Color(0xFFE6E6E6), // Grey75SGMFillPattern (lightest grey)
-    'grey40': Color(0xFFB3B3B3), // Grey40SGMFillPattern
-    'grey10': Color(0xFF757575), // Grey10SGMFillPattern
-    'black': Color(0xFF404040), // BlackSGMFillPattern (darkest)
+    'white': Color(0x00FFFFFF), // WhiteSGMFillPattern - alpha 0.00
+    'grey75': Color(0x66BFBFBF), // Grey75SGMFillPattern - alpha 0.40
+    'grey40': Color(0x80666666), // Grey40SGMFillPattern - alpha 0.50
+    'grey10': Color(0x991A1A1A), // Grey10SGMFillPattern - alpha 0.60
+    'black': Color(0xBF000000), // BlackSGMFillPattern - alpha 0.75
   };
 
   /// Order used by ChangeFillPatternSGMStructureFeature /
