@@ -30,12 +30,12 @@
 //   need a second pair of eyes, not the assert results.
 //
 // TUNING
-//   - RUNS_PER_CATEGORY: how many questions to generate per category.
+//   - runsPerCategory: how many questions to generate per category.
 //     Bumped down from a "real" fuzz count (thousands) to keep a single
 //     `flutter test` run fast; raise it locally if you want deeper
 //     coverage on a specific category (e.g. after a fix, temporarily set
 //     it high just for 'pattern' by editing the categories map below).
-//   - MIN_FEATURE_FRACTION: passed straight to debugTinyFeatureWarnings.
+//   - minFeatureFraction: passed straight to debugTinyFeatureWarnings.
 //     0.12 was picked as "probably too small to read at a glance", not
 //     measured against a real device - treat the printed warnings as
 //     leads to visually check, not confirmed bugs.
@@ -44,10 +44,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mental_ability_app/engine/hard_question_generator.dart';
 import 'package:mental_ability_app/engine/reasoning_question.dart';
 
-const int RUNS_PER_CATEGORY = 300;
-const double MIN_FEATURE_FRACTION = 0.12;
+const int runsPerCategory = 300;
+const double minFeatureFraction = 0.12;
 
-const List<String> CATEGORIES = [
+const List<String> categories = [
   'odd_man',
   'figure_match',
   'pattern',
@@ -64,7 +64,7 @@ void main() {
     HardQuestionGenerator.resetSession();
   });
 
-  for (final category in CATEGORIES) {
+  for (final category in categories) {
     group('[$category]', () {
       int crashes = 0;
       int structuralFailures = 0;
@@ -75,8 +75,8 @@ void main() {
       final giveawaySamples = <String>[];
       final crashSamples = <String>[];
 
-      test('generate $RUNS_PER_CATEGORY questions and record findings', () {
-        for (int i = 0; i < RUNS_PER_CATEGORY; i++) {
+      test('generate $runsPerCategory questions and record findings', () {
+        for (int i = 0; i < runsPerCategory; i++) {
           ReasoningQuestion q;
           try {
             q = HardQuestionGenerator.generate(category);
@@ -100,7 +100,7 @@ void main() {
           }
 
           // --- tiny-feature scan (pattern/odd_man/figure_match schema only) ---
-          final tiny = HardQuestionGenerator.debugTinyFeatureWarnings(q, minFraction: MIN_FEATURE_FRACTION);
+          final tiny = HardQuestionGenerator.debugTinyFeatureWarnings(q, minFraction: minFeatureFraction);
           if (tiny.isNotEmpty) {
             tinyFeatureQuestions++;
             if (tinyFeatureSamples.length < 8) {
@@ -119,17 +119,17 @@ void main() {
 
         // ---- report ----
         print('');
-        print('=== [$category] diagnostic summary ($RUNS_PER_CATEGORY runs) ===');
-        print('crashes: $crashes / $RUNS_PER_CATEGORY');
+        print('=== [$category] diagnostic summary ($runsPerCategory runs) ===');
+        print('crashes: $crashes / $runsPerCategory');
         if (crashSamples.isNotEmpty) {
           print('  sample crashes:');
           for (final s in crashSamples) {
             print('    - $s');
           }
         }
-        print('structural failures (bad option count / correctIndex / empty puzzle): $structuralFailures / $RUNS_PER_CATEGORY');
-        print('duplicate option sets slipping past generate()\'s own dedup: $duplicateOptionSets / $RUNS_PER_CATEGORY');
-        print('questions with a tiny (<$MIN_FEATURE_FRACTION fraction) feature: $tinyFeatureQuestions / $RUNS_PER_CATEGORY');
+        print('structural failures (bad option count / correctIndex / empty puzzle): $structuralFailures / $runsPerCategory');
+        print('duplicate option sets slipping past generate()\'s own dedup: $duplicateOptionSets / $runsPerCategory');
+        print('questions with a tiny (<$minFeatureFraction fraction) feature: $tinyFeatureQuestions / $runsPerCategory');
         if (tinyFeatureSamples.isNotEmpty) {
           print('  sample tiny-feature findings:');
           for (final s in tinyFeatureSamples) {
@@ -137,7 +137,7 @@ void main() {
           }
         }
         if (category == 'pattern') {
-          print('questions with a row/column giveaway slipping past the generation-time guard: $giveawayQuestions / $RUNS_PER_CATEGORY');
+          print('questions with a row/column giveaway slipping past the generation-time guard: $giveawayQuestions / $runsPerCategory');
           if (giveawaySamples.isNotEmpty) {
             print('  sample giveaway runs: ${giveawaySamples.join(', ')}');
           }
