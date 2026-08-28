@@ -22,10 +22,10 @@ class AppVersion {
   static const int patch = 0;
 
   /// Pre-release identifier (e.g., beta.0)
-  static const String preRelease = 'beta.3';
+  static const String preRelease = 'beta.4';
 
   /// Build number incremented on each release
-  static const int buildNumber = 3;
+  static const int buildNumber = 4;
 
   /// All available build codenames (Fruit names, alphabetically ordered)
   /// Cycles through on each build for easy verbal identification
