@@ -98,7 +98,9 @@ suggested_version="${base_version}-beta.${next_beta_num}"
 suggested_tag="v${suggested_version}"
 
 # --- ask whether to cut a release at all ------------------------------------
-if ! gui_confirm "Pushing to master.$'\n\n'Create a new beta release tag for this push?$'\n\n'Suggested: ${suggested_tag} (build #${next_build_number})" "Beta release"; then
+nl=$'\n'
+confirm_message="Pushing to master.${nl}${nl}Create a new beta release tag for this push?${nl}${nl}Suggested: ${suggested_tag} (build #${next_build_number})"
+if ! gui_confirm "$confirm_message" "Beta release"; then
   exit 0
 fi
 
