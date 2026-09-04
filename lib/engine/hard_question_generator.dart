@@ -1780,8 +1780,24 @@ class HardQuestionGenerator {
   // ===========================================================================
 
   static ReasoningQuestion _generateDenseMultiLayerSeries() {
-    final bgShape = [0, 2, 6][_r.nextInt(3)];
-    final fgShape = [4, 5, 7, 8][_r.nextInt(4)];
+    // BUGFIX: only 3 bg options x 4 fg options = 12 total shape
+    // combinations existed here, with 2 of the 10 available shape codes
+    // (3=diamond, 9=thick-cross) never used anywhere in this generator -
+    // the actual rule (90-degree rotation, fill cycling, lines count) is
+    // otherwise identical on every single generation, so the shape pool
+    // was the only source of variety at all, and it was this narrow.
+    // Confirmed safe to widen: every distractor and the correct option
+    // below are built entirely from fixed rotation/fill/scale/lines
+    // literals - bgShape/fgShape are purely decorative substitutions that
+    // never affect which option is correct. Shape 1 (ellipse) stays
+    // reserved since it's the fixed middle/frame layer every question
+    // already uses; fgShape explicitly excludes whatever bgShape drew so
+    // the two never coincide, same as the original disjoint pools did
+    // implicitly. 5 x 5 (with exclusion) = 20 combinations, up from 12.
+    final bgPool = [0, 2, 3, 6, 9];
+    final fgPool = [3, 4, 5, 7, 8, 9];
+    final bgShape = bgPool[_r.nextInt(bgPool.length)];
+    final fgShape = (fgPool.where((s) => s != bgShape).toList()..shuffle(_r)).first;
 
     final seq = [
       {
@@ -1870,8 +1886,15 @@ class HardQuestionGenerator {
   }
 
   static ReasoningQuestion _generateDenseMultiLayerAnalogy() {
-    final bgShape1 = [0, 2, 6][_r.nextInt(3)];
-    final bgShape2 = [3, 4, 5, 8][_r.nextInt(4)];
+    // Same fix as _generateDenseMultiLayerSeries above, same reasoning:
+    // shape choice here is decorative only (verified against the
+    // correctOption/distractor construction below, which uses fixed
+    // rotation/fill literals throughout), so widening the pools is safe
+    // and directly addresses the "everything looks similar" complaint.
+    final bgPool1 = [0, 2, 3, 6, 9];
+    final bgPool2 = [3, 4, 5, 7, 8, 9];
+    final bgShape1 = bgPool1[_r.nextInt(bgPool1.length)];
+    final bgShape2 = (bgPool2.where((s) => s != bgShape1).toList()..shuffle(_r)).first;
 
     final figA = {
       'type': 'sandia_cell',
