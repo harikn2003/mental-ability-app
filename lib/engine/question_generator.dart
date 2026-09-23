@@ -435,6 +435,20 @@ class QuestionGenerator {
 
   static String _optionKey(Map<String, dynamic> m) {
     if (m['type'] == 'line_fig') return LineFig.fromMap(m).key;
+    if (m['type'] == 'mirror_text' && m['is_clock'] != true) {
+      // What's drawn: letters in display order, each marked flipped only if
+      // flipping visibly changes it. A left-right mirror reverses the order
+      // and flips every letter except trapped ones (trap index -99 = all).
+      const symmetric = 'AHIMOTUVWXY08';
+      final content = (m['content'] as String? ?? '').toUpperCase();
+      final mirrored = m['mirror_h'] == true;
+      final trap = m['selective_mirror_trap'] == true ? (m['trap_char_index'] as int? ?? -1) : -1;
+      final glyphs = [
+        for (int i = 0; i < content.length; i++)
+          (mirrored && trap != -99 && trap != i && !symmetric.contains(content[i])) ? '~${content[i]}' : content[i]
+      ];
+      return 'txt|${(mirrored ? glyphs.reversed : glyphs).join()}|v:${m['mirror_v']}';
+    }
     if (m['type'] == 'embedded_option') {
       final parts = (m['shapes'] as List).map((s) => _figureKey(Map<String, dynamic>.from(s as Map))).toList();
       return 'emb|${parts.join('+')}';
@@ -2205,21 +2219,17 @@ class QuestionGenerator {
 
       final target = fig(0, rot);
       final correct = fig(1, rot);
-      // Tier 1: the confusions this question exists to test.
-      final tier1 = [
-        fig(0, rot + 2), // turned 180°
+      // Balanced answer set (see ExamStyleGenerator's doc comment): {mirror
+      // image, water image} x {details flipped, details left un-flipped}.
+      // A star of one-change variants around the answer would let it be
+      // picked as "most similar to the rest" without looking at the target.
+      final wrongs = [
         fig(1, rot + 2), // water image = left-right mirror + 180°
         fig(1, rot, trap: true), // details left un-mirrored
-      ]..shuffle(_r);
-      final tier2 = [fig(1, rot + 1), fig(1, rot + 3), fig(0, rot)]..shuffle(_r);
-
-      final keys = <String>{_optionKey(correct)};
-      final wrongs = <Map<String, dynamic>>[];
-      for (final c in [...tier1.take(2), ...tier2, ...tier1.skip(2)]) {
-        if (wrongs.length == 3) break;
-        if (keys.add(_optionKey(c))) wrongs.add(c);
-      }
-      if (wrongs.length < 3) continue;
+        fig(1, rot + 2, trap: true), // both
+      ];
+      final keys = {for (final o in [correct, ...wrongs]) _optionKey(o)};
+      if (keys.length < 4) continue;
 
       final r = _packExact(correct, wrongs);
       _markSeen(sigKey);
@@ -2265,15 +2275,12 @@ class QuestionGenerator {
 
       final mh = 11 - h, mm = 60 - m; // mirror time
       final correct = clock(mh, mm);
-      final tier1 = [clock(h, m), clock(h + 6, m)]..shuffle(_r); // original, upside down
-      final tier2 = [clock(mh + 1, mm), clock(mh - 1, mm), clock(h, mm)]..shuffle(_r);
-
-      final keys = <String>{anglesKey(correct)};
-      final wrongs = <Map<String, dynamic>>[];
-      for (final c in [...tier1, ...tier2]) {
-        if (wrongs.length < 3 && keys.add(anglesKey(c))) wrongs.add(c);
-      }
-      if (wrongs.length < 3) continue;
+      // Balanced answer set: {mirror time, original time} x {as read, one
+      // hour off} - the same hour shift in both, so no option is central.
+      final shift = _r.nextBool() ? 1 : -1;
+      final wrongs = [clock(h, m), clock(mh + shift, mm), clock(h + shift, m)];
+      final keys = {for (final c in [correct, ...wrongs]) anglesKey(c)};
+      if (keys.length < 4) continue;
 
       final packed = _packExact(correct, wrongs);
       _markSeen(sigKey);
@@ -2485,6 +2492,36 @@ class QuestionGenerator {
       final content = isHardMode ? pickHardContent() : pickBaseContent(isDigit);
       final sigKey = 'mirTextAdv:$content|${isDigit ? 'digit' : 'word'}';
       if (_seen(sigKey)) continue;
+
+      if (isHardMode) {
+        // Balanced answer set: {letter order reversed, not} x {each letter
+        // flipped, not} - the mistakes a mirror image invites (JNV 2018-2019
+        // BOY / CLASS / FAN items): reversing only the order, flipping only
+        // the letters, or neither.
+        final correct = buildOption('correct', content, isDigit: isDigit); // reversed, flipped
+        final wrongs = <Map<String, dynamic>>[
+          buildOption('A', content, isDigit: isDigit), // reversed, letters unflipped
+          buildOption('B', content, isDigit: isDigit), // original order, flipped
+          {'type': 'mirror_text', 'is_clock': false, 'content': content, 'mirror_h': false, 'mirror_v': false},
+        ];
+        // What's drawn: letters in display order, each marked flipped only
+        // if flipping visibly changes it.
+        const symmetric = 'AHIMOTUVWXY08';
+        String shown(String order, bool flipped) =>
+            order.split('').map((c) => flipped && !symmetric.contains(c) ? '~$c' : c).join();
+        final rev = content.split('').reversed.join();
+        final keys = {shown(rev, true), shown(rev, false), shown(content, true), shown(content, false)};
+        if (keys.length < 4) continue;
+        final packed = _packExact(correct, wrongs);
+        _markSeen(sigKey);
+        return ReasoningQuestion(
+          category: 'mirror_text',
+          type: 'mirror_text_hard',
+          puzzle: {'type': 'mirror_text', 'is_clock': false, 'content': content, 'mirror_h': false, 'mirror_v': false},
+          options: packed.opts,
+          correctIndex: packed.idx,
+        );
+      }
 
       final correctIndex = _r.nextInt(4);
       final options = List<Map<String, dynamic>?>.filled(4, null);
