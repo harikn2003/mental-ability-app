@@ -271,6 +271,8 @@ void main() {
       final targetPiece = 1 - shownPiece;
 
       seenShownPieces.add(shownPiece);
+      expect(shownPiece, (shape == 1 && cut == 0) ? 1 : 0,
+          reason: 'shape $shape cut $cut must show its larger piece');
       seenSignatures.add('$shape|$cut|$shownPiece');
 
       int complementMatches = 0;
@@ -285,10 +287,11 @@ void main() {
       expect(complementMatches, 1);
     }
 
-    // Always shows the majority piece (0) and asks for the small notch that
-    // completes it - showing the notch and asking for the large remainder
-    // gave no visual anchor (see docs/hard-mode-history.md #15).
-    expect(seenShownPieces, {0});
+    // Always shows the larger piece and asks for the smaller one that
+    // completes it - showing a small notch/tip and asking for the large
+    // remainder gave no visual anchor (see docs/hard-mode-history.md #15).
+    // Piece 0 is the larger one except for the triangle's horizontal cut.
+    expect(seenShownPieces, isNot(isEmpty));
     expect(seenSignatures.length, greaterThan(10));
   });
 

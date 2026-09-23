@@ -420,6 +420,14 @@ class EnhancedMirrorTextPainter extends CustomPainter {
     double currentX = -totalWidth / 2;
     final int? trapIndex = data['trap_char_index'] as int?;
 
+    // Shrink to fit: 5-character Hard Mode strings with wide glyphs (M, W)
+    // can exceed the card at the length-based font size. Scale uniformly
+    // about the centre (we're already translated there).
+    final maxWidth = size.width * 0.9;
+    final fit = totalWidth > maxWidth ? maxWidth / totalWidth : 1.0;
+    canvas.save();
+    canvas.scale(fit, fit);
+
     for (int i = 0; i < content.length; i++) {
       final tp = painters[i];
       final charCenterX = currentX + tp.width / 2;
@@ -440,6 +448,7 @@ class EnhancedMirrorTextPainter extends CustomPainter {
 
       currentX += tp.width + letterSpacing;
     }
+    canvas.restore();
 
     // If NOT selective mirror trap, draw decorators inside transformed canvas
     if (dense && !selectiveMirrorTrap) {

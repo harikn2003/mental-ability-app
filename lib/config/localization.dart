@@ -36,6 +36,8 @@ class AppLocale {
       'difficulty': 'DIFFICULTY',
       'easy': 'Easy',
       'hard': 'Hard',
+      'easy_desc': 'Standard puzzles to build confidence',
+      'hard_desc': 'Denser figures and trickier options',
 
       // ── Quiz Screen ──────────────────────────────────────────────────────
       'find_the': 'FIND THE',
@@ -237,7 +239,9 @@ class AppLocale {
       'reset': 'रीसेट',
       'difficulty': 'काठिण्य पातळी',
       'easy': 'सोपे',
-      'hard': 'कठिण',
+      'hard': 'कठीण',
+      'easy_desc': 'आत्मविश्वास वाढवण्यासाठी नेहमीची कोडी',
+      'hard_desc': 'गुंतागुंतीच्या आकृत्या आणि फसवे पर्याय',
 
       // ── Quiz Screen ──────────────────────────────────────────────────────
       'find_the': 'खालीलपैकी ओळखा',
@@ -434,9 +438,11 @@ class AppLocale {
           'यह सभी बायस वेट साफ़ करेगा और नई शुरुआत करेगा। आपकी कमज़ोर क्षेत्रों की जानकारी मिट जाएगी।',
       'cancel': 'रद्द करें',
       'reset': 'रीसेट',
-      'difficulty': 'काठिण्य पातळी',
-      'easy': 'सोपे',
-      'hard': 'कठिण',
+      'difficulty': 'कठिनाई स्तर',
+      'easy': 'आसान',
+      'hard': 'कठिन',
+      'easy_desc': 'आत्मविश्वास बढ़ाने के लिए सामान्य पहेलियाँ',
+      'hard_desc': 'जटिल आकृतियाँ और पेचीदा विकल्प',
 
       // ── Quiz Screen ──────────────────────────────────────────────────────
       'find_the': 'ढूँढिए',

@@ -390,6 +390,59 @@ they start feeling rare.
 - New hard check in the diagnostics test: **exactly one option is a
   rotation of the target**, i.e. no second correct answer. It passes 300/300.
 
+### 21. Hard Mode for the other five topics (2026-09-23, later session)
+Before this, every Hard Mode request went to `HardQuestionGenerator`, which
+only knows the 5 Sandia categories and **silently fell back to Odd Man
+Out** for anything else - Hard + Mirror Shape / Punch Hole / Embedded /
+Geo Completion / Mirror Text served Odd Man Out questions.
+`QuestionGenerator.generate` now routes only `hardEngineCategories` to the
+Sandia engine; the other five use an `isHardMode` branch of their own
+generator in `question_generator.dart`, and `HardQuestionGenerator` throws
+on unknown categories instead of falling back.
+
+The hard branches:
+- **geo_completion**: the pre-existing (previously unreachable) hard branch.
+- **punch_hole** (`_punchHoleHard`): paper folded into a quarter
+  (`fold_axis: 2`), 1-2 punches -> 4-8 holes. Wrong answers: only one fold
+  opened, holes copied across the folds instead of mirrored, one hole
+  missing. Punch coordinates avoid ~0.25, where "copied" and "mirrored"
+  coincide.
+- **mirror_text**: half mirror clocks (`_mirrorClockHard`, answer
+  (11-h):(60-m); wrong: original time, upside down, +/-1 hour, only the
+  minute hand mirrored), half 5-character strings mixing mirror-symmetric
+  (A, H, M, 0, 8...) and asymmetric characters. Both text painters now
+  shrink text to fit - 5 wide glyphs overflowed the 64dp card.
+- **mirror_shape** (`_mirrorShapeHard`): outer shape + inner L/triangle +
+  corner mark. Wrong answers: turned 180, water image, details left
+  un-mirrored (selective trap), mirrored + quarter turn, unflipped. The
+  inner shape is mandatory - with only the ~5dp corner mark, symmetric
+  outer shapes made the whole question hinge on a tiny detail.
+- **embedded** (`_embeddedHard`): every option holds one figure of the
+  target's shape type; only one has it as shown, the others a flipped /
+  turned / refilled near-miss.
+
+Supporting pieces:
+- `_figureKey` / `_optionKey`: exact "looks identical" check for figure
+  options - the flip/turn applied to each drawn part (outer, inner, lines,
+  corner mark) reduced by that part's own symmetry. The generic
+  `_visibleKey` branch only approximates the outer shape and ignores the
+  corner mark. Note the painter's selective-mirror trap re-applies the flip
+  inside the rotated frame, so at 90/270 it draws the detail rotated the
+  other way rather than "un-mirrored"; `_figureKey` models that exactly.
+- `_packExact`: `_pack` dedups with the loose `_visibleKey` and would
+  mutate deliberately chosen distractors on false collisions.
+- Mirror Shape / Embedded allow a target to repeat once every variant has
+  been used (the distractors are re-drawn) instead of dropping to Easy.
+- Tests: `test/hard_mode_topics_test.dart` - routing for all 10
+  categories, 4 distinct options, and each topic's answer re-derived from
+  the puzzle independently of the generator.
+
+### 22. geo_completion: #15 was incomplete for the triangle
+"Always show piece 0" assumed piece 0 is the larger piece. It is for every
+cut except the triangle's horizontal cut (shape 1, cut 0), where piece 0
+is the 1/4-area tip - so that case still showed the tip and asked for the
+3/4 trapezoid. Now shows piece 1 there. Affects Easy mode too.
+
 ## Testing infrastructure built during this work
 
 ### `test/hard_generator_diagnostics_test.dart`

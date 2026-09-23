@@ -108,16 +108,23 @@ class QuestionGenerator {
     return weightedValues[_r.nextInt(weightedValues.length)];
   }
 
+  /// Categories whose Hard Mode lives in [HardQuestionGenerator] (the
+  /// Sandia-matrix engine). Every other category's Hard Mode is an
+  /// `isHardMode` branch of its own generator in this file.
+  static const hardEngineCategories = {'odd_man', 'figure_match', 'pattern', 'figure_series', 'analogy'};
+
   /// Main generator entry point.
-  /// Routes to [HardQuestionGenerator] if [isHardMode] is true,
-  /// otherwise runs the easy/standard generator logic below.
   static ReasoningQuestion generate(String category, {bool isHardMode = false}) {
-    if (isHardMode) {
+    // BUGFIX: every Hard Mode request used to go to HardQuestionGenerator,
+    // which only knows the 5 Sandia categories and fell back to Odd Man Out
+    // for anything else - so Hard + Mirror Shape (or Punch Hole, Embedded,
+    // Geo Completion, Mirror Text) silently served Odd Man Out questions.
+    if (isHardMode && hardEngineCategories.contains(category)) {
       return HardQuestionGenerator.generate(category);
     }
 
     for (int attempt = 0; attempt < 80; attempt++) {
-      final q = _generateRaw(category, isHardMode: false);
+      final q = _generateRaw(category, isHardMode: isHardMode);
       // Diagnostic logging: detect visual-duplicate options and emit a
       // structured JSON blob so device logs (adb/flutter logs) can be
       // searched for duplicate events.
@@ -160,7 +167,7 @@ class QuestionGenerator {
     }
     // Safety valve: if a category is fully exhausted in a long session, return
     // the latest generated instance instead of stalling generation.
-    final fallback = _generateRaw(category, isHardMode: false);
+    final fallback = _generateRaw(category, isHardMode: isHardMode);
     _markQuestionIfNew(fallback);
     return fallback;
   }
@@ -208,13 +215,13 @@ class QuestionGenerator {
       case 'geo_completion':
         return _geoCompletion(isHardMode: isHardMode);
       case 'mirror_shape':
-        return _mirrorShape();
+        return _mirrorShape(isHardMode: isHardMode);
       case 'mirror_text':
-        return _mirrorText();
+        return _mirrorText(isHardMode: isHardMode);
       case 'punch_hole':
-        return _punchHole();
+        return _punchHole(isHardMode: isHardMode);
       case 'embedded':
-        return _embedded();
+        return _embedded(isHardMode: isHardMode);
       default:
         return _matrixShapeCycle();
     }
@@ -309,6 +316,98 @@ class QuestionGenerator {
     }
 
     return '$s,${m["filled"]},$rot,$mir,${m["dots"]},${m["inner"]},${m["lines"]},${m["missingCorner"]},$trap';
+  }
+
+  // ── Exact figure appearance (Hard Mode mirror/embedded) ───────────────────
+  //
+  // EnhancedFigurePainter draws a figure as device = M^mirror · R^rotation · p
+  // (M = left-right flip, R = quarter turn). Two figures look identical only
+  // if every drawn part lands the same way, which depends on each part's own
+  // symmetry - e.g. an arrow flipped left-right at 90° looks unchanged, an L
+  // never does. _visibleKey's generic branch only approximates this for the
+  // outer shape and ignores the 'dense' corner mark entirely, so Hard Mode
+  // uses this exact version instead.
+
+  /// Dihedral element as a 2x2 integer matrix [a, b, c, d] acting on (x, y).
+  static List<int> _dihedral(int mirror, int rot) {
+    var m = const [1, 0, 0, 1];
+    const r = [0, -1, 1, 0]; // canvas.rotate(+90°): (x, y) -> (-y, x)
+    for (int i = 0; i < ((rot % 4) + 4) % 4; i++) {
+      m = _matMul(r, m);
+    }
+    return mirror == 1 ? _matMul(const [-1, 0, 0, 1], m) : m;
+  }
+
+  static List<int> _matMul(List<int> a, List<int> b) => [
+    a[0] * b[0] + a[1] * b[2], a[0] * b[1] + a[1] * b[3],
+    a[2] * b[0] + a[3] * b[2], a[2] * b[1] + a[3] * b[3],
+  ];
+
+  /// Symmetries of each painter shape code, as (mirror, rot) pairs:
+  /// transforms that leave the drawn shape unchanged.
+  static List<List<int>> _shapeSymmetries(int shape) {
+    switch (shape) {
+      case 0: // circle
+      case 1: // square
+      case 4: // plus-cross
+        return [for (int m = 0; m < 2; m++) for (int r = 0; r < 4; r++) [m, r]];
+      case 3: // diamond (taller than wide)
+      case 6: // hexagon (vertex at 0°)
+        return const [[0, 0], [0, 2], [1, 0], [1, 2]];
+      case 5: // pentagon, vertex up
+        return const [[0, 0], [1, 0]];
+      case 2: // right triangle, symmetric about the anti-diagonal
+        return const [[0, 0], [1, 3]];
+      case 7: // arrow pointing right, symmetric about the x-axis
+        return const [[0, 0], [1, 2]];
+      default: // 8 = L-shape: no symmetry at all
+        return const [[0, 0]];
+    }
+  }
+
+  /// How a part with [symmetries] looks when drawn in frame [g].
+  static String _partKey(List<int> g, List<List<int>> symmetries) {
+    final forms = symmetries.map((h) => _matMul(g, _dihedral(h[0], h[1])).join(',')).toList()..sort();
+    return forms.first;
+  }
+
+  /// Exact visual key for a figure option built with [_f] (no missingCorner).
+  static String _figureKey(Map<String, dynamic> m) {
+    final int shape = m['shape'] ?? 0;
+    final int inner = m['inner'] ?? 0;
+    final int lines = m['lines'] ?? 0;
+    final bool mirror = m['mirror'] ?? false;
+    final bool trap = mirror && (m['selective_mirror_trap'] ?? false);
+    final g = _dihedral(mirror ? 1 : 0, m['rotation'] ?? 0);
+    // The painter's trap re-applies the flip inside the rotated frame, so
+    // inner shape, lines and corner mark are drawn in frame g·M.
+    final gDetail = trap ? _matMul(g, _dihedral(1, 0)) : g;
+    return [
+      'fig',
+      shape,
+      m['filled'] ?? false,
+      _partKey(g, _shapeSymmetries(shape)),
+      inner == 0 ? '-' : '$inner@${_partKey(gDetail, _shapeSymmetries(inner - 1))}',
+      lines == 0 ? '-' : '$lines@${_partKey(gDetail, const [[0, 0], [0, 2], [1, 0], [1, 2]])}',
+      (m['dense'] ?? false) ? _partKey(gDetail, const [[0, 0]]) : '-',
+      m['dots'] ?? 0,
+    ].join('|');
+  }
+
+  /// Testing-only: the visibility key the Hard Mode generators in this file
+  /// use to guarantee distinct options - exact for figures and embedded
+  /// options, [_visibleKey] for everything else.
+  static String debugOptionKey(Map<String, dynamic> m) => _optionKey(m);
+
+  static String _optionKey(Map<String, dynamic> m) {
+    if (m['type'] == 'embedded_option') {
+      final parts = (m['shapes'] as List).map((s) => _figureKey(Map<String, dynamic>.from(s as Map))).toList();
+      return 'emb|${parts.join('+')}';
+    }
+    if (m.containsKey('shape') && !m.containsKey('type') && (m['missingCorner'] ?? 0) == 0) {
+      return _figureKey(m);
+    }
+    return _visibleKey(m);
   }
 
   static bool _hasVisibleVariation(List<Map<String, dynamic>> seq) {
@@ -431,6 +530,17 @@ class QuestionGenerator {
   /// Insert [correct] at a random position among [wrongs].
   /// Removes any wrong that is visually identical to [correct] first.
   /// Returns options list (always 4) + correct index.
+  /// Places [correct] at a random index among exactly 3 [wrongs], unchanged.
+  /// For Hard Mode generators that already guarantee distinct options with
+  /// [_optionKey]: [_pack] dedups with the looser [_visibleKey] and would
+  /// "fix" false collisions by mutating a deliberately chosen distractor.
+  static ({List<Map<String, dynamic>> opts, int idx}) _packExact(
+      Map<String, dynamic> correct, List<Map<String, dynamic>> wrongs) {
+    assert(wrongs.length == 3);
+    final idx = _r.nextInt(4);
+    return (opts: [...wrongs.sublist(0, idx), correct, ...wrongs.sublist(idx)], idx: idx);
+  }
+
   static ({List<Map<String, dynamic>> opts, int idx}) _pack(
       Map<String, dynamic> correct,
       List<Map<String, dynamic>> wrongs,
@@ -1856,8 +1966,14 @@ class QuestionGenerator {
       // answer"). Always showing the majority piece and asking for the
       // small piece that fills its notch is the only direction that's
       // unambiguous regardless of shape/cut, so it's no longer random.
-      final shownPiece = 0;
-      final targetPiece = 1;
+      // Follow-up: piece 0 is the majority for every cut EXCEPT the
+      // triangle's horizontal cut (shape 1, cut 0), where piece 0 is the
+      // small top tip (1/4 of the area) and piece 1 the 3/4 trapezoid - so
+      // "always piece 0" still showed the tip and asked for the big piece
+      // there. Every other cut is either piece-0-majority (square 4-7,
+      // circle 2-3) or two equal halves.
+      final shownPiece = (shape == 1 && cut == 0) ? 1 : 0;
+      final targetPiece = 1 - shownPiece;
       final template = isHardMode
           ? [0, 1, 0, 2, 1, 3, 0][_r.nextInt(7)]
           : _r.nextInt(4);
@@ -1954,7 +2070,8 @@ class QuestionGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   static const _mirrorShapes = [2, 7, 8];
 
-  static ReasoningQuestion _mirrorShape() {
+  static ReasoningQuestion _mirrorShape({bool isHardMode = false}) {
+    if (isHardMode) return _mirrorShapeHard();
     for (int attempt = 0; attempt < 60; attempt++) {
       final shape = _mirrorShapes[_r.nextInt(_mirrorShapes.length)];
       final rot = _r.nextInt(4);
@@ -2013,7 +2130,131 @@ class QuestionGenerator {
     );
   }
 
-  static ReasoningQuestion _mirrorText() {
+  /// Hard Mode mirror shape: a composite figure (outer shape + optional inner
+  /// shape + an off-centre corner mark) so several details have to be flipped
+  /// correctly at once. Wrong answers are the classic confusions rather than
+  /// random figures:
+  ///   - the figure turned 180° (looks "reversed" at a glance, isn't a mirror)
+  ///   - the water image (flipped top-to-bottom instead of left-to-right)
+  ///   - the outer shape mirrored but its details not (selective trap)
+  ///   - mirrored and turned a quarter, or not mirrored at all
+  static ReasoningQuestion _mirrorShapeHard() {
+    for (int attempt = 0; attempt < 80; attempt++) {
+      // The corner mark makes every one of these chiral, so any outer shape
+      // works; ~430 combinations before a target repeats.
+      final shape = const [8, 7, 2, 5, 3, 6][_r.nextInt(6)];
+      final rot = _r.nextInt(4);
+      final filled = _r.nextBool();
+      // Always an inner shape (painter code + 1): triangle (2) or L (8). A
+      // hexagon/pentagon/diamond looks the same mirrored, and without a
+      // sizeable chiral inner shape the whole question hung on the ~5dp
+      // corner mark alone - too small to be the deciding detail.
+      final innerChoices = [3, 9]..remove(shape + 1);
+      final inner = innerChoices[_r.nextInt(innerChoices.length)];
+      final dots = _r.nextInt(3);
+      final sigKey = 'mirrorHard:s$shape,r$rot,f$filled,i$inner,d$dots';
+      // Once every target has been used, allow repeats rather than dropping
+      // to Easy - the wrong answers are re-drawn, so it's still a new question.
+      if (_seen(sigKey) && attempt < 60) continue;
+
+      Map<String, dynamic> fig(int mirror, int r, {bool trap = false}) => _f(
+            shape,
+            rot: ((r % 4) + 4) % 4,
+            filled: filled,
+            mirror: mirror == 1,
+            inner: inner,
+            dots: dots,
+            dense: true,
+            selectiveMirrorTrap: trap,
+          );
+
+      final target = fig(0, rot);
+      final correct = fig(1, rot);
+      // Tier 1: the confusions this question exists to test.
+      final tier1 = [
+        fig(0, rot + 2), // turned 180°
+        fig(1, rot + 2), // water image = left-right mirror + 180°
+        fig(1, rot, trap: true), // details left un-mirrored
+      ]..shuffle(_r);
+      final tier2 = [fig(1, rot + 1), fig(1, rot + 3), fig(0, rot)]..shuffle(_r);
+
+      final keys = <String>{_optionKey(correct)};
+      final wrongs = <Map<String, dynamic>>[];
+      for (final c in [...tier1.take(2), ...tier2, ...tier1.skip(2)]) {
+        if (wrongs.length == 3) break;
+        if (keys.add(_optionKey(c))) wrongs.add(c);
+      }
+      if (wrongs.length < 3) continue;
+
+      final r = _packExact(correct, wrongs);
+      _markSeen(sigKey);
+      return ReasoningQuestion(
+        category: 'mirror_shape',
+        type: 'mirror_shape_hard',
+        puzzle: {'type': 'mirror_shape', 'target': target},
+        options: r.opts,
+        correctIndex: r.idx,
+      );
+    }
+    return _mirrorShape();
+  }
+
+  /// Hard Mode mirror clock: "which clock is the mirror image of this one?"
+  /// The face has no numbers and symmetric ticks, so a mirrored clock looks
+  /// exactly like an ordinary clock showing the mirror time - (11 - h):(60 - m)
+  /// - and every option is drawn as a plain clock. Wrong answers are the
+  /// usual mistakes: the original time, the clock turned upside down
+  /// (h + 6), the mirror time off by an hour, only the minute hand mirrored.
+  static ReasoningQuestion _mirrorClockHard() {
+    Map<String, dynamic> clock(int h, int m) => {
+          'type': 'mirror_text',
+          'is_clock': true,
+          'clock_hour': ((h - 1) % 12 + 12) % 12 + 1, // 1..12
+          'clock_minute': m,
+          'mirror_h': false,
+          'mirror_v': false,
+        };
+    // Hand angles are what's actually drawn; equal angles = identical clocks.
+    String anglesKey(Map<String, dynamic> c) {
+      final h = c['clock_hour'] as int, m = c['clock_minute'] as int;
+      return '${((h % 12) * 30 + m / 2).toStringAsFixed(1)}/${m * 6}';
+    }
+
+    for (int attempt = 0; attempt < 60; attempt++) {
+      final h = _r.nextInt(12) + 1;
+      // Not :00 or :30 - the minute hand would sit on the mirror line and
+      // the original and its mirror image could coincide.
+      final m = const [5, 10, 15, 20, 25, 35, 40, 45, 50, 55][_r.nextInt(10)];
+      final sigKey = 'mirClock:$h:$m';
+      if (_seen(sigKey)) continue;
+
+      final mh = 11 - h, mm = 60 - m; // mirror time
+      final correct = clock(mh, mm);
+      final tier1 = [clock(h, m), clock(h + 6, m)]..shuffle(_r); // original, upside down
+      final tier2 = [clock(mh + 1, mm), clock(mh - 1, mm), clock(h, mm)]..shuffle(_r);
+
+      final keys = <String>{anglesKey(correct)};
+      final wrongs = <Map<String, dynamic>>[];
+      for (final c in [...tier1, ...tier2]) {
+        if (wrongs.length < 3 && keys.add(anglesKey(c))) wrongs.add(c);
+      }
+      if (wrongs.length < 3) continue;
+
+      final packed = _packExact(correct, wrongs);
+      _markSeen(sigKey);
+      return ReasoningQuestion(
+        category: 'mirror_text',
+        type: 'mirror_clock',
+        puzzle: {...clock(h, m)},
+        options: packed.opts,
+        correctIndex: packed.idx,
+      );
+    }
+    return _mirrorText();
+  }
+
+  static ReasoningQuestion _mirrorText({bool isHardMode = false}) {
+    if (isHardMode && _r.nextInt(2) == 0) return _mirrorClockHard();
     String pickBaseContent(bool isDigit) {
       if (isDigit) {
         final List<int> digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]..shuffle(_r);
@@ -2186,10 +2427,27 @@ class QuestionGenerator {
       return current;
     }
 
+    // Hard Mode: 5 distinct characters mixing letters and digits, with some
+    // that look the same in a mirror (A, H, M, 0, 8...) among ones that
+    // don't - the solver can't just flip every glyph, they have to know
+    // which ones change.
+    String pickHardContent() {
+      final sym = 'AHMOTUVWXY08'.split('')..shuffle(_r);
+      final asym = 'BCDEFGJKLNPRSZ234579'.split('')..shuffle(_r);
+      final hasDigit = RegExp(r'\d');
+      for (;;) {
+        final chars = [...sym.take(2), ...asym.take(3)]..shuffle(_r);
+        final s = chars.join();
+        if (hasDigit.hasMatch(s) && RegExp(r'[A-Z]').hasMatch(s)) return s;
+        sym.shuffle(_r);
+        asym.shuffle(_r);
+      }
+    }
+
     mirrorTextAttempt:
     for (int attempt = 0; attempt < 80; attempt++) {
       final isDigit = _r.nextBool();
-      final content = pickBaseContent(isDigit);
+      final content = isHardMode ? pickHardContent() : pickBaseContent(isDigit);
       final sigKey = 'mirTextAdv:$content|${isDigit ? 'digit' : 'word'}';
       if (_seen(sigKey)) continue;
 
@@ -2304,7 +2562,73 @@ class QuestionGenerator {
     return parts.join('-');
   }
 
-  static ReasoningQuestion _punchHole() {
+  /// Hard Mode punch hole: the paper is folded twice (into a quarter - the
+  /// shaded state PunchPainter draws for fold_axis 2) and punched once or
+  /// twice, so each punch becomes 4 holes when unfolded. Wrong answers are
+  /// the classic mistakes:
+  ///   - unfolding only one of the two folds (half the holes)
+  ///   - copying the holes across the folds instead of mirroring them
+  ///   - dropping one hole
+  static ReasoningQuestion _punchHoleHard() {
+    for (int attempt = 0; attempt < 80; attempt++) {
+      // Punches stay inside the top-left quarter, well clear of both folds
+      // (a hole and its reflection are >= 0.26 apart; a hole is ~0.16 wide)
+      // and never near 0.25: there, "copied across the fold" (c + 0.5) and
+      // "mirrored across the fold" (1 - c) land on the same spot, which
+      // would make that distractor identical to the answer.
+      double coord() => const [0.12, 0.15, 0.18, 0.31, 0.34, 0.37][_r.nextInt(6)];
+      final punches = <List<double>>[[coord(), coord()]];
+      if (_r.nextBool()) {
+        final second = [coord(), coord()];
+        final dx = second[0] - punches[0][0], dy = second[1] - punches[0][1];
+        if (dx * dx + dy * dy < 0.18 * 0.18) continue; // holes would merge
+        punches.add(second);
+      }
+      final sigKey = 'punchHard:${punches.map((p) => '${p[0]},${p[1]}').join(';')}';
+      if (_seen(sigKey)) continue;
+
+      Map<String, dynamic> h(double x, double y) => {'x': x, 'y': y};
+      List<Map<String, dynamic>> expand(List<Map<String, dynamic>> Function(double x, double y) f) =>
+          [for (final p in punches) ...f(p[0], p[1])];
+
+      final correctHoles = expand((x, y) => [h(x, y), h(1 - x, y), h(x, 1 - y), h(1 - x, 1 - y)]);
+      final candidates = <List<Map<String, dynamic>>>[
+        expand((x, y) => [h(x, y), h(1 - x, y)]), // only the left-right fold opened
+        expand((x, y) => [h(x, y), h(x, 1 - y)]), // only the top-bottom fold opened
+        expand((x, y) => [h(x, y), h(x + 0.5, y), h(x, y + 0.5), h(x + 0.5, y + 0.5)]), // copied, not mirrored
+        [...correctHoles]..removeAt(_r.nextInt(correctHoles.length)), // one hole missing
+      ]..shuffle(_r);
+
+      Map<String, dynamic> card(List<Map<String, dynamic>> holes) =>
+          {'type': 'punch_hole', 'unfolded': true, 'fold_axis': 2, 'holes': holes};
+
+      final keys = <String>{_holesKey(correctHoles)};
+      final wrongs = <Map<String, dynamic>>[];
+      for (final c in candidates) {
+        if (wrongs.length < 3 && keys.add(_holesKey(c))) wrongs.add(card(c));
+      }
+      if (wrongs.length < 3) continue;
+
+      final packed = _packExact(card(correctHoles), wrongs);
+      _markSeen(sigKey);
+      return ReasoningQuestion(
+        category: 'punch_hole',
+        type: 'punch_hole_double_fold',
+        puzzle: {
+          'type': 'punch_hole',
+          'unfolded': false,
+          'fold_axis': 2,
+          'holes': [for (final p in punches) h(p[0], p[1])],
+        },
+        options: packed.opts,
+        correctIndex: packed.idx,
+      );
+    }
+    return _punchHole();
+  }
+
+  static ReasoningQuestion _punchHole({bool isHardMode = false}) {
+    if (isHardMode) return _punchHoleHard();
     for (int attempt = 0; attempt < 50; attempt++) {
       final int axis = _r.nextInt(2);
       final double hx = 0.18 + _r.nextDouble() * 0.32;
@@ -2477,7 +2801,73 @@ class QuestionGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   // 10. EMBEDDED FIGURE
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion _embedded() {
+  /// Hard Mode embedded figure: EVERY option contains a figure of the
+  /// target's shape type, so scanning for the shape doesn't find the answer.
+  /// Only one holds it exactly as shown; the others hold a near-miss - the
+  /// target flipped, turned, or with the opposite fill - among two other
+  /// figures, so the solver has to check orientation and fill, not just type.
+  static ReasoningQuestion _embeddedHard() {
+    // Target shapes whose turns (and, for L/triangle, flips) are visible.
+    const targetShapes = [8, 7, 2, 5];
+    const fillerShapes = [1, 3, 6, 4, 0];
+
+    for (int attempt = 0; attempt < 80; attempt++) {
+      final shape = targetShapes[_r.nextInt(targetShapes.length)];
+      final filled = _r.nextBool();
+      final rot = _r.nextInt(4);
+      final sigKey = 'embedHard:s$shape,f$filled,r$rot';
+      // Only 32 targets exist; once all are used, allow repeats (fillers,
+      // near-misses and layout are re-drawn) rather than dropping to Easy.
+      if (_seen(sigKey) && attempt < 60) continue;
+
+      final target = _f(shape, filled: filled, rot: rot);
+      final targetKey = _figureKey(target);
+
+      // Near-misses: flipped and turned versions first, opposite fill last
+      // (easiest to spot). Keep only ones that genuinely look different.
+      final nearMisses = <Map<String, dynamic>>[];
+      final seen = <String>{targetKey};
+      final flipsAndTurns = [
+        _f(shape, filled: filled, rot: rot, mirror: true),
+        _f(shape, filled: filled, rot: (rot + 1) % 4),
+        _f(shape, filled: filled, rot: (rot + 2) % 4),
+        _f(shape, filled: filled, rot: (rot + 3) % 4),
+        _f(shape, filled: filled, rot: (rot + 1) % 4, mirror: true),
+      ]..shuffle(_r);
+      for (final c in [...flipsAndTurns, _f(shape, filled: !filled, rot: rot)]) {
+        if (nearMisses.length < 3 && seen.add(_figureKey(c))) nearMisses.add(c);
+      }
+      if (nearMisses.length < 3) continue;
+
+      Map<String, dynamic> option(Map<String, dynamic> keyFigure) {
+        final others = (List<int>.from(fillerShapes)..shuffle(_r)).take(2).toList();
+        final shapes = [
+          keyFigure,
+          for (final s in others) _f(s, filled: _r.nextBool(), rot: _r.nextInt(4)),
+        ]..shuffle(_r);
+        return {'type': 'embedded_option', 'shapes': shapes, 'offset': 1, 'contains_target': identical(keyFigure, target)};
+      }
+
+      final correct = option(target);
+      final wrongs = [for (final n in nearMisses) option(n)];
+      final keys = {for (final o in [correct, ...wrongs]) _optionKey(o)};
+      if (keys.length < 4) continue;
+
+      final packed = _packExact(correct, wrongs);
+      _markSeen(sigKey);
+      return ReasoningQuestion(
+        category: 'embedded',
+        type: 'embedded_hard',
+        puzzle: {'type': 'embedded', 'target': target},
+        options: packed.opts,
+        correctIndex: packed.idx,
+      );
+    }
+    return _embedded();
+  }
+
+  static ReasoningQuestion _embedded({bool isHardMode = false}) {
+    if (isHardMode) return _embeddedHard();
     const embShapes = [1, 2, 3, 7, 8];
 
     for (int attempt = 0; attempt < 40; attempt++) {

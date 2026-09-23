@@ -95,8 +95,14 @@ class MirrorTextPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     )..layout(maxWidth: size.width * 1.8); // allow overflow for layout calc
 
-    // Center within the canvas (we are already translated to centre)
+    // Center within the canvas (we are already translated to centre),
+    // shrinking to fit if a long string is wider than the box.
+    final maxWidth = size.width * 0.9;
+    final fit = tp.width > maxWidth ? maxWidth / tp.width : 1.0;
+    canvas.save();
+    canvas.scale(fit, fit);
     tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+    canvas.restore();
   }
 
   void _drawClock(Canvas canvas, Size size) {

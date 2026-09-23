@@ -38,6 +38,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
   static const Color accentOrange = Color(0xFFF97316);
   static const Color accentEmerald = Color(0xFF10B981);
   static const Color accentPurple = Color(0xFFA855F7);
+  static const Color hardAccent = Color(0xFFEF4444); // Hard Mode: same red as the weak-area severity pills
 
   // Persisted bias weights loaded from SharedPreferences
   // Passed into QuizScreen so the session starts from where the student left off
@@ -451,18 +452,36 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
           _buildSettingRow(
             icon: Icons.trending_up_rounded,
             label: AppLocale.get(currentLang, 'difficulty'),
-            children: [
-              _buildDifficultyChip(
-                label: AppLocale.get(currentLang, 'easy'),
-                isSelected: !isHardMode,
-                onTap: () => setState(() => isHardMode = false),
-              ),
-              _buildDifficultyChip(
-                label: AppLocale.get(currentLang, 'hard'),
-                isSelected: isHardMode,
-                onTap: () => setState(() => isHardMode = true),
-              ),
-            ],
+            children: [Expanded(child: _buildDifficultyToggle())],
+          ),
+          const SizedBox(height: 6),
+          // One-line description of the selected mode. Both modes have one,
+          // so the header keeps a constant height when toggling.
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Row(
+              key: ValueKey(isHardMode),
+              children: [
+                Icon(
+                  isHardMode ? Icons.bolt_rounded : Icons.check_circle_outline_rounded,
+                  size: 14,
+                  color: isHardMode ? hardAccent : textSubtle,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    AppLocale.get(currentLang, isHardMode ? 'hard_desc' : 'easy_desc'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: isHardMode ? hardAccent : textSubtle,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -873,51 +892,117 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        Row(children: children),
+        // Gaps only BETWEEN items - a trailing margin on every item left the
+        // row 8px short of the right edge.
+        Row(children: [
+          for (int i = 0; i < children.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            children[i],
+          ],
+        ]),
       ],
     );
   }
 
-  Widget _buildDifficultyChip({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          margin: const EdgeInsets.only(right: 8),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? primary : surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isSelected ? primary : Colors.grey.withOpacity(0.3),
-              width: 1.5,
-            ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: primary.withOpacity(0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : [],
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: isSelected ? Colors.white : textMain,
+  /// Easy / Hard segmented toggle: same surface, border, radius and label
+  /// style as the time chips above it, with a selection pill that slides
+  /// between the two. Hard gets a warm gradient + flame so it reads as the
+  /// "intense" option at a glance.
+  Widget _buildDifficultyToggle() {
+    Widget segment({
+      required String label,
+      required IconData icon,
+      required bool selected,
+      required VoidCallback onTap,
+    }) {
+      return Expanded(
+        child: Semantics(
+          button: true,
+          selected: selected,
+          label: label,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            // Only the colour is animated; a plain Text keeps merging with
+            // the theme's inherited style (font family etc).
+            child: TweenAnimationBuilder<Color?>(
+              tween: ColorTween(end: selected ? Colors.white : textSubtle),
+              duration: const Duration(milliseconds: 200),
+              builder: (_, color, _) => Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 16, color: color),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
+                  ),
+                ],
               ),
             ),
           ),
         ),
+      );
+    }
+
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: AnimatedAlign(
+              alignment: isHardMode ? Alignment.centerRight : Alignment.centerLeft,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              child: FractionallySizedBox(
+                widthFactor: 0.5,
+                heightFactor: 1,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isHardMode ? const [accentOrange, hardAccent] : const [primary, primaryDark],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(9),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (isHardMode ? hardAccent : primary).withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: Row(
+              children: [
+                segment(
+                  label: AppLocale.get(currentLang, 'easy'),
+                  icon: Icons.spa_rounded,
+                  selected: !isHardMode,
+                  onTap: () => setState(() => isHardMode = false),
+                ),
+                segment(
+                  label: AppLocale.get(currentLang, 'hard'),
+                  icon: Icons.local_fire_department_rounded,
+                  selected: isHardMode,
+                  onTap: () => setState(() => isHardMode = true),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -931,7 +1016,6 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          margin: const EdgeInsets.only(right: 8),
           padding: const EdgeInsets.symmetric(vertical: 10),
           alignment: Alignment.center,
           decoration: BoxDecoration(

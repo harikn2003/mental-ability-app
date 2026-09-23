@@ -507,7 +507,11 @@ class HardQuestionGenerator {
       case 'analogy':
         return _generateDenseMultiLayerAnalogy();
       default:
-        return _generateHardOddMan();
+        // Was a silent fallback to Odd Man Out, which is how Hard Mode for
+        // the non-Sandia topics ended up serving the wrong category. Those
+        // are routed in QuestionGenerator.generate now; fail loudly if a
+        // caller ever gets it wrong again.
+        throw ArgumentError.value(category, 'category', 'not a HardQuestionGenerator category');
     }
   }
 
