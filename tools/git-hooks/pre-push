@@ -92,8 +92,23 @@ current_beta_num=$(echo "$current_pubspec_version" | sed -E 's/^.*-beta\.([0-9]+
 
 current_build_number=$(grep -E 'static const int buildNumber' "$VERSION_DART" | sed -E 's/[^0-9]*([0-9]+).*/\1/')
 
-next_beta_num=$((current_beta_num + 1))
-next_build_number=$((current_build_number + 1))
+tag_exists() {
+  git rev-parse -q --verify "refs/tags/$1" >/dev/null 2>&1 ||
+    git ls-remote --exit-code --tags origin "$1" >/dev/null 2>&1
+}
+
+# If pubspec's current version was never tagged, it was already bumped by
+# hand (e.g. following docs/release_beta.md) and just hasn't been released
+# yet - offer THAT version as-is rather than bumping past it (which used to
+# suggest beta.6 when beta.5 was the one waiting to go out).
+current_version="${current_pubspec_version%%+*}"     # e.g. 1.0.0-beta.5
+if ! tag_exists "v${current_version}"; then
+  next_beta_num=$current_beta_num
+  next_build_number=$current_build_number
+else
+  next_beta_num=$((current_beta_num + 1))
+  next_build_number=$((current_build_number + 1))
+fi
 suggested_version="${base_version}-beta.${next_beta_num}"
 suggested_tag="v${suggested_version}"
 
@@ -118,7 +133,7 @@ if ! [[ "$tag_name" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
 fi
 
 # --- refuse to touch an existing tag (matches your own roll-forward policy) -
-if git rev-parse "$tag_name" >/dev/null 2>&1 || git ls-remote --exit-code --tags origin "$tag_name" >/dev/null 2>&1; then
+if tag_exists "$tag_name"; then
   gui_error "Tag '${tag_name}' already exists (locally or on origin). Per the roll-forward policy in release_beta.md, tags are never reused - bump the beta number and try again. Push aborted, nothing was changed."
   exit 1
 fi
@@ -138,7 +153,11 @@ sed -i -E "s/(static const String preRelease = ')[^']*(';)/\1${new_beta_label}\2
 sed -i -E "s/(static const int buildNumber = )[0-9]+;/\1${next_build_number};/" "$VERSION_DART"
 
 git add "$PUBSPEC" "$VERSION_DART"
-git commit -m "$commit_message"
+# Nothing to commit when the files already held this version (the
+# hand-bumped case above) - tag the existing commit instead of failing.
+if ! git diff --cached --quiet -- "$PUBSPEC" "$VERSION_DART"; then
+  git commit -m "$commit_message"
+fi
 
 git tag -a "$tag_name" -m "$commit_message"
 git push origin "$tag_name"
