@@ -158,6 +158,28 @@ void main() {
     }
   });
 
+  test('odd man out: exactly one option is not a turn of the others', () {
+    final qs = _make(ExamStyleGenerator.oddManOut);
+    var mostDifferent = 0;
+    for (final q in qs) {
+      final figs = q.options.map(_fig).toList();
+      final odd = [
+        for (int i = 0; i < 4; i++)
+          if (![for (int j = 0; j < 4; j++) if (j != i) figs[j].rotationClassKey == figs[i].rotationClassKey].any((b) => b)) i
+      ];
+      expect(odd, [q.correctIndex]);
+      // The three others must all be turns of one figure.
+      expect({for (int i = 0; i < 4; i++) if (i != q.correctIndex) figs[i].rotationClassKey}.length, 1);
+      // Shortcut check: is the answer simply the most different-looking option?
+      final totals = [for (final a in figs) figs.fold<int>(0, (s, b) => s + _distance(a, b))];
+      final top = totals.reduce((a, b) => a > b ? a : b);
+      if (totals[q.correctIndex] == top && totals.where((t) => t == top).length == 1) mostDifferent++;
+    }
+    // ignore: avoid_print
+    print('odd man out: answer is the unique most-different option in ${(100 * mostDifferent / qs.length).toStringAsFixed(1)}% (chance 25%)');
+    expect(mostDifferent / qs.length, lessThan(0.4));
+  });
+
   test('figure match: exactly one exact copy', () {
     final qs = _make(ExamStyleGenerator.figureMatch);
     for (final q in qs) {

@@ -118,7 +118,9 @@ class QuestionGenerator {
 
   /// Percentage of Hard Mode questions served exam-style (ExamStyleGenerator)
   /// for Sandia-engine categories whose Sandia items differ from the exam.
-  static const examStyleHardShare = {'pattern': 60, 'figure_match': 60};
+  /// odd_man: the mirror-image item (added when the two shade-step Sandia
+  /// rules were retired) takes a third of Hard Odd Man Out.
+  static const examStyleHardShare = {'pattern': 60, 'figure_match': 60, 'odd_man': 35};
 
   /// Main generator entry point.
   static ReasoningQuestion generate(String category, {bool isHardMode = false}) {
@@ -195,6 +197,7 @@ class QuestionGenerator {
       final exam = switch (category) {
         'pattern' => ExamStyleGenerator.patternQuarter(),
         'figure_match' => ExamStyleGenerator.figureMatch(),
+        'odd_man' => ExamStyleGenerator.oddManOut(),
         'embedded' => ExamStyleGenerator.embeddedFigure(),
         'punch_hole' => ExamStyleGenerator.punchHole(),
         // Mostly the exam's irregular grid cut; a quarter keep the circle /

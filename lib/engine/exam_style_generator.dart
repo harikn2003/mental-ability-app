@@ -333,6 +333,43 @@ class ExamStyleGenerator {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // ODD MAN OUT
+  // Three options are the same figure turned three different ways; the odd
+  // one is its mirror image, also turned (JNVST 2024 Part 1, Q4). The figure
+  // has no symmetry at all, so the mirror image can never be matched by a
+  // turn - the answer is unambiguous, but only by mentally turning figures,
+  // not by spotting a shade or size difference. Every option looks as "far"
+  // from the others as any other, so there's no odd-looking-pixels shortcut
+  // (checked in test/exam_style_test.dart).
+  // ═══════════════════════════════════════════════════════════════════════════
+  static ReasoningQuestion? oddManOut() {
+    for (int attempt = 0; attempt < 200; attempt++) {
+      final segs = _strokes(4, 4, 6 + _r.nextInt(3));
+      // One coherent figure, not scattered marks: the strokes must span at
+      // least 3x3 of the grid, and the triangle / dot sit inside the strokes'
+      // own area (a sample with the strokes bunched in one cell and the
+      // decorations in far corners was too hard to turn mentally).
+      final xs = [for (final s in segs) ...[s.$1, s.$3]], ys = [for (final s in segs) ...[s.$2, s.$4]];
+      final x0 = xs.reduce(min), x1 = xs.reduce(max), y0 = ys.reduce(min), y1 = ys.reduce(max);
+      if (x1 - x0 < 3 || y1 - y0 < 3) continue;
+      (int, int) cellInside() => (x0 + _r.nextInt(x1 - x0), y0 + _r.nextInt(y1 - y0));
+      final (tx, ty) = cellInside();
+      final f = LineFig(4, 4,
+          segs: segs,
+          tris: {(tx, ty, _r.nextInt(4))},
+          dots: _r.nextBool() ? {cellInside()} : {});
+      if (!_fullyAsymmetric(f)) continue;
+      final turns = [0, 1, 2, 3]..shuffle(_r);
+      final majority = [for (final t in turns.take(3)) f.rot(t)];
+      final odd = f.mirrorX().rot(turns[3]);
+      final opts = [odd, ...majority];
+      if (opts.map((o) => o.key).toSet().length != 4) continue;
+      return _question('odd_man', 'odd_man_mirror', {'type': 'odd_man'}, odd.toMap(), [for (final m in majority) m.toMap()]);
+    }
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // PUNCHED HOLE
   // Paper folded one or two times (incl. diagonal folds, JNVST 2024 Q32 /
   // Arihant examples), then punched. Holes can be triangles pointing a way:

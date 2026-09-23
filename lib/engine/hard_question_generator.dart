@@ -657,8 +657,12 @@ class HardQuestionGenerator {
     final subTypes = <String, ReasoningQuestion Function()>{
       'rotational_repetition': _oddManRotationalRepetition,
       'scaling_repetition': _oddManScalingRepetition,
-      'change_fill_pattern': _oddManChangeFillPattern,
-      'fill_pattern_repetition': _oddManFillPatternRepetition,
+      // _oddManChangeFillPattern and _oddManFillPatternRepetition retired
+      // from Hard Mode (2026-09-23): both hinge on judging one-shade steps
+      // between semi-transparent greys, which testers couldn't do by eye -
+      // the source of the tracker's "why is this the answer" / "circle in a
+      // square" / "clarity on odd man out" reports. Replaced in Hard Mode by
+      // the exam-style mirror-image odd man out (ExamStyleGenerator.oddManOut).
       'translational_numerosity': _oddManTranslationalNumerosity,
       'arithmetic': _oddManArithmetic,
       // _oddManConstantAttribute intentionally excluded: reported three
@@ -792,7 +796,11 @@ class HardQuestionGenerator {
     final wrongFactors = [0.4, 0.5, 0.85]..shuffle(_r);
     final wrongFactor = wrongFactors.first;
 
-    final shape = _randomShape();
+    // BUGFIX: 'tee' excluded, as in _rotationSafeShapes - a turned T reads as
+    // a different glyph, so the options looked like two shape families and
+    // drew attention away from the inner-size rule (tracker: "Bluberry
+    // build: Ambiguity 1 in odd man", 2nd screenshot).
+    final shape = _randomShape(['tee']);
     final oddIndex = _r.nextInt(4);
     // BUGFIX: was an independent rotation per option ([0,90,180,270]
     // shuffled across the 4 options). Rotation plays no role in this
@@ -869,6 +877,8 @@ class HardQuestionGenerator {
   /// exceptions.
   static const List<String> _changeFillBgPool = ['white', 'grey40', 'grey10'];
 
+  // RETIRED from Hard Mode - see the note in _generateHardOddMan's subTypes.
+  // ignore: unused_element
   static ReasoningQuestion _oddManChangeFillPattern() {
     final bgShape = _randomShape();
     final fgShape = _randomShape([bgShape]);
@@ -933,6 +943,8 @@ class HardQuestionGenerator {
   /// distinct fills. They're now smaller and spaced further apart, with a
   /// safety margin so even the widest shape pairing stays visually
   /// separate.
+  // RETIRED from Hard Mode - see the note in _generateHardOddMan's subTypes.
+  // ignore: unused_element
   static ReasoningQuestion _oddManFillPatternRepetition() {
     final shapeA = _randomShape();
     final shapeB = _randomShape([shapeA]);

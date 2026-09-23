@@ -495,6 +495,35 @@ Tests re-derive every answer from the puzzle alone (hole = square minus
 frame; embedding search; symmetry recovered from the three visible
 quarters; an independent unfold for punch hole, plus no overlapping holes).
 
+### 24. Tracker screenshots (Notion "Navodaya Mental Ability Issues DB", 2026-09-23)
+Screenshots saved in `docs/tracker-shots/`. Findings, traced to code:
+- **Pattern duplicate distractors** (3 shots, "two identical pairs"): the
+  class fixed by #16/#17 - those builds had no working near-duplicate guard.
+- **Geo "picks the wrong answer"**: two real bugs, both Easy and old-Hard:
+  square cut 6's piece 0 was the square minus a 0.4x0.6 block at the
+  TOP-left while piece 1 was a 0.4x0.4 block at the BOTTOM-left - the
+  "answer" didn't complete the shape and the true complement (a tall
+  rectangle) showed as a "wrong" option (the tester picked it). And
+  distractors were compared by (shape, cut, piece) id, so the notch from
+  another corner - the same small square - sat next to the answer. Fix:
+  one shared `GeoPiecePath` for both painters; `geoPieceClass` (same shape
+  once turned) keeps wrong pieces out of the answer's class; the fixed
+  fallback question had the same flaw. `test/geo_piece_path_test.dart`
+  checks every cut's pieces exactly complete the shape (it fails on the old
+  cut 6 with a 400-sample overlap).
+- **"Figure match horiz scroll"** was actually Figure Series: the sequence
+  row scrolled sideways and hid the last figure. Now two rows; Analogy's
+  row shrinks to fit.
+- **Odd man out "why is this the answer"** (4 items): the "change fill
+  pattern" rule - inner shape exactly one shade darker than outer - can't
+  be judged by eye with semi-transparent greys. Retired from Hard Mode
+  together with "fill pattern repetition" (same shade-matching problem);
+  `tee` excluded from scaling_repetition (a turned T reads as another
+  glyph). Replaced by `ExamStyleGenerator.oddManOut`: three turns of one
+  asymmetric line figure + its mirror image (JNVST 2024 Q4), 35% of Hard
+  Odd Man Out. The strokes must span >= 3x3 of the grid with decorations
+  inside their area (an early sample was scattered marks, too hard to turn).
+
 ## Testing infrastructure built during this work
 
 ### `test/hard_generator_diagnostics_test.dart`
