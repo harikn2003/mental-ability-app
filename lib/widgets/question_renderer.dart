@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../config/localization.dart';
 import '../painters/figure_painter.dart';
+import '../painters/line_figure_painter.dart';
 import '../painters/mirror_text_painter.dart';
 import '../painters/punch_painter.dart';
 import '../painters/sandia_painter.dart';
@@ -27,6 +28,8 @@ class QuestionRenderer extends StatelessWidget {
         return _figureMatch();
       case 'matrix':
         return _matrix();
+      case 'quad_pattern':
+        return _quadPattern();
       case 'series':
         return _series();
       case 'analogy':
@@ -49,6 +52,9 @@ class QuestionRenderer extends StatelessWidget {
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   Widget _fig(Map<String, dynamic> data, {double size = 64}) {
+    if (data['type'] == 'line_fig') {
+      return CustomPaint(size: Size(size, size), painter: LineFigurePainter(data));
+    }
     if (data['type'] == 'mirror_text') {
       return CustomPaint(
         size: Size(size, size),
@@ -412,6 +418,43 @@ class QuestionRenderer extends StatelessWidget {
     );
   }
 
+  // ── 3b. Pattern Completion, exam style: a square design of four quarters ──
+  // (TL, TR, BL, BR) with one quarter missing - JNVST Part 3.
+  Widget _quadPattern() {
+    final tiles = puzzle['tiles'] as List;
+    final missing = puzzle['missing'] as int? ?? 3;
+    const tile = 64.0;
+    Widget quarter(int i) => Container(
+          width: tile,
+          height: tile,
+          decoration: BoxDecoration(
+            color: i == missing ? const Color(0xFFE2E8F0) : Colors.white,
+            border: Border.all(color: _ink, width: 1.2),
+          ),
+          child: i == missing
+              ? const Center(
+                  child: Text('?', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _subtle)))
+              : CustomPaint(
+                  size: const Size(tile, tile),
+                  painter: LineFigurePainter(Map<String, dynamic>.from(tiles[i] as Map)),
+                ),
+        );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _label(AppLocale.s('instr_pattern')),
+        const SizedBox(height: 14),
+        Container(
+          decoration: BoxDecoration(border: Border.all(color: _ink, width: 2)),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Row(mainAxisSize: MainAxisSize.min, children: [quarter(0), quarter(1)]),
+            Row(mainAxisSize: MainAxisSize.min, children: [quarter(2), quarter(3)]),
+          ]),
+        ),
+      ],
+    );
+  }
+
   // ── 6. Geo Completion (jigsaw piece-fitting) ──────────────────────────────
   Widget _geoJigsaw() {
     final piece = Map<String, dynamic>.from(puzzle['piece'] as Map);
@@ -429,7 +472,7 @@ class QuestionRenderer extends StatelessWidget {
           ),
           child: CustomPaint(
             size: const Size(100, 100),
-            painter: _GeoPiecePainter(piece),
+            painter: piece['type'] == 'line_fig' ? LineFigurePainter(piece) : _GeoPiecePainter(piece),
           ),
         ),
       ],

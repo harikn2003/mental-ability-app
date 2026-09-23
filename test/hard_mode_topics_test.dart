@@ -105,6 +105,8 @@ void main() {
 
   test('mirror_shape: answer is the target flipped left-right; wrong answers are the classic confusions', () {
     for (final q in _hard('mirror_shape')) {
+      // Exam-style line figures are checked in exam_style_test.dart.
+      if (q.type == 'mirror_line_fig') continue;
       expect(q.type, 'mirror_shape_hard');
       final target = Map<String, dynamic>.from(q.puzzle['target'] as Map);
       final mirrorKey = QuestionGenerator.debugOptionKey({...target, 'mirror': true});
@@ -118,6 +120,7 @@ void main() {
 
   test('embedded: every option has the target shape, exactly one has it as shown', () {
     for (final q in _hard('embedded')) {
+      if (q.type == 'embedded_line') continue; // see exam_style_test.dart
       expect(q.type, 'embedded_hard');
       final target = Map<String, dynamic>.from(q.puzzle['target'] as Map);
       final targetKey = QuestionGenerator.debugOptionKey(target);
@@ -133,6 +136,7 @@ void main() {
 
   test('geo_completion: exactly one piece completes the shown piece', () {
     for (final q in _hard('geo_completion')) {
+      if (q.type == 'geo_grid_cut') continue; // see exam_style_test.dart
       final piece = q.puzzle['piece'] as Map;
       final matching = [
         for (int i = 0; i < 4; i++)

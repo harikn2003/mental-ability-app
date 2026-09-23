@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../painters/line_figure_painter.dart';
 import '../painters/punch_painter.dart';
 import '../painters/sandia_painter.dart';
 
@@ -44,6 +45,9 @@ class OptionRenderer extends StatelessWidget {
     }
     if (type == 'embedded_option') {
       return _EmbeddedOption(data: data, size: size);
+    }
+    if (type == 'line_fig') {
+      return CustomPaint(size: Size(size, size), painter: LineFigurePainter(data));
     }
     return EnhancedFigureWidget(data: data, size: size);
   }

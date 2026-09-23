@@ -3,7 +3,9 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import 'exam_style_generator.dart';
 import 'hard_question_generator.dart';
+import 'line_figure.dart';
 import 'reasoning_question.dart';
 
 /// QuestionGenerator
@@ -46,6 +48,7 @@ class QuestionGenerator {
   static void seed(int s) {
     _r = Random(s);
     HardQuestionGenerator.seed(s);
+    ExamStyleGenerator.seed(s);
   }
 
   static bool _seen(String sig) => _history.contains(sig);
@@ -113,13 +116,24 @@ class QuestionGenerator {
   /// `isHardMode` branch of its own generator in this file.
   static const hardEngineCategories = {'odd_man', 'figure_match', 'pattern', 'figure_series', 'analogy'};
 
+  /// Percentage of Hard Mode questions served exam-style (ExamStyleGenerator)
+  /// for Sandia-engine categories whose Sandia items differ from the exam.
+  static const examStyleHardShare = {'pattern': 60, 'figure_match': 60};
+
   /// Main generator entry point.
   static ReasoningQuestion generate(String category, {bool isHardMode = false}) {
     // BUGFIX: every Hard Mode request used to go to HardQuestionGenerator,
     // which only knows the 5 Sandia categories and fell back to Odd Man Out
     // for anything else - so Hard + Mirror Shape (or Punch Hole, Embedded,
     // Geo Completion, Mirror Text) silently served Odd Man Out questions.
-    if (isHardMode && hardEngineCategories.contains(category)) {
+    // Pattern Completion and Figure Match: the Sandia items test a different
+    // puzzle type from the real exam (3x3 matrices; "same figure after
+    // turning"), so Hard Mode mixes in exam-style items (2x2 quarter
+    // completion; exact copy among near-identical variants) for the
+    // majority and keeps Sandia as the extra-challenge share.
+    final examStyleShare = examStyleHardShare[category];
+    final useExamStyle = isHardMode && examStyleShare != null && _r.nextInt(100) < examStyleShare;
+    if (isHardMode && hardEngineCategories.contains(category) && !useExamStyle) {
       return HardQuestionGenerator.generate(category);
     }
 
@@ -174,6 +188,22 @@ class QuestionGenerator {
 
   static ReasoningQuestion _generateRaw(String category,
       {bool isHardMode = false}) {
+    if (isHardMode) {
+      // Exam-style items (see ExamStyleGenerator); each returns null only if
+      // it failed to build a valid item, in which case the older hard
+      // branch below is used.
+      final exam = switch (category) {
+        'pattern' => ExamStyleGenerator.patternQuarter(),
+        'figure_match' => ExamStyleGenerator.figureMatch(),
+        'embedded' => ExamStyleGenerator.embeddedFigure(),
+        // Mostly the exam's irregular grid cut; a quarter keep the circle /
+        // triangle pieces, which the exam also uses occasionally.
+        'geo_completion' => _r.nextInt(4) != 0 ? ExamStyleGenerator.geoCompletion() : null,
+        'mirror_shape' => _r.nextBool() ? ExamStyleGenerator.mirrorLineFigure() : null,
+        _ => null,
+      };
+      if (exam != null) return exam;
+    }
     switch (category) {
       case 'odd_man':
         return _oddMan(isHardMode: isHardMode);
@@ -400,6 +430,7 @@ class QuestionGenerator {
   static String debugOptionKey(Map<String, dynamic> m) => _optionKey(m);
 
   static String _optionKey(Map<String, dynamic> m) {
+    if (m['type'] == 'line_fig') return LineFig.fromMap(m).key;
     if (m['type'] == 'embedded_option') {
       final parts = (m['shapes'] as List).map((s) => _figureKey(Map<String, dynamic>.from(s as Map))).toList();
       return 'emb|${parts.join('+')}';
