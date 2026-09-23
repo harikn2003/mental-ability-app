@@ -443,6 +443,58 @@ cut except the triangle's horizontal cut (shape 1, cut 0), where piece 0
 is the 1/4-area tip - so that case still showed the tip and asked for the
 3/4 trapezoid. Now shows piece 1 there. Affects Easy mode too.
 
+### 23. Exam-style Hard Mode from the real papers (2026-09-23, branch `hard-mode-exam-style`)
+Sources in `docs/`: the JNVST 2024 paper (`ilide.info-jnv-sample-paper-...pdf`,
+pages 2-11 = the 10 Mental Ability parts), Arihant's chapter-wise JNV
+2003-2019 past questions (pp. 70-181), and Yang et al. 2021, *Automatic
+Item Generation of Figural Analogy Problems* (`2201.08450v1.pdf`).
+
+What the real papers do that the app didn't:
+- **Geo completion**: a square with an *irregular* piece cut out (steps,
+  notches); answer pieces shown turned; near-identical wrong pieces.
+- **Embedded**: a small line figure hidden in a dense line drawing - not
+  separate shapes side by side.
+- **Punch hole**: fold sequences as step panels, diagonal folds, shaped
+  holes whose orientation flips when unfolded.
+- **Pattern completion**: a 2x2 symmetric design with one quarter missing -
+  a different puzzle from the Sandia 3x3 matrix.
+- **Figure matching**: the exact copy among near-identical *unturned*
+  variants - not "same figure after turning" (the Sandia figure_match).
+
+Built:
+- `lib/engine/line_figure.dart` - `LineFig`, figures on an integer grid
+  (unit segments incl. diagonals, filled cells, black half-cells, dots,
+  rings) with exact turn/flip maps, canonical keys, and `embeds()` (target
+  segments within host segments after a shift). `LineFigurePainter` draws
+  `'line_fig'` maps; `'center': true` keeps the lattice scale but centres
+  the content (geo pieces share the square's scale so size is comparable).
+- `lib/engine/exam_style_generator.dart` - geoCompletion, embeddedFigure,
+  patternQuarter (new `quad_pattern` puzzle), figureMatch,
+  mirrorLineFigure, punchHole (`folds` + step panels in PunchPainter).
+- Routing: `QuestionGenerator._generateRaw` hard branches. Pattern and
+  Figure Match Hard are 60% exam-style / 40% Sandia (`examStyleHardShare`);
+  Geo Hard is 75% grid cuts / 25% the older circle/triangle pieces; Mirror
+  Shape Hard is 50% line figures / 50% composites.
+
+**Balanced answer sets everywhere** (Yang et al. §3.3, "context-blind"):
+when every wrong answer is a one-change variant of the right one, the right
+one is the option most similar to all others and can be picked without
+the question. Every exam-style item - and now the earlier Hard mirror
+shape / clock / text items - uses two independent changes in all four
+combinations. Measured in `test/exam_style_test.dart`: the correct option
+is the unique "most central" one 0% of the time for pattern / figure match
+/ mirror, 25% (= chance) for geo.
+
+Pattern-specific trap avoided: if the options were the tile's four
+symmetry images, three would already be visible in the puzzle and the
+answer would be "the one not shown". Wrong answers use the *wrong kind* of
+transform (turn vs flip) crossed with a one-detail change, and never equal
+a visible quarter (asserted in the test).
+
+Tests re-derive every answer from the puzzle alone (hole = square minus
+frame; embedding search; symmetry recovered from the three visible
+quarters; an independent unfold for punch hole, plus no overlapping holes).
+
 ## Testing infrastructure built during this work
 
 ### `test/hard_generator_diagnostics_test.dart`
