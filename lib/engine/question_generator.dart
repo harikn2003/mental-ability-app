@@ -196,6 +196,7 @@ class QuestionGenerator {
         'pattern' => ExamStyleGenerator.patternQuarter(),
         'figure_match' => ExamStyleGenerator.figureMatch(),
         'embedded' => ExamStyleGenerator.embeddedFigure(),
+        'punch_hole' => ExamStyleGenerator.punchHole(),
         // Mostly the exam's irregular grid cut; a quarter keep the circle /
         // triangle pieces, which the exam also uses occasionally.
         'geo_completion' => _r.nextInt(4) != 0 ? ExamStyleGenerator.geoCompletion() : null,
@@ -292,9 +293,12 @@ class QuestionGenerator {
   static String _visibleKey(Map<String, dynamic> m) {
     // ── Punch hole options ─────────────────────────────────────────────────
     if (m.containsKey('holes') && m.containsKey('unfolded')) {
+      // Shape and triangle direction are part of what's drawn (exam-style
+      // punches use pointed holes whose direction flips on unfolding).
       final holes = (m['holes'] as List)
           .map((h) =>
-      '(${(h["x"] as num).toStringAsFixed(2)},${(h["y"] as num).toStringAsFixed(2)})')
+      '(${(h["x"] as num).toStringAsFixed(2)},${(h["y"] as num).toStringAsFixed(2)}'
+          '${h["shape"] == null ? "" : ",${h["shape"]}"}${h["shape"] == "tri" ? ",${h["dir"]}" : ""})')
           .toList()
         ..sort();
       return 'punch|ax:${m["fold_axis"]}|holes:${holes.join("-")}';

@@ -562,14 +562,32 @@ class QuestionRenderer extends StatelessWidget {
   }
 
   // ── 9. Punch Hole ──────────────────────────────────────────────────────────
-  Widget _punchHole() => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      _label(AppLocale.s('find_unfolded')),
-      const SizedBox(height: 14),
-      CustomPaint(size: const Size(120, 120), painter: PunchPainter(puzzle)),
-    ],
-  );
+  Widget _punchHole() {
+    final folds = puzzle['folds'] as List?;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _label(AppLocale.s('find_unfolded')),
+        const SizedBox(height: 14),
+        if (folds == null)
+          CustomPaint(size: const Size(120, 120), painter: PunchPainter(puzzle))
+        else
+          // Exam-style fold sequence: one panel per step, arrows between.
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (int step = 0; step <= folds.length; step++) ...[
+                if (step > 0) Icon(Icons.arrow_forward_rounded, size: 16, color: _blue.withValues(alpha: 0.7)),
+                CustomPaint(
+                  size: Size.square(folds.length > 1 ? 78 : 96),
+                  painter: PunchPainter({...puzzle, 'step': step}),
+                ),
+              ],
+            ],
+          ),
+      ],
+    );
+  }
 
   // ── 10. Embedded Figure ────────────────────────────────────────────────────
   Widget _embedded() {

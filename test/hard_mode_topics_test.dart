@@ -56,6 +56,7 @@ void main() {
 
   test('punch_hole: double fold, answer = every punch mirrored across both folds', () {
     for (final q in _hard('punch_hole')) {
+      if (q.type == 'punch_hole_exam') continue; // see exam_style_test.dart
       expect(q.type, 'punch_hole_double_fold');
       expect(q.puzzle['fold_axis'], 2);
       final expected = <String>{};

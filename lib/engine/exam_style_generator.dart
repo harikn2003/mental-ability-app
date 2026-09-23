@@ -333,6 +333,123 @@ class ExamStyleGenerator {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // PUNCHED HOLE
+  // Paper folded one or two times (incl. diagonal folds, JNVST 2024 Q32 /
+  // Arihant examples), then punched. Holes can be triangles pointing a way:
+  // unfolding flips their direction too, which the "copied" distractor gets
+  // wrong. Folds, in unit-square coordinates (y down):
+  //   v: right half onto left      keep x <= 1/2      reflect x -> 1-x
+  //   h: bottom half onto top      keep y <= 1/2      reflect y -> 1-y
+  //   d: top-right onto bottom-left, along y = x      reflect (x,y) -> (y,x)
+  //   a: bottom-right onto top-left, along x+y = 1    reflect (x,y) -> (1-y,1-x)
+  // Answer set: {all folds opened, one fold forgotten / wrong diagonal} x
+  // {shapes flipped correctly, triangles copied unflipped / one hole missing}.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static (double, double) _reflect(String fold, double x, double y) => switch (fold) {
+        'v' => (1 - x, y),
+        'h' => (x, 1 - y),
+        'd' => (y, x),
+        _ => (1 - y, 1 - x),
+      };
+
+  /// Triangle direction 0 up, 1 right, 2 down, 3 left, reflected by [fold].
+  static int _reflectDir(String fold, int dir) {
+    const v = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+    final (dx, dy) = v[dir];
+    final r = switch (fold) {
+      'v' => (-dx, dy),
+      'h' => (dx, -dy),
+      'd' => (dy, dx),
+      _ => (-dy, -dx),
+    };
+    return v.indexOf(r);
+  }
+
+  /// Signed distance-ish test: is (x,y) on the kept side of [fold], and how far
+  /// from the fold line (in unit-square coordinates)?
+  static double _keptMargin(String fold, double x, double y) => switch (fold) {
+        'v' => 0.5 - x,
+        'h' => 0.5 - y,
+        'd' => (y - x) / sqrt2,
+        _ => (1 - x - y) / sqrt2,
+      };
+
+  /// Unfolds [holes] by undoing [folds] last-first, optionally skipping one
+  /// fold ([skip]) and optionally NOT flipping triangle directions.
+  static List<Map<String, dynamic>> _unfold(List<Map<String, dynamic>> holes, List<String> folds,
+      {int? skip, bool flipShapes = true}) {
+    var cur = [for (final h in holes) Map<String, dynamic>.from(h)];
+    for (int i = folds.length - 1; i >= 0; i--) {
+      if (i == skip) continue;
+      final f = folds[i];
+      cur = [
+        ...cur,
+        for (final h in cur)
+          () {
+            final (x, y) = _reflect(f, h['x'] as double, h['y'] as double);
+            return {...h, 'x': x, 'y': y, if (flipShapes && h['shape'] == 'tri') 'dir': _reflectDir(f, h['dir'] as int)};
+          }(),
+      ];
+    }
+    return cur;
+  }
+
+  static String _punchKey(List<Map<String, dynamic>> holes) => ([
+        for (final h in holes)
+          '${((h['x'] as double) * 100).round()},${((h['y'] as double) * 100).round()},${h['shape']},${h['shape'] == 'tri' ? h['dir'] : ''}'
+      ]..sort())
+          .join(';');
+
+  static ReasoningQuestion? punchHole() {
+    const sequences = [['v', 'h'], ['h', 'v'], ['d'], ['a'], ['d', 'a'], ['a', 'd']];
+    for (int attempt = 0; attempt < 300; attempt++) {
+      final folds = _pick(sequences);
+      final shape = _pick(const ['tri', 'tri', 'circle', 'square']);
+      final punches = 1 + _r.nextInt(2);
+      final holes = <Map<String, dynamic>>[];
+      for (int k = 0; k < 60 && holes.length < punches; k++) {
+        final x = 0.08 + _r.nextInt(21) * 0.04, y = 0.08 + _r.nextInt(21) * 0.04;
+        // Inside the folded paper, >= 0.1 from every fold line (a hole and
+        // its reflection stay apart) and clear of the paper edge.
+        if (!folds.every((f) => _keptMargin(f, x, y) >= 0.1)) continue;
+        if (x < 0.1 || y < 0.1 || x > 0.9 || y > 0.9) continue;
+        if (holes.any((h) => pow((h['x'] as double) - x, 2) + pow((h['y'] as double) - y, 2) < 0.18 * 0.18)) continue;
+        holes.add({'x': x, 'y': y, 'shape': shape, if (shape == 'tri') 'dir': _r.nextInt(4)});
+      }
+      if (holes.length < punches) continue;
+
+      // Change A: one fold forgotten, or for a single fold, the other diagonal.
+      final skip = folds.length > 1 ? _r.nextInt(folds.length) : null;
+      final aFolds = folds.length > 1 ? folds : [folds.single == 'd' ? 'a' : 'd'];
+      List<Map<String, dynamic>> unfold({required bool changeA, required bool flip}) =>
+          _unfold(holes, changeA ? aFolds : folds, skip: changeA ? skip : null, flipShapes: flip);
+      // Change B: triangles copied without flipping; for round/square holes,
+      // which have no direction, one hole missing instead.
+      List<Map<String, dynamic>> option({required bool changeA, required bool changeB}) {
+        if (shape == 'tri') return unfold(changeA: changeA, flip: !changeB);
+        final set = unfold(changeA: changeA, flip: true);
+        return changeB ? (set..removeLast()) : set;
+      }
+
+      final correct = option(changeA: false, changeB: false);
+      final sets = [
+        correct,
+        option(changeA: true, changeB: false),
+        option(changeA: false, changeB: true),
+        option(changeA: true, changeB: true),
+      ];
+      if (sets.map(_punchKey).toSet().length != 4) continue;
+
+      Map<String, dynamic> card(List<Map<String, dynamic>> hs) => {'type': 'punch_hole', 'unfolded': true, 'fold_axis': -1, 'holes': hs};
+      return _question('punch_hole', 'punch_hole_exam',
+          {'type': 'punch_hole', 'unfolded': false, 'fold_axis': -1, 'folds': folds, 'holes': holes}, card(correct),
+          [for (final s in sets.skip(1)) card(s)]);
+    }
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // MIRROR IMAGE (line figure)
   // Line figures with small asymmetric decorations (JNV 2018-2019: arrow
   // heads, end circles, flags). Mirror held on the right.

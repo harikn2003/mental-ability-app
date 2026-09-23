@@ -109,6 +109,55 @@ void main() {
     expect(_centralShare(qs), lessThan(0.35));
   });
 
+  test('punch hole: exactly one card matches unfolding every fold', () {
+    ExamStyleGenerator.seed(7);
+    // Independent re-implementation of unfolding, from the fold codes alone.
+    (double, double, int?) reflect(String f, double x, double y, int? dir) {
+      const v = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+      final d = dir == null ? null : v[dir];
+      return switch (f) {
+        'v' => (1 - x, y, d == null ? null : v.indexOf((-d.$1, d.$2))),
+        'h' => (x, 1 - y, d == null ? null : v.indexOf((d.$1, -d.$2))),
+        'd' => (y, x, d == null ? null : v.indexOf((d.$2, d.$1))),
+        _ => (1 - y, 1 - x, d == null ? null : v.indexOf((-d.$2, -d.$1))),
+      };
+    }
+
+    String key(Iterable<(double, double, int?)> hs, String shape) =>
+        ([for (final h in hs) '${(h.$1 * 100).round()},${(h.$2 * 100).round()},$shape,${h.$3 ?? ''}']..sort()).join(';');
+
+    for (int i = 0; i < runs; i++) {
+      final q = ExamStyleGenerator.punchHole()!;
+      final folds = (q.puzzle['folds'] as List).cast<String>();
+      final holes = q.puzzle['holes'] as List;
+      final shape = holes.first['shape'] as String;
+      var set = [
+        for (final h in holes) ((h['x'] as double), (h['y'] as double), shape == 'tri' ? h['dir'] as int : null)
+      ];
+      for (final f in folds.reversed) {
+        set = [...set, for (final h in set) reflect(f, h.$1, h.$2, h.$3)];
+      }
+      final want = key(set, shape);
+      final matching = [
+        for (int o = 0; o < 4; o++)
+          if (key([
+                for (final h in q.options[o]['holes'] as List)
+                  ((h['x'] as double), (h['y'] as double), shape == 'tri' ? h['dir'] as int : null)
+              ], shape) ==
+              want)
+            o
+      ];
+      expect(matching, [q.correctIndex], reason: 'folds $folds holes $holes');
+      // No two unfolded holes may overlap (hole ~0.16 wide).
+      for (int a = 0; a < set.length; a++) {
+        for (int b = a + 1; b < set.length; b++) {
+          final dx = set[a].$1 - set[b].$1, dy = set[a].$2 - set[b].$2;
+          expect(dx * dx + dy * dy, greaterThan(0.16 * 0.16), reason: 'holes overlap: $folds $holes');
+        }
+      }
+    }
+  });
+
   test('figure match: exactly one exact copy', () {
     final qs = _make(ExamStyleGenerator.figureMatch);
     for (final q in qs) {
