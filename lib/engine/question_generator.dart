@@ -1845,8 +1845,19 @@ class QuestionGenerator {
       final cut = (shape == 0 && isHardMode)
           ? [4, 5, 6, 7, 4, 5, 6, 7, 2, 3, 0, 1][_r.nextInt(12)]
           : _r.nextInt(maxCut);
-      final shownPiece = _r.nextInt(2);
-      final targetPiece = 1 - shownPiece;
+      // BUGFIX: shownPiece used to be a random 0-or-1 draw. For cuts 4-7,
+      // piece 0 and piece 1 aren't symmetric - piece 0 is a large L-shaped
+      // majority and piece 1 is a small corner notch (see _squarePiece
+      // above). Randomly showing the SMALL notch as "the shape to
+      // complete" and asking for the large L-shaped remainder gives the
+      // solver no visual anchor for what the completed whole should look
+      // like - the correct answer reads as arbitrary rather than deduced,
+      // which is exactly what was reported ("app picks the wrong
+      // answer"). Always showing the majority piece and asking for the
+      // small piece that fills its notch is the only direction that's
+      // unambiguous regardless of shape/cut, so it's no longer random.
+      final shownPiece = 0;
+      final targetPiece = 1;
       final template = isHardMode
           ? [0, 1, 0, 2, 1, 3, 0][_r.nextInt(7)]
           : _r.nextInt(4);
@@ -1920,12 +1931,14 @@ class QuestionGenerator {
         correctIndex: res.idx,
       );
     }
-    final q = {'type': 'geo_piece', 'shape': 0, 'cut': 6, 'piece': 1};
-    final a = {'type': 'geo_piece', 'shape': 0, 'cut': 6, 'piece': 0};
+    // Same fix as above: show the large piece, ask for the small notch
+    // that completes it - not the reverse.
+    final q = {'type': 'geo_piece', 'shape': 0, 'cut': 6, 'piece': 0};
+    final a = {'type': 'geo_piece', 'shape': 0, 'cut': 6, 'piece': 1};
     final res = _pack(a, [
-      {'type': 'geo_piece', 'shape': 0, 'cut': 5, 'piece': 0},
-      {'type': 'geo_piece', 'shape': 0, 'cut': 6, 'piece': 1},
-      {'type': 'geo_piece', 'shape': 0, 'cut': 7, 'piece': 0},
+      {'type': 'geo_piece', 'shape': 0, 'cut': 5, 'piece': 1},
+      {'type': 'geo_piece', 'shape': 0, 'cut': 7, 'piece': 1},
+      {'type': 'geo_piece', 'shape': 0, 'cut': 4, 'piece': 1},
     ]);
     return ReasoningQuestion(
       category: 'geo_completion',

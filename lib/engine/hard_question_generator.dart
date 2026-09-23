@@ -48,6 +48,8 @@ class HardQuestionGenerator {
       if (optionKeys.length < q.options.length) {
         continue; // Discard and retry if options contain visual duplicates
       }
+      // ...and if any pair differs only in ways too small to see.
+      if (_hasNearDuplicateOptions(q.options)) continue;
 
       final sig = _buildCanonicalSignature(q);
       if (_sessionHistory.add(sig)) {
@@ -63,6 +65,372 @@ class HardQuestionGenerator {
   /// re-implementing (and risking drifting from) that logic. See
   /// test/hard_generator_diagnostics_test.dart.
   static List<String> debugOptionVisibleKeys(ReasoningQuestion q) => q.options.map(_visibleKey).toList();
+
+  /// Testing-only. Companion to debugOptionVisibleKeys - that check answers
+  /// "are any two options exactly identical" (should always be false by
+  /// construction). This answers a different, harder question: for every
+  /// pair of options that AREN'T identical, exactly which numeric
+  /// attribute differs, and by how much? Built because a screenshot can
+  /// make two options look like duplicates when the underlying data is
+  /// technically different but the difference is small enough (e.g. a
+  /// handful of rotation degrees, or two close-together fills) to be
+  /// imperceptible in practice - that's a distinct failure mode from a
+  /// literal duplicate, needs a distinct check, and can't be judged from a
+  /// photo of a phone screen. Only understands the 'sandia_cell' schema
+  /// (pattern/odd_man/figure_match); returns one line per option pair
+  /// (6 pairs for 4 options) describing every attribute that differs.
+  static List<String> debugOptionPairDiffs(ReasoningQuestion q) {
+    // Shares _optionPairDiff with generate()'s live near-duplicate guard, so
+    // this test hook and the guard can never disagree about what counts as
+    // "too subtle to see".
+    final lines = <String>[];
+    final rasterCache = Map<Map<String, dynamic>, List<double>>.identity();
+    for (int i = 0; i < q.options.length; i++) {
+      for (int j = i + 1; j < q.options.length; j++) {
+        final d = _optionPairDiff(q.options[i], q.options[j], rasterCache);
+        if (d.diffs.isEmpty) {
+          lines.add('option[$i] vs option[$j]: NO DIFFERENCE FOUND (renders identically once symmetry is normalized)');
+        } else if (d.allSmall) {
+          lines.add('option[$i] vs option[$j] [POSSIBLY TOO SUBTLE]: ${d.diffs.join(', ')}');
+        }
+      }
+    }
+    return lines;
+  }
+
+  // ---- symmetry-aware option comparison ---------------------------------------
+  //
+  // BUGFIX (the real version of history fix #14 - the guard that doc describes
+  // was never actually present in this file): options used to be compared
+  // attribute-by-attribute on their RAW data, which misses every way two
+  // different data maps can paint the same pixels:
+  //   - rectangle/ellipse/diamond look identical 180 degrees apart (diamond
+  //     became a symmetric rhombus in sandia_painter.dart, but nothing here
+  //     was updated to match - the cause of odd_man_rotational_repetition
+  //     rendering two identical options)
+  //   - on those same shapes, "rotate 90" and "swap w/h" are the SAME visual
+  //     edit - so a pattern answer set built from those two perturbation
+  //     bits collapses into two identical pairs (00==11, 01==10)
+  //   - legacy surface 9 (thick cross) is 90-degree symmetric, not 180 -
+  //     the cause of figure_series' exact-duplicate options
+  //   - scale multiplies w/h; mirror on a left-right-symmetric shape just
+  //     reverses the rotation direction
+  // Everything below reduces a cell to what the painter actually draws
+  // before comparing.
+
+  static double _round3(num v) => (v * 1000).round() / 1000;
+
+  static bool _isCentrallySymmetricShape(String shape) =>
+      shape == 'ellipse' || shape == 'rectangle' || shape == 'diamond' || shape == 'line';
+
+  static Map<String, dynamic> _canonicalAuthenticFeature(Map f) {
+    final shape = f['shape'] as String? ?? 'ellipse';
+    final scale = ((f['scale'] as num?) ?? 1.0).toDouble();
+    double w = ((f['w'] as num?) ?? 0.5).toDouble() * scale;
+    double h = ((f['h'] as num?) ?? 0.5).toDouble() * scale;
+    if (shape == 'line') h = 0; // painter only reads w for a line
+    int rot = ((f['rot'] as num?) ?? 0).round();
+    // Every authentic shape is symmetric about its vertical axis, so
+    // mirror-then-rotate(θ) paints the same as rotate(-θ).
+    if (f['mirror'] == true) rot = -rot;
+    rot %= 360; // Dart's % is Euclidean: always non-negative here
+    if (_isCentrallySymmetricShape(shape)) {
+      rot %= 180;
+      if (rot >= 90 && shape != 'line') {
+        // A quarter turn of a two-axis-symmetric shape == swapping w/h.
+        rot -= 90;
+        final t = w;
+        w = h;
+        h = t;
+      }
+      if (shape == 'ellipse' && (w - h).abs() < 1e-9) rot = 0; // circle
+    }
+    return {
+      'cx': _round3(((f['cx'] as num?) ?? 0.5)),
+      'cy': _round3(((f['cy'] as num?) ?? 0.5)),
+      'shape': shape,
+      'w': _round3(w),
+      'h': _round3(h),
+      'rot': rot,
+      'fill': f['fill'] as String? ?? 'white',
+    };
+  }
+
+  static Map<String, dynamic> _canonicalLegacyLayer(Map l) {
+    final surface = l['surface'] as int? ?? 0;
+    final lines = l['lines'] as int? ?? 0;
+    final dotPos = l['dot_pos'] as int? ?? -1;
+    // Rotation period of each drawn part, in quarter turns. The whole layer
+    // only looks the same after k quarter turns if EVERY part does, and all
+    // periods divide 4, so the layer's period is the largest part period.
+    final surfacePeriod = (surface == 9 || surface >= 10) ? 1 : (surface == 1 || surface == 2) ? 2 : 4;
+    final linesPeriod = switch (lines) { <= 0 => 1, 1 => 2, 2 || 3 => 1, _ => 4 };
+    final dotPeriod = dotPos >= 0 ? 4 : 1;
+    final period = max(surfacePeriod, max(linesPeriod, dotPeriod));
+    return {
+      'surface': surface,
+      'fill': l['fill'] as int? ?? 0,
+      'scale': _round3(((l['scale'] as num?) ?? 2)),
+      'rotation': (l['rotation'] as int? ?? 0) % period,
+      'mirror_h': l['mirror_h'] as bool? ?? false,
+      'outline': l['outline'] as bool? ?? true,
+      'grid_box': l['grid_box'] as bool? ?? false,
+      'lines': lines,
+      'dot_pos': dotPos,
+    };
+  }
+
+  /// Every drawn element of a cell, symmetry-normalized and sorted so that
+  /// two cells that paint the same pixels produce the same list.
+  static List<Map<String, dynamic>> _canonicalFeatures(Map<String, dynamic> cell) {
+    final out = <Map<String, dynamic>>[];
+    if (cell['grid_box'] == true) out.add({'frame': true});
+    for (final layer in (cell['layers'] as List? ?? [])) {
+      final lm = layer as Map;
+      if (lm.containsKey('features')) {
+        if (lm['grid_box'] == true) out.add({'frame': true});
+        for (final f in (lm['features'] as List? ?? [])) {
+          out.add(_canonicalAuthenticFeature(f as Map));
+        }
+      } else {
+        out.add(_canonicalLegacyLayer(lm));
+      }
+    }
+    out.sort((a, b) => a.toString().compareTo(b.toString()));
+    return out;
+  }
+
+  /// Every attribute that differs between two options once symmetry is
+  /// normalized, and whether the pair is too close to tell apart (`allSmall`).
+  /// `diffs` empty means the two options render identically. [rasterCache]
+  /// lets a caller comparing many pairs rasterize each option only once.
+  static ({List<String> diffs, bool allSmall}) _optionPairDiff(Map<String, dynamic> a, Map<String, dynamic> b,
+      [Map<Map<String, dynamic>, List<double>>? rasterCache]) {
+    if (a['type'] != 'sandia_cell' || b['type'] != 'sandia_cell') {
+      final same = a.toString() == b.toString();
+      return (diffs: same ? <String>[] : ['non-sandia option data differs'], allSmall: false);
+    }
+    final fa = _canonicalFeatures(a);
+    final fb = _canonicalFeatures(b);
+    if (fa.length != fb.length) {
+      return (diffs: ['different feature counts (${fa.length} vs ${fb.length})'], allSmall: false);
+    }
+    final diffs = <String>[];
+    var allSmall = true;
+    var hasFillDiff = false;
+    for (int k = 0; k < fa.length; k++) {
+      for (final key in {...fa[k].keys, ...fb[k].keys}) {
+        final va = fa[k][key];
+        final vb = fb[k][key];
+        if (va == vb) continue;
+        diffs.add('feature[$k].$key: $va vs $vb');
+        if (key == 'rot' && va is num && vb is num) {
+          // Authentic rotation, degrees. Judge by angular distance within
+          // the shape's own symmetry period.
+          final period = _isCentrallySymmetricShape(fa[k]['shape'] as String? ?? '') ? 180 : 360;
+          final raw = (va - vb).abs() % period;
+          final angular = raw > period / 2 ? period - raw : raw;
+          // Turning a very small feature (e.g. figure_match's ~10dp corner
+          // triangle) isn't a dependable visible difference on its own - the
+          // visual test measured two options separated only by such a flip
+          // as indistinguishable. Under 0.2 of the cell is ~13dp at 64dp.
+          final featureSize = max((fa[k]['w'] as num?) ?? 0, (fa[k]['h'] as num?) ?? 0);
+          if (angular >= 20 && featureSize >= 0.2) allSmall = false;
+        } else if ((key == 'scale' || key == 'w' || key == 'h') && va is num && vb is num) {
+          final denom = (va.abs() + vb.abs()) / 2;
+          final relDiff = denom == 0 ? 0 : (va - vb).abs() / denom;
+          if (relDiff >= 0.15) allSmall = false;
+        } else if ((key == 'cx' || key == 'cy') && va is num && vb is num) {
+          if ((va - vb).abs() >= 0.08) allSmall = false;
+        } else if (key == 'fill' && va is String && vb is String) {
+          // Authentic fills are semi-transparent, so how visible a fill
+          // change is depends on what's drawn under and over it - judged
+          // below by actually compositing, not per attribute.
+          hasFillDiff = true;
+        } else {
+          // Categorical (shape, surface, legacy fill, lines, quarter-turn
+          // rotation, ...) - judged visible here; for authentic cells the
+          // rasterizer below gets the final say.
+          allSmall = false;
+        }
+      }
+    }
+    // Attribute rules can say a difference is too SMALL (a 5% scale change),
+    // but not that an attribute change is too faint once drawn - that
+    // depends on size, overlap and outlines. For authentic cells, anything
+    // not already ruled too small is confirmed by compositing.
+    if ((hasFillDiff || !allSmall) && _isRasterizable(a) && _isRasterizable(b)) {
+      allSmall = !_rasterChangeIsVisible(a, b, rasterCache);
+    }
+    return (diffs: diffs, allSmall: allSmall);
+  }
+
+  // ---- visibility rasterizer -----------------------------------------------------
+  //
+  // BUGFIX: attribute diffs call every fill/shape change "visible", but the
+  // visual test showed several that aren't once actually drawn:
+  //   - a fill change on a shape under another semi-transparent shape is
+  //     attenuated by every layer on top - black vs grey10 under a grey10
+  //     diamond composites to 41 vs 63 (out of 255)
+  //   - white vs grey75 is only ~26 apart even uncovered
+  //   - on a thin shape the dark outline hides much of the fill
+  //   - swapping between similar outlines (trapezoid/triangle) on a small
+  //     white shape changes only a sliver of pixels
+  // This composites each option's fills and outlines on a 64x64 grid (the
+  // app's 64dp option size), in the same order SandiaPainter draws them, and
+  // checks how much of the cell actually changes - the same measure the
+  // visual test applies to real renders.
+
+  /// Mirrors SandiaFill.palette in sandia_painter.dart as (channel, alpha) -
+  /// if you change one, change both (same convention as SandiaFillCompat).
+  static const Map<String, List<double>> _fillLumAlpha = {
+    'white': [255, 0.0],
+    'grey75': [191, 0.4],
+    'grey40': [102, 0.5],
+    'grey10': [26, 0.6],
+    'black': [0, 0.75],
+  };
+
+  // One sample per dp at the app's 64dp option size.
+  static const int _rasterN = 64;
+  // SandiaPainter strokes every authentic shape with a 2.0dp dark outline,
+  // centred on the edge - on a thin shape that eats a big share of the
+  // visible fill, so it has to be modelled: half the stroke width plus a
+  // little anti-aliasing, as a fraction of the cell.
+  static const double _strokeHalfBand = 1.5 / 64;
+  static const double _strokeLum = 23; // SandiaPainter's 0xFF0F172A outline
+  // Kept at or stricter than test/hard_generator_visual_test.dart's own
+  // "indistinguishable" cut-offs (>25 difference, <2% of pixels), so any pair
+  // that test would flag is already rejected here. At the app's 64dp option
+  // size, 2% of the cell is roughly a 9x9dp patch.
+  static const double _minVisibleLumDiff = 30; // the visual test's minAdjacentFillDistance
+  static const double _minVisibleAreaFraction = 0.02; // the visual test's significantPixelFractionThreshold
+
+  static bool _insideShape(String shape, double x, double y, double hw, double hh) {
+    if (hw <= 0 || hh <= 0) return false;
+    switch (shape) {
+      case 'rectangle':
+        return x.abs() <= hw && y.abs() <= hh;
+      case 'triangle':
+        if (y < -hh || y > hh) return false;
+        return x.abs() <= hw * (y + hh) / (2 * hh);
+      case 'diamond':
+        return x.abs() / hw + y.abs() / hh <= 1;
+      case 'trapezoid':
+        if (y < -hh || y > hh) return false;
+        final qw = hw / 2;
+        return x.abs() <= qw + (hw - qw) * (y + hh) / (2 * hh);
+      case 'tee':
+        if (y < -hh || y > hh) return false;
+        return y <= -hh / 2 ? x.abs() <= hw : x.abs() <= hw / 2;
+      case 'line':
+        return false; // stroke only, no fill
+      default: // ellipse
+        return (x / hw) * (x / hw) + (y / hh) * (y / hh) <= 1;
+    }
+  }
+
+  /// Authentic-schema cells only: the rasterizer doesn't draw legacy layers
+  /// (figure_series/analogy), nor 'line' features, which no generator uses.
+  static bool _isRasterizable(Map<String, dynamic> cell) {
+    final layers = cell['layers'] as List? ?? [];
+    if (layers.isEmpty) return false;
+    for (final layer in layers) {
+      final lm = layer as Map;
+      if (!lm.containsKey('features')) return false;
+      for (final f in (lm['features'] as List? ?? [])) {
+        if ((f as Map)['shape'] == 'line') return false;
+      }
+    }
+    return true;
+  }
+
+  /// SandiaPainter._drawFrame: a square outline at 0.9 of the cell.
+  static void _rasterFrame(List<double> lum) {
+    for (int j = 0; j < _rasterN; j++) {
+      for (int i = 0; i < _rasterN; i++) {
+        final x = ((i + 0.5) / _rasterN - 0.5).abs();
+        final y = ((j + 0.5) / _rasterN - 0.5).abs();
+        final edgeDist = min((x - 0.45).abs(), (y - 0.45).abs());
+        if (x <= 0.45 + _strokeHalfBand && y <= 0.45 + _strokeHalfBand && edgeDist <= _strokeHalfBand) {
+          lum[j * _rasterN + i] = _strokeLum;
+        }
+      }
+    }
+  }
+
+  /// Per-sample composited luminance of a cell's fills and outlines, in the
+  /// order SandiaPainter draws them.
+  static List<double> _rasterize(Map<String, dynamic> cell) {
+    final lum = List<double>.filled(_rasterN * _rasterN, 255);
+    if (cell['grid_box'] == true) _rasterFrame(lum);
+    for (final layer in (cell['layers'] as List? ?? [])) {
+      if ((layer as Map)['grid_box'] == true) _rasterFrame(lum);
+      for (final raw in (layer['features'] as List? ?? [])) {
+        final f = raw as Map;
+        final la = _fillLumAlpha[f['fill']] ?? _fillLumAlpha['white']!;
+        final shape = f['shape'] as String? ?? 'ellipse';
+        final scale = ((f['scale'] as num?) ?? 1.0).toDouble();
+        final hw = ((f['w'] as num?) ?? 0.5).toDouble() * scale / 2;
+        final hh = ((f['h'] as num?) ?? 0.5).toDouble() * scale / 2;
+        final cx = ((f['cx'] as num?) ?? 0.5).toDouble();
+        final cy = ((f['cy'] as num?) ?? 0.5).toDouble();
+        final theta = ((f['rot'] as num?) ?? 0).toDouble() * pi / 180;
+        final c = cos(theta), s = sin(theta);
+        final mirror = f['mirror'] == true;
+        for (int j = 0; j < _rasterN; j++) {
+          for (int i = 0; i < _rasterN; i++) {
+            // Invert the painter's translate -> mirror -> rotate transform.
+            var dx = (i + 0.5) / _rasterN - cx;
+            final dy = (j + 0.5) / _rasterN - cy;
+            if (mirror) dx = -dx;
+            final x = dx * c + dy * s;
+            final y = -dx * s + dy * c;
+            final idx = j * _rasterN + i;
+            final inside = _insideShape(shape, x, y, hw, hh);
+            // On the outline band if any nearby point is on the other side
+            // of the edge. Rotation-invariant offsets, so testing in local
+            // coordinates is fine.
+            const d = _strokeHalfBand;
+            final onEdge = _insideShape(shape, x + d, y, hw, hh) != inside ||
+                _insideShape(shape, x - d, y, hw, hh) != inside ||
+                _insideShape(shape, x, y + d, hw, hh) != inside ||
+                _insideShape(shape, x, y - d, hw, hh) != inside;
+            if (onEdge) {
+              lum[idx] = _strokeLum;
+            } else if (inside) {
+              lum[idx] = la[1] * la[0] + (1 - la[1]) * lum[idx];
+            }
+          }
+        }
+      }
+    }
+    return lum;
+  }
+
+  static bool _rasterChangeIsVisible(Map<String, dynamic> a, Map<String, dynamic> b,
+      [Map<Map<String, dynamic>, List<double>>? cache]) {
+    final ra = cache == null ? _rasterize(a) : cache.putIfAbsent(a, () => _rasterize(a));
+    final rb = cache == null ? _rasterize(b) : cache.putIfAbsent(b, () => _rasterize(b));
+    int changed = 0;
+    for (int i = 0; i < ra.length; i++) {
+      if ((ra[i] - rb[i]).abs() >= _minVisibleLumDiff) changed++;
+    }
+    return changed >= ra.length * _minVisibleAreaFraction;
+  }
+
+  /// True if any two options render identically or differ only in ways
+  /// too small to see. Used by generate() as a live guard.
+  static bool _hasNearDuplicateOptions(List<Map<String, dynamic>> options) {
+    final rasterCache = Map<Map<String, dynamic>, List<double>>.identity();
+    for (int i = 0; i < options.length; i++) {
+      for (int j = i + 1; j < options.length; j++) {
+        final d = _optionPairDiff(options[i], options[j], rasterCache);
+        if (d.diffs.isEmpty || d.allSmall) return true;
+      }
+    }
+    return false;
+  }
 
   /// Testing-only. Walks a question's puzzle + options looking for any
   /// rendered feature whose effective on-screen size (w*scale or h*scale)
@@ -143,51 +511,10 @@ class HardQuestionGenerator {
     }
   }
 
-  /// Symmetry-Aware Visual Key Generator
+  /// Symmetry-aware visual key: two options with the same key paint the
+  /// same pixels. See _canonicalFeatures.
   static String _visibleKey(Map<String, dynamic> m) {
-    if (m['type'] == 'sandia_cell') {
-      final layers = m['layers'] as List? ?? [];
-      final layerKeys = layers.map((l) {
-        final Map<String, dynamic> lm = Map<String, dynamic>.from(l as Map);
-
-        if (lm.containsKey('features')) {
-          // Authentic-schema layer (odd_man generators)
-          final feats = (lm['features'] as List? ?? []).map((f) {
-            final Map<String, dynamic> fm = Map<String, dynamic>.from(f as Map);
-            final String shape = fm['shape'] as String? ?? 'ellipse';
-            int rot = ((fm['rot'] as num?) ?? 0).toInt() % 360;
-
-            // Symmetry normalization: shapes that look identical under
-            // 180-degree rotation, or under any rotation (ellipse w==h).
-            final double w = ((fm['w'] as num?) ?? 0.5).toDouble();
-            final double h = ((fm['h'] as num?) ?? 0.5).toDouble();
-            if (shape == 'rectangle') {
-              rot = rot % 180;
-            } else if (shape == 'ellipse') {
-              rot = (w == h) ? 0 : rot % 180;
-            }
-
-            return 'sh:$shape-w:$w-h:$h-r:$rot'
-                '-cx:${fm['cx']}-cy:${fm['cy']}-sc:${fm['scale']}-f:${fm['fill']}';
-          }).join(',');
-          return 'feat[$feats]-gb:${lm['grid_box']}';
-        }
-
-        // Legacy-schema layer (pattern/series/analogy generators)
-        final int s = lm['surface'] as int? ?? 0;
-        int r = lm['rotation'] as int? ?? 0;
-        bool mir = lm['mirror_h'] as bool? ?? false;
-
-        if (s == 1 || s == 2 || s == 9) {
-          r = r % 2;
-        } else if (s == 10) {
-          r = 0;
-        }
-
-        return 's:$s-f:${lm['fill']}-r:$r-m:$mir-l:${lm['lines'] ?? 0}-dp:${lm['dot_pos'] ?? -1}';
-      }).join('|');
-      return 'sandia[$layerKeys]-gb:${m['grid_box']}';
-    }
+    if (m['type'] == 'sandia_cell') return _canonicalFeatures(m).toString();
     return m.toString();
   }
 
@@ -330,7 +657,10 @@ class HardQuestionGenerator {
       'fill_pattern_repetition': _oddManFillPatternRepetition,
       'translational_numerosity': _oddManTranslationalNumerosity,
       'arithmetic': _oddManArithmetic,
-      'constant_attribute': _oddManConstantAttribute,
+      // _oddManConstantAttribute intentionally excluded: reported three
+      // times as "easy question in hard mode" (one shape, spot the different
+      // fill) - an easy-tier rule. Its 3 majority options are also
+      // pixel-identical, so generate()'s duplicate guard rejected it anyway.
       // _oddManLogicalCombination intentionally excluded - see note where
       // it's defined below.
     };
@@ -384,7 +714,18 @@ class HardQuestionGenerator {
   /// the outer, so the comparison becomes "is the small copy twisted
   /// relative to the big copy of the same shape" - a single, direct
   /// same-shape comparison, the standard way this kind of item is posed.
-  static const List<String> _rotationSafeShapes = ['rectangle', 'triangle', 'tee', 'diamond', 'trapezoid'];
+  // BUGFIX: 'tee' removed from this pool despite the name - a T-shape
+  // rotated 90 degrees doesn't read as "the same shape turned", it reads
+  // as a completely different glyph (a bracket, ⊢), and 270 degrees reads
+  // as its mirror (⊣). A human comparing 4 options at 4 different
+  // rotations would see what looks like two unrelated shape families
+  // (T-like and bracket-like) instead of one shape in different
+  // orientations - exactly the "looks like 2 pairs, not 3-vs-1" ambiguity
+  // this rule depends on avoiding. rectangle/triangle/diamond/trapezoid
+  // all remain visually continuous (recognizably "the same shape,
+  // rotated") across all four cardinal rotations, which is the actual
+  // bar for belonging in a pool literally named "rotation-safe".
+  static const List<String> _rotationSafeShapes = ['rectangle', 'triangle', 'diamond', 'trapezoid'];
 
   static ReasoningQuestion _oddManRotationalRepetition() {
     final shape = _rotationSafeShapes[_r.nextInt(_rotationSafeShapes.length)];
@@ -402,7 +743,14 @@ class HardQuestionGenerator {
     final innerW = outerW * 0.54;
     final innerH = outerH * 0.54;
 
-    final baseRotations = [0, 90, 180, 270]..shuffle(_r); // one per option
+    // BUGFIX: rectangle and diamond (a symmetric rhombus since the painter
+    // fix) look identical 180 degrees apart, so outer 90/inner 135 and outer
+    // 270/inner 315 were two pixel-identical majority options (~11% of
+    // odd_man questions, caught by the visual test). For those shapes, spread
+    // the four outer rotations across 180 degrees instead of 360 so every
+    // option is a genuinely different orientation.
+    final centrallySymmetric = _isCentrallySymmetricShape(shape);
+    final baseRotations = (centrallySymmetric ? [0, 45, 90, 135] : [0, 90, 180, 270])..shuffle(_r); // one per option
     final oddIndex = _r.nextInt(4);
     // Wrong offsets: anything that is not congruent to 45 (mod 90), so the
     // "wrong" option can never accidentally render the same as the correct
@@ -442,19 +790,49 @@ class HardQuestionGenerator {
 
     final shape = _randomShape();
     final oddIndex = _r.nextInt(4);
-    final rotations = [0, 90, 180, 270]..shuffle(_r);
-    final fills = ['white', 'grey75', 'grey40', 'black']..shuffle(_r);
-    final outerDims = _sgmRandomDims();
-    final outerW = outerDims[0] * 1.05;
-    final outerH = outerDims[1] * 1.05;
+    // BUGFIX: was an independent rotation per option ([0,90,180,270]
+    // shuffled across the 4 options). Rotation plays no role in this
+    // rule's actual correctness signal (that's purely the scale ratio),
+    // so varying it per-option only added risk for no benefit - any
+    // shape whose silhouette isn't perfectly continuous across all 4
+    // cardinal turns (e.g. 'tee', which reads as a bracket at 90/270) can
+    // make 4 different rotations look like two unrelated shape families
+    // instead of one shape turned four ways, the same ambiguity fixed in
+    // _rotationSafeShapes above. A single shared rotation still varies
+    // question-to-question, just not misleadingly within one question.
+    final rotation = [0, 90, 180, 270][_r.nextInt(4)];
+    // BUGFIX: fill used to be an independent random shade per option
+    // (one each of white/grey75/grey40/black). That's a far more visually
+    // salient difference than the actual rule (a 0.66 vs 0.4/0.5/0.85
+    // size ratio), so it draws all the attention while being completely
+    // irrelevant to correctness - reported directly as "unclear why this
+    // is the answer... why not a different option". Holding fill constant
+    // removes the competing, irrelevant signal so size is the only thing
+    // left to compare.
+    const innerFill = 'grey40';
+    // BUGFIX: with shape, rotation and fill all shared, the 3 majority
+    // options were pixel-identical - a "spot the different picture" item
+    // that generate()'s duplicate guard rejected every time, so this rule
+    // never actually appeared. Each option now gets a different OUTER size
+    // (steps ~20% apart, comfortably past the near-duplicate threshold)
+    // while the inner:outer ratio stays the rule, so the solver has to
+    // compare ratios rather than absolute sizes - which is the point of
+    // ApplyScalingSGMStructureFeature in the first place.
+    // Only the (0.5, 0.75) dims are used: with the 1:2 / 1:3 dims the
+    // smallest option's inner at the 0.4 wrong factor fell under the 0.12
+    // legibility threshold. Smallest possible inner: 0.5 x 0.65 x 0.4 = 0.13.
+    final outerDims = _r.nextBool() ? [0.5, 0.75] : [0.75, 0.5];
+    final sizeSteps = [0.65, 0.78, 0.94, 1.12]..shuffle(_r); // largest: 0.75 x 1.12 = 0.84, inside the 0.9 frame
 
     final options = <Map<String, dynamic>>[];
     for (int i = 0; i < 4; i++) {
       final factor = (i == oddIndex) ? wrongFactor : correctFactor;
+      final outerW = outerDims[0] * sizeSteps[i];
+      final outerH = outerDims[1] * sizeSteps[i];
 
       options.add(_cell([
-        _feature(shape, w: outerW, h: outerH, rot: rotations[i], fill: 'white'),
-        _feature(shape, w: outerW * factor, h: outerH * factor, rot: rotations[i], fill: fills[i]),
+        _feature(shape, w: outerW, h: outerH, rot: rotation, fill: 'white'),
+        _feature(shape, w: outerW * factor, h: outerH * factor, rot: rotation, fill: innerFill),
       ], gridBox: true));
     }
 
@@ -500,8 +878,14 @@ class HardQuestionGenerator {
     final bgW = bgDims[0] * 1.05;
     final bgH = bgDims[1] * 1.05;
     final fgDims = _sgmRandomDims();
-    final fgW = fgDims[0] * 0.56;
-    final fgH = fgDims[1] * 0.56;
+    // BUGFIX: fg carries the entire correctness signal (a one-step fill
+    // difference from bg) and nothing else - at the old 0.56 multiplier,
+    // _sgmRandomDims' smallest tier (0.25) could shrink it to 0.14 of the
+    // cell. Even a well-spaced, technically-correct one-step shade
+    // difference is hard to judge confidently on an area that small.
+    // Floored so the fill always has enough visible surface to read.
+    final fgW = max(fgDims[0] * 0.7, 0.22);
+    final fgH = max(fgDims[1] * 0.7, 0.22);
 
     final options = <Map<String, dynamic>>[];
     for (int i = 0; i < 4; i++) {
@@ -567,8 +951,7 @@ class HardQuestionGenerator {
       String fillA = sharedFill;
       String fillB = sharedFill;
       if (i == oddIndex) {
-        final others = _fillCycle.where((f) => f != sharedFill).toList()..shuffle(_r);
-        fillB = others.first;
+        fillB = _maxContrastFill(sharedFill);
       }
 
       options.add(_cell([
@@ -595,7 +978,6 @@ class HardQuestionGenerator {
   /// - 1 odd: a different copy-count N' (still laid out correctly - the
   ///   violation is purely the count, not sloppy placement)
   static ReasoningQuestion _oddManTranslationalNumerosity() {
-    final shape = _randomShape();
     final fill = _basicFillPool[_r.nextInt(_basicFillPool.length)];
     final majorityCount = [2, 3, 4][_r.nextInt(3)];
     int oddCount;
@@ -604,11 +986,18 @@ class HardQuestionGenerator {
     } while (oddCount == majorityCount);
 
     final oddIndex = _r.nextInt(4);
+    // BUGFIX: one shared shape made the 3 majority options pixel-identical,
+    // so generate()'s duplicate guard rejected this rule every time and it
+    // never appeared. Each option now uses a different shape: count is the
+    // only thing the 3 majority options share, so the solver has to count
+    // rather than spot the odd picture - and since all 4 shapes differ, no
+    // single option stands out by shape.
+    final shapes = List<String>.from(_shapePool)..shuffle(_r);
 
     final options = <Map<String, dynamic>>[];
     for (int i = 0; i < 4; i++) {
       final count = (i == oddIndex) ? oddCount : majorityCount;
-      options.add(_cell(_numerosityFeatures(shape, fill, count), gridBox: true));
+      options.add(_cell(_numerosityFeatures(shapes[i], fill, count), gridBox: true));
     }
 
     return ReasoningQuestion(
@@ -840,13 +1229,29 @@ class HardQuestionGenerator {
   /// about each option and only one of them is actually the rule. A solver
   /// has to notice WHICH attribute is the constant one instead of just
   /// picking whatever looks most different overall.
+  /// Farthest-luminance fill from [from] in _fillCycle, rather than merely
+  /// "a different one" - picking any random different shade let the odd
+  /// option land on an adjacent pair (grey10 vs black, or white vs grey40),
+  /// which on a small shape like a diamond can render as visually
+  /// indistinguishable from the majority even though the values are
+  /// technically different. Maximizing contrast instead guarantees the
+  /// one attribute this rule actually depends on is always perceivable.
+  static String _maxContrastFill(String from) {
+    const luminance = {'white': 255, 'grey40': 179, 'grey10': 117, 'black': 64};
+    final fromLum = luminance[from]!;
+    return _fillCycle.reduce((a, b) => (luminance[a]! - fromLum).abs() >= (luminance[b]! - fromLum).abs() ? a : b);
+  }
+
+  // RETIRED from Hard Mode - see the note in _generateHardOddMan's subTypes.
+  // Kept for a future easy/medium tier.
+  // ignore: unused_element
   static ReasoningQuestion _oddManConstantAttribute() {
     final shape = _randomShape();
     final oddIndex = _r.nextInt(4);
     final rotation = [0, 90, 180, 270][_r.nextInt(4)];
 
     final majorityFill = _fillCycle[_r.nextInt(_fillCycle.length)];
-    final oddFill = (_fillCycle.where((f) => f != majorityFill).toList()..shuffle(_r)).first;
+    final oddFill = _maxContrastFill(majorityFill);
 
     // Evenly-spaced, all-distinct SCALE FACTORS rather than independent
     // random draws: 4 random floats in a narrow range can coincidentally
@@ -937,7 +1342,16 @@ class HardQuestionGenerator {
   /// carries the mirror information.
   static Map<String, dynamic> _markerFeature(String shape, int cornerIndex, int rot, bool mirror) {
     final cc = mirror ? _mirrorCorner(cornerIndex) : cornerIndex;
-    final finalCorner = _rotateCorner(cc, rot);
+    return _markerAt(shape, _rotateCorner(cc, rot), rot);
+  }
+
+  /// A marker at an explicit (already rotated) corner. BUGFIX: the
+  /// distractor override path used to build its square marker inline at
+  /// 0.13 instead of the 0.16 every other option uses - so the one
+  /// distractor with a misplaced square ALSO had a visibly smaller square,
+  /// a tell that let a solver eliminate it without any rotation reasoning.
+  /// Every marker now goes through here, so all options share one size.
+  static Map<String, dynamic> _markerAt(String shape, int finalCorner, int rot) {
     final off = _cornerOffsets[finalCorner];
     return _feature(shape, w: 0.16, h: 0.16, rot: rot, cx: 0.5 + off[0], cy: 0.5 + off[1], fill: 'black');
   }
@@ -962,10 +1376,10 @@ class HardQuestionGenerator {
       _feature(outerShape, w: outerW, h: outerH, rot: rot, fill: outerFill),
       _feature(innerShape, w: innerW, h: innerH, rot: rot, fill: innerFill),
       overrideMarkerACorner != null
-          ? _feature('triangle', w: 0.16, h: 0.16, rot: rot, cx: 0.5 + _cornerOffsets[overrideMarkerACorner][0], cy: 0.5 + _cornerOffsets[overrideMarkerACorner][1], fill: 'black')
+          ? _markerAt('triangle', overrideMarkerACorner, rot)
           : _markerFeature('triangle', markerACorner, rot, mirror),
       overrideMarkerBCorner != null
-          ? _feature('rectangle', w: 0.13, h: 0.13, rot: rot, cx: 0.5 + _cornerOffsets[overrideMarkerBCorner][0], cy: 0.5 + _cornerOffsets[overrideMarkerBCorner][1], fill: 'black')
+          ? _markerAt('rectangle', overrideMarkerBCorner, rot)
           : _markerFeature('rectangle', markerBCorner, rot, mirror),
     ], gridBox: true);
   }
@@ -1042,14 +1456,18 @@ class HardQuestionGenerator {
         // Right shapes, right fills, right rotation, marker B correct -
         // but marker A sits somewhere no rotation of the target could
         // put it. Only ONE of the two markers is wrong.
+          // BUGFIX: the wrong corner used to be allowed to land on marker
+          // B's corner, stacking both markers in one spot - messy, and with
+          // a centrally symmetric main shape two such distractors could
+          // render almost identically. Exclude the other marker's corner.
           final correctA = _rotateCorner(markerACorner, rot);
-          final wrongA = ([0, 1, 2, 3]..remove(correctA))[_r.nextInt(3)];
+          final wrongA = ([0, 1, 2, 3]..remove(correctA)..remove(_rotateCorner(markerBCorner, rot)))[_r.nextInt(2)];
           distractors.add(build(rot: rot, mirror: false, overrideMarkerACorner: wrongA));
           break;
         case 'markerB':
         default:
           final correctB = _rotateCorner(markerBCorner, rot);
-          final wrongB = ([0, 1, 2, 3]..remove(correctB))[_r.nextInt(3)];
+          final wrongB = ([0, 1, 2, 3]..remove(correctB)..remove(_rotateCorner(markerACorner, rot)))[_r.nextInt(2)];
           distractors.add(build(rot: rot, mirror: false, overrideMarkerBCorner: wrongB));
           break;
       }
@@ -1256,15 +1674,37 @@ class HardQuestionGenerator {
   /// concentric outlines - never side-by-side, never filled. Each base
   /// location gets a random SUBSET of the pool (any size, including several
   /// at once), not a single yes/no per shape.
+  /// Dims for logic-layer pool members specifically. _sgmRandomDims can
+  /// return ratios as extreme as 1:3 (e.g. 0.25 x 0.75), which is fine
+  /// where fill/rotation give extra disambiguating cues - but logic-layer
+  /// shapes render outline-only (white fill, per the authentic Sandia
+  /// design) and are never rotated, so silhouette is the ONLY thing
+  /// telling two pool members apart. At an extreme ratio, 'trapezoid's
+  /// top edge (quarterW = halfW/2) shrinks toward a point, and it starts
+  /// reading as 'triangle' or a narrow 'diamond' rather than itself -
+  /// exactly the "which shape is this supposed to be" confusion reported
+  /// against real logic-layer questions. Kept close enough to square that
+  /// every shape in the pool stays recognizably itself.
+  static List<double> _sgmLogicShapeDims() {
+    const options = [0.55, 0.65, 0.75];
+    return [options[_r.nextInt(options.length)], options[_r.nextInt(options.length)]];
+  }
+
   static void _sgmApplyLogicBase(List<List<Map<String, dynamic>>> grid, String op) {
-    final poolSize = _r.nextInt(3) + 3; // 3-5, matches MIN/MAX_SURFACE_FEATURES_FOR_LOGIC_OPERATION
+    // OR only ever grows set membership (unlike AND/XOR, which shrink or
+    // toggle), so a wide pool makes the overcrowding guard below much
+    // harder to satisfy within its retry budget - capping OR to the low
+    // end of the authentic 3-5 range keeps the guard actually effective
+    // instead of frequently exhausting its attempts and returning the
+    // same overcrowded result anyway.
+    final poolSize = op == 'or' ? 3 : _r.nextInt(3) + 3; // 3-5, matches MIN/MAX_SURFACE_FEATURES_FOR_LOGIC_OPERATION
     final shapesUsed = <String>{};
     final pool = <String>[];
     while (pool.length < poolSize) {
       final shape = _randomShape();
       if (shapesUsed.contains(shape)) continue; // Java: unique shapes per pool
       shapesUsed.add(shape);
-      final dims = _sgmRandomDims();
+      final dims = _sgmLogicShapeDims();
       // Encode as a self-describing id ("shape:w:h") so the final cell sets
       // carry everything render needs without a separate id->shape map.
       pool.add('$shape:${dims[0]}:${dims[1]}');
@@ -1456,6 +1896,25 @@ class HardQuestionGenerator {
     return rowMatch || colMatch;
   }
 
+  /// True if any cell in a logic-layer grid ends up with more than 3
+  /// shapes simultaneously centered on top of each other. Unlike AND
+  /// (shrinks toward empty) or XOR (toggles membership), OR only ever
+  /// grows a set - and a derived cell combines two already-unioned rows,
+  /// so it can end up rendering most or all of the pool stacked on one
+  /// point. That's mathematically correct and visually unreadable at the
+  /// same time (reported directly: "too many shapes clamped together,
+  /// can't even compare them") - caps it the same way giveaway rows are
+  /// rejected, as a generation-time guard rather than a rendering patch.
+  static bool _sgmHasOvercrowdedLogicCell(List<List<Map<String, dynamic>>> grid) {
+    for (int r = 0; r < 3; r++) {
+      for (int c = 0; c < 3; c++) {
+        final shapes = grid[r][c]['logicShapes'];
+        if (shapes is Set && shapes.length > 3) return true;
+      }
+    }
+    return false;
+  }
+
   static Map<String, dynamic> _sgmCellAt(List<List<List<Map<String, dynamic>>>> layerGrids, int r, int c) {
     final layers = <Map<String, dynamic>>[];
     // Two overlapping layers used to need a size-ordering hack and a
@@ -1616,7 +2075,8 @@ class HardQuestionGenerator {
       // cosmetic tweak.
     } while ((_recentPatternRecipes.contains(recipe) ||
         !layerGrids.any(_sgmLayerHasVisibleVariation) ||
-        layerGrids.any(_sgmHasRowColGiveaway)) &&
+        layerGrids.any(_sgmHasRowColGiveaway) ||
+        layerGrids.any(_sgmHasOvercrowdedLogicCell)) &&
         attempts < 30);
 
     _recentPatternRecipes.add(recipe);
@@ -1753,24 +2213,51 @@ class HardQuestionGenerator {
       final targetScale = max(0.5, (refCell['scale'] as double) * 0.7);
       final refW = refCell['w'] as double;
       final refH = refCell['h'] as double;
+      final isNumerosity = (refCell['count'] as int) > 1;
+      // BUGFIX: _numerosityFeatures hardcodes every dot to w:0.85, h:0.85
+      // and never reads the cell's own w/h at all - so the w/h-swap
+      // candidate below is a complete no-op on every numerosity cell, 100%
+      // of the time, regardless of shape: it swaps two values nothing ever
+      // reads. It's also invisible whenever a rotation candidate is
+      // applied to a numerosity cell whose shape becomes 90-degree
+      // rotationally symmetric once forced square (diamond/ellipse/
+      // rectangle all qualify; triangle/tee/trapezoid don't). Either one
+      // landing as the chosen "wrong answer" perturbation renders
+      // identically to the reference cell - a real duplicate-looking
+      // option, not merely a subtle one. Excluded both for numerosity
+      // cells rather than only the specific symmetric-shape case, since
+      // the w/h-swap failure has no shape dependency at all.
+      final rotIsSafe = !isNumerosity || !{'diamond', 'ellipse', 'rectangle'}.contains(refCell['shape']);
 
-      candidates.add((grids) => grids[li][2][2]['rot'] = targetRot);
+      if (rotIsSafe) candidates.add((grids) => grids[li][2][2]['rot'] = targetRot);
       candidates.add((grids) => grids[li][2][2]['shape'] = targetShape);
       candidates.add((grids) => grids[li][2][2]['fill'] = targetFill);
       candidates.add((grids) => grids[li][2][2]['scale'] = targetScale);
-      candidates.add((grids) {
-        grids[li][2][2]['w'] = refH;
-        grids[li][2][2]['h'] = refW;
-      });
+      // BUGFIX: on rectangle/ellipse/diamond, "+90 rotation" and "swap w/h"
+      // are the same visual edit. With both picked as the two perturbation
+      // bits, each cancels the other: options 00==11 and 01==10, the exact
+      // "two identical pairs" signature (confirmed by the visual test).
+      // Offer only one of them for those shapes.
+      final whSwapDuplicatesRot = rotIsSafe && _isCentrallySymmetricShape(refCell['shape'] as String);
+      if (!isNumerosity && !whSwapDuplicatesRot) {
+        candidates.add((grids) {
+          grids[li][2][2]['w'] = refH;
+          grids[li][2][2]['h'] = refW;
+        });
+      }
     }
 
     candidates.shuffle(_r);
     final chosen = candidates.take(count).toList();
-    // Defensive fallback only - the loop above always produces at least 2
-    // candidates per layer (4 for shape-repetition, 2-3 for logic), so this
-    // should never actually trigger for a 1-or-2-layer question.
+    // Defensive fallback only - the loop above always produces at least 3
+    // candidates per layer even in the worst case (numerosity cell with a
+    // 90-degree-symmetric shape excludes both rot and w/h-swap, leaving
+    // shape/fill/scale), so this should never actually trigger. Uses a
+    // fill change rather than rotation for the fallback itself, since fill
+    // has no geometric-invisibility failure mode to worry about the way
+    // rotation does on a forced-square numerosity dot.
     while (chosen.length < count) {
-      chosen.add((grids) => grids[0][2][2]['rot'] = ((grids[0][2][2]['rot'] as double) + 180) % 360);
+      chosen.add((grids) => grids[0][2][2]['fill'] = SandiaFillCompat.next(grids[0][2][2]['fill'] as String));
     }
     return chosen;
   }
@@ -1794,7 +2281,15 @@ class HardQuestionGenerator {
     // already uses; fgShape explicitly excludes whatever bgShape drew so
     // the two never coincide, same as the original disjoint pools did
     // implicitly. 5 x 5 (with exclusion) = 20 combinations, up from 12.
-    final bgPool = [0, 2, 3, 6, 9];
+    //
+    // BUGFIX: 9 (thick cross) removed from bgPool. It's 90-degree
+    // symmetric, and the background's quarter-turn IS the rule here - the
+    // correct option and distractor d1 differ ONLY in background rotation
+    // (3 vs 2), so with a cross they rendered pixel-identical (~20% of
+    // figure_series questions, confirmed by the visual test). fgPool keeps
+    // it: the foreground is identical across all 4 options, and its lines
+    // overlay still shows each step's rotation.
+    final bgPool = [0, 2, 3, 6];
     final fgPool = [3, 4, 5, 7, 8, 9];
     final bgShape = bgPool[_r.nextInt(bgPool.length)];
     final fgShape = (fgPool.where((s) => s != bgShape).toList()..shuffle(_r)).first;
@@ -1891,10 +2386,18 @@ class HardQuestionGenerator {
     // correctOption/distractor construction below, which uses fixed
     // rotation/fill literals throughout), so widening the pools is safe
     // and directly addresses the "everything looks similar" complaint.
-    final bgPool1 = [0, 2, 3, 6, 9];
-    final bgPool2 = [3, 4, 5, 7, 8, 9];
-    final bgShape1 = bgPool1[_r.nextInt(bgPool1.length)];
-    final bgShape2 = (bgPool2.where((s) => s != bgShape1).toList()..shuffle(_r)).first;
+    //
+    // BUGFIX: the background's 180-degree turn is half the A->B rule, and
+    // distractor d2 differs from the correct answer ONLY by that turn. Any
+    // background that looks the same (or nearly the same) upside down makes
+    // the rule invisible in A->B and/or d2 indistinguishable from the
+    // answer: 2 (rectangle) and 9 (cross) are exactly 180-degree symmetric,
+    // 3 (diamond) nearly so. 6 is dropped too because it's literally 0
+    // turned upside down, so pairing them made C look like B. One shared
+    // pool of shapes that clearly change when flipped, A and C distinct.
+    const bgPool = [0, 4, 5, 7, 8];
+    final bgShape1 = bgPool[_r.nextInt(bgPool.length)];
+    final bgShape2 = (bgPool.where((s) => s != bgShape1).toList()..shuffle(_r)).first;
 
     final figA = {
       'type': 'sandia_cell',
