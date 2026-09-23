@@ -1983,6 +1983,27 @@ class QuestionGenerator {
     'piece': piece,
   };
 
+  /// Pieces that are the same shape once turned share a class (checked
+  /// against the real piece outlines in test/geo_piece_path_test.dart).
+  /// BUGFIX: distractors used to be compared by (shape, cut, piece) id, so
+  /// "the notch from a different corner" - the same small square - could sit
+  /// next to the correct small square, and both fit (tracker: "Geo
+  /// completion picks the wrong answer", 2nd screenshot).
+  static String geoPieceClass(int shape, int cut, int piece) {
+    switch (shape) {
+      case 0: // square
+        if (cut <= 1) return 'sq-half'; // vertical / horizontal halves
+        if (cut <= 3) return 'sq-tri'; // diagonal halves
+        return piece == 0 ? 'sq-L' : 'sq-notch'; // corner notches 4-7
+      case 1: // triangle
+        if (cut == 0) return piece == 0 ? 'tr-tip' : 'tr-trap';
+        return 'tr-c$cut-p$piece';
+      default: // circle
+        if (cut <= 1) return 'ci-half';
+        return piece == 0 ? 'ci-3q' : 'ci-q';
+    }
+  }
+
   static List<int> _geoNeighborCuts(int cut, int maxCut) {
     final out = <int>[];
     for (final d in [1, -1, 2, -2, 3, -3]) {
@@ -2027,21 +2048,21 @@ class QuestionGenerator {
           ? [0, 1, 0, 2, 1, 3, 0][_r.nextInt(7)]
           : _r.nextInt(4);
       final sigKey = 'geo6:sh$shape,c$cut,sp$shownPiece,t$template';
-      if (_seen(sigKey)) continue;
+      // Only ~64 combinations exist; once they're used up, repeat one (the
+      // distractors are re-drawn) rather than fall through to the fixed
+      // fallback question below.
+      if (_seen(sigKey) && attempt < 30) continue;
 
       final qPiece = _geoPiece(shape, cut, shownPiece);
       final correct = _geoPiece(shape, cut, targetPiece);
-      final correctKey = _key(correct);
       final wrongs = <Map<String, dynamic>>[];
-      final seenWrongs = <String>{};
+      // Shape classes already on offer - the answer's included, so no wrong
+      // piece can be the answer's shape, and no two wrong pieces match.
+      final usedClasses = {geoPieceClass(shape, cut, targetPiece)};
       final nearCuts = _geoNeighborCuts(cut, maxCut);
 
       void addWrong(int s, int c, int p) {
-        if (s == shape && c == cut && p == shownPiece) return;
-        final w = _geoPiece(s, c, p);
-        final wk = _key(w);
-        if (wk == correctKey) return;
-        if (seenWrongs.add(wk)) wrongs.add(w);
+        if (usedClasses.add(geoPieceClass(s, c, p))) wrongs.add(_geoPiece(s, c, p));
       }
 
       switch (template) {
@@ -2086,7 +2107,10 @@ class QuestionGenerator {
         addWrong(s, _r.nextInt(_geoMaxCut(s)), _r.nextInt(2));
       }
 
-      final res = _pack(correct, wrongs.take(3).toList());
+      // _pack would top up a short list with random pieces, which could
+      // reintroduce one the same shape as the answer.
+      if (wrongs.length < 3) continue;
+      final res = _packExact(correct, wrongs.take(3).toList());
       _markSeen(sigKey);
       return ReasoningQuestion(
         category: 'geo_completion',
@@ -2098,12 +2122,14 @@ class QuestionGenerator {
     }
     // Same fix as above: show the large piece, ask for the small notch
     // that completes it - not the reverse.
+    // BUGFIX: the three wrong pieces used to be the notches from the other
+    // corners - the same small square as the answer, so all four options fit.
     final q = {'type': 'geo_piece', 'shape': 0, 'cut': 6, 'piece': 0};
     final a = {'type': 'geo_piece', 'shape': 0, 'cut': 6, 'piece': 1};
-    final res = _pack(a, [
-      {'type': 'geo_piece', 'shape': 0, 'cut': 5, 'piece': 1},
-      {'type': 'geo_piece', 'shape': 0, 'cut': 7, 'piece': 1},
-      {'type': 'geo_piece', 'shape': 0, 'cut': 4, 'piece': 1},
+    final res = _packExact(a, [
+      {'type': 'geo_piece', 'shape': 0, 'cut': 0, 'piece': 1}, // half square
+      {'type': 'geo_piece', 'shape': 0, 'cut': 2, 'piece': 1}, // diagonal half
+      {'type': 'geo_piece', 'shape': 2, 'cut': 2, 'piece': 1}, // quarter circle
     ]);
     return ReasoningQuestion(
       category: 'geo_completion',
