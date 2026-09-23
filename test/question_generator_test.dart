@@ -285,8 +285,10 @@ void main() {
       expect(complementMatches, 1);
     }
 
-    // Should expose both puzzle sides and enough unique combinations.
-    expect(seenShownPieces.length, 2);
+    // Always shows the majority piece (0) and asks for the small notch that
+    // completes it - showing the notch and asking for the large remainder
+    // gave no visual anchor (see docs/hard-mode-history.md #15).
+    expect(seenShownPieces, {0});
     expect(seenSignatures.length, greaterThan(10));
   });
 

@@ -19,6 +19,30 @@ pre-release tags for beta builds (example: `1.0.0-beta.1`).
 
 - _Add bug fixes here._
 
+## [1.0.0-beta.5] - 2026-09-23
+
+### Added
+
+- Hard Mode: live check in question generation that rejects any question
+  where two answer options look the same or too similar once drawn.
+- Visual (pixel-level) and data-level diagnostic tests for Hard Mode.
+
+### Changed
+
+- Hard Mode Odd Man Out: "scaling" and "count the shapes" questions now
+  vary size/shape across options so they require reasoning, and are back
+  in rotation. The easy "spot the different fill" rule is retired from
+  Hard Mode.
+
+### Fixed
+
+- Figure Series: two answer options could be pixel-identical (~20% of
+  questions).
+- Odd Man Out, Pattern Completion and Analogy: options that looked
+  identical because of shape symmetry or faint shading differences.
+- Figure Match: one wrong answer had a smaller corner square that gave it
+  away; corner markers could stack on top of each other.
+
 ## [1.0.0-beta.1] - 2026-05-04
 
 ### Added
