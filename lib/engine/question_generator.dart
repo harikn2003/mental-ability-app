@@ -357,12 +357,19 @@ class QuestionGenerator {
     final bool trap = (m['selective_mirror_trap'] ?? false) && ((m['lines'] ?? 0) > 0 || (m['inner'] ?? 0) > 0);
 
     // Apply visual symmetry reductions to canonicalize visually identical states
-    if (s == 0 || s == 1 || s == 4 || s == 6) {
+    // Matches _shapeSymmetries (the exact key): a hexagon (vertex at 0°)
+    // only repeats every half turn - a quarter turn swaps pointy-sides for
+    // pointy-top - and a pentagon (vertex up) only under a flip, which the
+    // painter applies after turning: flipped at turn r = unflipped at -r.
+    if (s == 0 || s == 1 || s == 4) {
       rot = 0;
       mir = false;
-    } else if (s == 3 || s == 5) {
+    } else if (s == 3 || s == 6) {
       rot = rot % 2;
       mir = false;
+    } else if (s == 5 && mir) {
+      mir = false;
+      rot = (4 - rot % 4) % 4;
     } else if (s == 2 && mir) {
       mir = false;
       rot = 3 - rot;
@@ -614,6 +621,49 @@ class QuestionGenerator {
     assert(wrongs.length == 3);
     final idx = _r.nextInt(4);
     return (opts: [...wrongs.sublist(0, idx), correct, ...wrongs.sublist(idx)], idx: idx);
+  }
+
+  /// A single change to one attribute of a classic figure, for [_balanced].
+  static (String, Map<String, dynamic> Function(Map<String, dynamic>)) _set(String attr, Object value) =>
+      (attr, (m) => {...m, attr: value});
+  static (String, Map<String, dynamic> Function(Map<String, dynamic>)) get _flipFill =>
+      ('filled', (m) => {...m, 'filled': !(m['filled'] as bool? ?? false)});
+  static (String, Map<String, dynamic> Function(Map<String, dynamic>)) get _flipMirror =>
+      ('mirror', (m) => {...m, 'mirror': !(m['mirror'] as bool? ?? false)});
+
+  /// Balanced answer set {answer, A, B, A+B}: A and B each change one
+  /// attribute (different ones), so no option is "the one most like the
+  /// others" - with one-change-per-distractor sets the answer was that
+  /// option 64% of the time in Figure Series (measured). [changes] are tried
+  /// in order as pairs; the first pair where all four options look different
+  /// ([_optionKey] knows every shape's symmetries) and none looks like a
+  /// problem figure wins. Null if no pair works.
+  static ({List<Map<String, dynamic>> opts, int idx})? _balanced(
+      Map<String, dynamic> answer,
+      List<Map<String, dynamic>> frames,
+      List<(String, Map<String, dynamic> Function(Map<String, dynamic>))> changes) {
+    final frameKeys = frames.map(_optionKey).toSet();
+    for (int i = 0; i < changes.length; i++) {
+      for (int j = i + 1; j < changes.length; j++) {
+        if (changes[i].$1 == changes[j].$1) continue;
+        final a = changes[i].$2(answer);
+        final opts = [answer, a, changes[j].$2(answer), changes[j].$2(a)];
+        final keys = opts.map(_optionKey).toList();
+        if (keys.toSet().length == 4 && !keys.any(frameKeys.contains)) return _packExact(answer, opts.sublist(1));
+      }
+    }
+    return null;
+  }
+
+  /// A dot count for a wrong option: [preferred] if it's a new count in
+  /// 0..4, else any count not shown yet.
+  static int? _unseenDots(Iterable<int> shown, int answer, int preferred) {
+    final used = {...shown, answer};
+    if (preferred >= 0 && preferred <= 4 && !used.contains(preferred)) return preferred;
+    for (int d = 0; d <= 4; d++) {
+      if (!used.contains(d)) return d;
+    }
+    return null;
   }
 
   static ({List<Map<String, dynamic>> opts, int idx}) _pack(
@@ -1339,29 +1389,16 @@ class QuestionGenerator {
         inner: ansInner,
       );
 
-      final r = _pack(ans, [
-        _f(
-          shape,
-          rot: (start + 3) % 4,
-          filled: !filled,
-          dots: dots,
-          inner: ansInner,
-        ),
-        _f(
-          shape,
-          rot: (start + 2) % 4,
-          filled: filled,
-          dots: dots,
-          inner: ansInner,
-        ),
-        _f(
-          shape,
-          rot: (start + 3) % 4,
-          filled: filled,
-          dots: (dots + 1).clamp(0, 2),
-          inner: ansInner,
-        ),
+      // Wrong turn and wrong inner shape where both change; with rotation
+      // alone every other turn is already shown, so the traps are the mirror
+      // image and an extra dot.
+      final r = _balanced(ans, seq, [
+        _set('rotation', (start + 1) % 4),
+        if (subV2 == 1) _set('inner', seq[2]['inner'] as int),
+        _flipMirror,
+        _set('dots', dots + 1),
       ]);
+      if (r == null) continue;
 
       _markSeen(sigKey);
       return ReasoningQuestion(
@@ -1410,14 +1447,12 @@ class QuestionGenerator {
       if (!_hasVisibleVariation(seq)) continue;
       final ans = _f(shape, dots: ansD, filled: filled);
 
-      final d1 = (ansD + 1).clamp(0, 4);
-      final d2 = (ansD - 1).clamp(0, 4);
-
-      final r = _pack(ans, [
-        _f(shape, dots: d1, filled: filled),
-        _f(shape, dots: d2, filled: filled),
-        _f(shape, dots: ansD, filled: !filled),
-      ]);
+      // Wrong count (one step too far, or another count not shown yet) x
+      // wrong fill.
+      final wrongD = _unseenDots([for (final f in seq) f['dots'] as int], ansD, ansD + step);
+      if (wrongD == null) continue;
+      final r = _balanced(ans, seq, [_set('dots', wrongD), _flipFill, _flipMirror]);
+      if (r == null) continue;
 
       _markSeen(sigKey);
       return ReasoningQuestion(
@@ -1469,16 +1504,15 @@ class QuestionGenerator {
         dots: dots,
       );
 
-      final r = _pack(ans, [
-        _f(shape, rot: (startRot + 3) % 4, filled: !fill(3), dots: dots),
-        _f(shape, rot: (startRot + 2) % 4, filled: fill(2), dots: dots),
-        _f(
-          shape,
-          rot: (startRot + 3) % 4,
-          filled: fill(3),
-          dots: (dots + 1).clamp(0, 2),
-        ),
+      // Wrong turn / wrong fill; the pair that would copy a problem figure
+      // is skipped by _balanced, falling back to an extra dot or a flip.
+      final r = _balanced(ans, seq, [
+        _set('rotation', startRot % 4),
+        _flipFill,
+        _set('dots', dots + 1),
+        _flipMirror,
       ]);
+      if (r == null) continue;
 
       _markSeen(sigKey);
       return ReasoningQuestion(
@@ -1531,11 +1565,14 @@ class QuestionGenerator {
       );
       final ans = _f(shapes[3], rot: (startRot + 3) % 4, filled: fill(3));
 
-      final r = _pack(ans, [
-        _f(shapes[3], rot: (startRot + 3) % 4, filled: !fill(3)),
-        _f(shapes[2], rot: (startRot + 3) % 4, filled: fill(3)),
-        _f(shapes[3], rot: (startRot + 2) % 4, filled: fill(3)),
+      // Wrong shape (the previous one) x wrong turn, then fill.
+      final r = _balanced(ans, seq, [
+        _set('shape', shapes[2]),
+        _set('rotation', startRot % 4),
+        _flipFill,
+        _flipMirror,
       ]);
+      if (r == null) continue;
 
       _markSeen(sigKey);
       return ReasoningQuestion(
@@ -1585,11 +1622,10 @@ class QuestionGenerator {
       final ansF = 3.isEven ? startF : !startF;
       final ans = _f(shape, rot: ansR, filled: ansF, dots: dots);
 
-      final r = _pack(ans, [
-        _f(shape, rot: ansR, filled: !ansF, dots: dots),
-        _f(shape, rot: (ansR + 1) % 4, filled: ansF, dots: dots),
-        _f(shape, rot: (ansR + 1) % 4, filled: !ansF, dots: dots),
-      ]);
+      // Already a 2x2 set (wrong fill x one turn too far); now also checked
+      // against symmetric shapes and copies of problem figures.
+      final r = _balanced(ans, seq, [_flipFill, _set('rotation', (ansR + 1) % 4), _set('dots', dots + 1)]);
+      if (r == null) continue;
       _markSeen(sigKey);
       return ReasoningQuestion(
         category: 'figure_series',
@@ -1638,11 +1674,12 @@ class QuestionGenerator {
       final ansInner = seq[3];
       final ans = _f(outer, filled: filled, inner: ansInner);
 
-      final r = _pack(ans, [
-        _f(outer, filled: filled, inner: seq[0]),
-        _f(outer, filled: filled, inner: seq[2]),
-        _f(outer, filled: !filled, inner: ansInner),
-      ]);
+      // The inner shapes follow no pattern, so what's being tested is
+      // "which shape hasn't appeared yet": the wrong options are exactly
+      // the three shown. (Previously one wrong option had the fill flipped,
+      // which gave the answer away - it was the only option agreeing with
+      // both others' fill and shape family.)
+      final r = _packExact(ans, [for (int i = 0; i < 3; i++) _f(outer, filled: filled, inner: seq[i])]);
       _markSeen(sigKey);
       return ReasoningQuestion(
         category: 'figure_series',
@@ -1692,11 +1729,16 @@ class QuestionGenerator {
       final ansR = (startR + 3) % 4;
       final ans = _f(shape, rot: ansR, dots: ansD, filled: filled);
 
-      final r = _pack(ans, [
-        _f(shape, rot: ansR, dots: ansD, filled: !filled),
-        _f(shape, rot: (ansR + 1) % 4, dots: ansD, filled: filled),
-        _f(shape, rot: ansR, dots: (ansD - 1).clamp(0, 4), filled: filled),
+      // Wrong count x one turn too far.
+      final wrongD = _unseenDots([for (final f in seq) f['dots'] as int], ansD, ansD + 1);
+      if (wrongD == null) continue;
+      final r = _balanced(ans, seq, [
+        _set('dots', wrongD),
+        _set('rotation', (ansR + 1) % 4),
+        _flipFill,
+        _flipMirror,
       ]);
+      if (r == null) continue;
       _markSeen(sigKey);
       return ReasoningQuestion(
         category: 'figure_series',
@@ -1754,16 +1796,15 @@ class QuestionGenerator {
       final ansDots = ans['dots'] as int;
       final ansFill = ans['filled'] as bool;
 
-      final r = _pack(ans, [
-        _f(shape, rot: ansRot, dots: ansDots, filled: !ansFill),
-        _f(shape, rot: (ansRot + 1) % 4, dots: ansDots, filled: ansFill),
-        _f(
-          shape,
-          rot: ansRot,
-          dots: (ansDots - 1).clamp(0, 4),
-          filled: ansFill,
-        ),
+      // Wrong fill x wrong turn (the step alternates, so turning again is
+      // the tempting mistake), then dots.
+      final r = _balanced(ans, seq, [
+        _flipFill,
+        _set('rotation', (ansRot + 1) % 4),
+        _set('dots', (ansDots + 1).clamp(0, 4)),
+        _flipMirror,
       ]);
+      if (r == null) continue;
 
       _markSeen(sigKey);
       return ReasoningQuestion(

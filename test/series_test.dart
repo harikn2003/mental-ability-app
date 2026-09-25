@@ -206,4 +206,48 @@ void main() {
       expect(rules, SeriesGenerator.families.toSet());
     }
   });
+
+  test('the original series (kept in the mix) no longer give the answer away', () {
+    // Attributes of a classic figure / Sandia cell, flattened.
+    Map<String, Object?> attrs(Map o) {
+      if (o['type'] == 'sandia_cell') {
+        final out = <String, Object?>{};
+        final layers = o['layers'] as List;
+        for (int i = 0; i < layers.length; i++) {
+          (layers[i] as Map).forEach((k, v) => out['L$i.$k'] = v);
+        }
+        return out;
+      }
+      return {for (final k in ['shape', 'rotation', 'filled', 'dots', 'inner', 'mirror']) k: o[k] ?? (k == 'mirror' ? false : null)};
+    }
+
+    int dist(Map a, Map b) {
+      final x = attrs(a), y = attrs(b);
+      return {...x.keys, ...y.keys}.where((k) => x[k] != y[k]).length;
+    }
+
+    for (final hard in [false, true]) {
+      QuestionGenerator.seed(8);
+      QuestionGenerator.resetSession();
+      var classic = 0, central = 0;
+      for (int i = 0; i < 1500 && classic < 400; i++) {
+        if (i % 10 == 0) QuestionGenerator.resetSession();
+        final q = QuestionGenerator.generate('figure_series', isHardMode: hard);
+        if (q.type.startsWith('series_exam_')) continue;
+        classic++;
+        final opts = [for (final o in q.options) Map<String, dynamic>.from(o)];
+        // Sandia cells: compare the full layer data (debugOptionKey only
+        // understands classic figures and line figures).
+        String key(Map<String, dynamic> o) => o['type'] == 'sandia_cell' ? '$o' : QuestionGenerator.debugOptionKey(o);
+        expect(opts.map(key).toSet().length, 4, reason: '${q.type}: two options look the same');
+        final totals = [for (final a in opts) opts.fold<int>(0, (s, b) => s + dist(a, b))];
+        final best = totals.reduce((a, b) => a < b ? a : b);
+        if (totals[q.correctIndex] == best && totals.where((t) => t == best).length == 1) central++;
+      }
+      // ignore: avoid_print
+      print('original series ${hard ? 'hard' : 'easy'}: answer is the unique most-central option in '
+          '${(100 * central / classic).toStringAsFixed(1)}% of $classic (was 64% easy / 100% hard)');
+      expect(central / classic, lessThan(0.25));
+    }
+  });
 }
