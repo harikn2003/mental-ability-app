@@ -329,6 +329,10 @@ class ExamStyleGenerator {
       segs: merge(base.segs, a.segs, b.segs),
       tris: merge(base.tris, a.tris, b.tris),
       dots: merge(base.dots, a.dots, b.dots),
+      arrows: merge(base.arrows, a.arrows, b.arrows),
+      hatch: merge(base.hatch, a.hatch, b.hatch),
+      arcs: merge(base.arcs, a.arcs, b.arcs),
+      glyphs: merge(base.glyphs, a.glyphs, b.glyphs),
     );
   }
 
