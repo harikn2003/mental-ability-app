@@ -275,6 +275,8 @@ class SpaceVisGenerator {
         puzzle: {
           'type': 'space_vis',
           'outline': outlineName,
+          // The options' lattice size, so pieces can be drawn at their scale.
+          'figure_extent': max(assembled(pieces).w, assembled(pieces).h),
           'pieces': [
             for (final f in shown) {...f.toMap(), 'w': extent, 'h': extent, 'center': true},
           ],

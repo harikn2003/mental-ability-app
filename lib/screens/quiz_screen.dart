@@ -818,7 +818,12 @@ class _QuizScreenState extends State<QuizScreen>
         ),
         child: Stack(
           children: [
-            Center(child: OptionRenderer(data: optionData)),
+            // Space Visualisation options are drawn larger, at the scale its
+            // question draws the pieces (see QuestionRenderer._spaceVis).
+            Center(
+                child: OptionRenderer(
+                    data: optionData,
+                    size: _currentQ.category == 'space_vis' ? QuestionRenderer.spaceVisOptionSize : 64)),
             Positioned(
               top: 7,
               left: 9,

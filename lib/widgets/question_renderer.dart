@@ -391,10 +391,16 @@ class QuestionRenderer extends StatelessWidget {
   }
 
   // ── Space Visualisation (JNVST Part 9): the cut-out pieces ────────────────
-  // All pieces share one scale (each map's lattice is the largest piece's
-  // extent), so their sizes can be compared with each other.
+  // Pieces are drawn at exactly the options' scale, so a piece half as wide
+  // as the figure looks half as wide: an option at [spaceVisOptionSize]
+  // fits the whole figure's lattice ('figure_extent'); a piece box fits the
+  // largest piece's ('w'), so it is that fraction of the option size.
+  static const double spaceVisOptionSize = 110;
+
   Widget _spaceVis() {
     final pieces = [for (final p in puzzle['pieces'] as List) Map<String, dynamic>.from(p as Map)];
+    final figureExtent = (puzzle['figure_extent'] as int?) ?? 8;
+    final box = spaceVisOptionSize * (pieces.first['w'] as int) / figureExtent;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -412,7 +418,7 @@ class QuestionRenderer extends StatelessWidget {
             spacing: 4,
             runSpacing: 4,
             children: [
-              for (final p in pieces) CustomPaint(size: const Size(92, 92), painter: LineFigurePainter(p)),
+              for (final p in pieces) CustomPaint(size: Size(box, box), painter: LineFigurePainter(p)),
             ],
           ),
         ),
