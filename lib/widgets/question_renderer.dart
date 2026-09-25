@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../config/localization.dart';
-import '../painters/figure_painter.dart';
 import '../painters/geo_piece_path.dart';
 import '../painters/line_figure_painter.dart';
 import '../painters/mirror_text_painter.dart';
 import '../painters/punch_painter.dart';
-import '../painters/sandia_painter.dart';
+import 'option_renderer.dart';
 
 /// QuestionRenderer — renders the puzzle area for all 10 question types.
-/// All shapes use FigurePainter (same vocabulary as the generator).
+/// Figures are drawn by OptionRenderer, the same code as the answer options.
 class QuestionRenderer extends StatelessWidget {
   final Map<String, dynamic> puzzle;
   const QuestionRenderer({super.key, required this.puzzle});
@@ -50,48 +49,16 @@ class QuestionRenderer extends StatelessWidget {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  Widget _fig(Map<String, dynamic> data, {double size = 64}) {
-    if (data['type'] == 'line_fig') {
-      return CustomPaint(size: Size(size, size), painter: LineFigurePainter(data));
-    }
-    if (data['type'] == 'mirror_text') {
-      return CustomPaint(
-        size: Size(size, size),
-        painter: MirrorTextPainter(data),
-      );
-    }
-    if (data['type'] == 'sandia_cell') {
-      return SandiaWidget(data: data, size: size);
-    }
-    if (data['type'] == 'symbol_grid') {
-      final symbols = (data['symbols'] as List).cast<String>();
-      return SizedBox(
-        width: size,
-        height: size,
-        child: GridView.count(
-          crossAxisCount: 2,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: EdgeInsets.all(size * 0.06),
-          children: symbols
-              .take(4)
-              .map(
-                (s) => Center(
-                  child: Text(
-                    s,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                ),
-              )
-              .toList(),
-        ),
-      );
-    }
-    return FigureWidget(data: data, size: size);
-  }
+  Widget _fig(Map<String, dynamic> data, {double size = 64}) => figure(data, size: size);
+
+  /// Draws a question figure with exactly the same code as the answer
+  /// options. BUGFIX: question figures used the older FigurePainter, which
+  /// draws an inner shape in dark ink even on a filled (dark) shape - so it
+  /// vanished - and ignores the 'dense' corner mark. On a Hard mirror
+  /// question the target lost the very details that decide the answer while
+  /// the options showed them (device screenshot, 2026-09-25). Sharing the
+  /// options' renderer makes that mismatch impossible.
+  static Widget figure(Map<String, dynamic> data, {double size = 64}) => OptionRenderer(data: data, size: size);
 
   Widget _label(String text) => Text(
     text,
