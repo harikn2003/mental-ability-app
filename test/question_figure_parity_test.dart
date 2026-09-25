@@ -23,7 +23,9 @@ Future<List<Uint8List>> _capture(WidgetTester tester, List<Widget> widgets, doub
       color: Colors.white,
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         for (int i = 0; i < widgets.length; i++)
-          RepaintBoundary(key: keys[i], child: SizedBox.square(dimension: size, child: widgets[i])),
+          // White behind each figure: a RepaintBoundary captures only its own
+          // subtree, so the page colour doesn't show up in the capture.
+          RepaintBoundary(key: keys[i], child: ColoredBox(color: Colors.white, child: SizedBox.square(dimension: size, child: widgets[i]))),
       ]),
     ),
   ));
@@ -60,17 +62,24 @@ void main() {
   testWidgets('details on a filled shape stay visible where they leave the fill', (tester) async {
     // Device screenshot 2026-09-25: filled L (shape 8) + inner triangle +
     // corner mark; parts of the white details fell in the L's empty notch
-    // and vanished white-on-white. Details are now orange with a white
-    // outline - count orange pixels over the plain white background.
+    // and vanished white-on-white. Palette-independent check: where the
+    // figure WITHOUT details is plain background, adding the details must
+    // visibly change pixels.
     const fig = {'shape': 8, 'filled': true, 'rotation': 0, 'mirror': false, 'dots': 0, 'inner': 3, 'lines': 0, 'missingCorner': 0, 'dense': true};
+    // Only the corner mark differs (it sits in the L's empty notch). Don't
+    // drop the inner shape too: that also makes the painter draw a smaller
+    // outer shape, which would count as a change by itself.
+    final bare = {...fig, 'dense': false};
     const size = 88.0;
-    final px = (await _capture(tester, [QuestionRenderer.figure(fig, size: size)], size)).single;
-    bool isOrange(int i) => px[i] > 190 && px[i + 1] > 60 && px[i + 1] < 140 && px[i + 2] < 90;
-    var orange = 0;
-    for (int i = 0; i < px.length; i += 4) {
-      if (isOrange(i)) orange++;
+    final shots = await _capture(tester, [QuestionRenderer.figure(fig, size: size), QuestionRenderer.figure(bare, size: size)], size);
+    final withDetails = shots[0], without = shots[1];
+    var visibleOnBackground = 0;
+    for (int i = 0; i < without.length; i += 4) {
+      final background = without[i] > 240 && without[i + 1] > 240 && without[i + 2] > 240;
+      final changed = (withDetails[i] - without[i]).abs() + (withDetails[i + 1] - without[i + 1]).abs() + (withDetails[i + 2] - without[i + 2]).abs() > 150;
+      if (background && changed) visibleOnBackground++;
     }
-    expect(orange, greaterThan(40), reason: 'details on a filled figure should be drawn in the contrasting colour');
+    expect(visibleOnBackground, greaterThan(15), reason: 'details that leave the fill must still be visible on the background');
   });
 
   testWidgets('question figures and answer options render identically', (tester) async {

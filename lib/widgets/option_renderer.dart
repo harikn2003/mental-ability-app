@@ -73,8 +73,11 @@ class EnhancedFigureWidget extends StatelessWidget {
 class EnhancedFigurePainter extends CustomPainter {
   final Map<String, dynamic> data;
   static const Color _ink = Color(0xFF1E293B);
-  // Orange-600: contrasts with both the navy fill and the white background.
-  static const Color _detailOnFill = Color(0xFFEA580C);
+  // Detail colours on filled figures: a white core with a thin navy outline -
+  // monochrome like a printed exam paper, and readable on both the navy fill
+  // (white shows) and the white background (the navy outline shows).
+  static const Color _detailOnFill = Colors.white;
+  static const Color _detailOutline = _ink;
 
   const EnhancedFigurePainter(this.data);
 
@@ -122,8 +125,9 @@ class EnhancedFigurePainter extends CustomPainter {
     // the fill - e.g. into an L-shape's empty notch - it was white on white
     // and vanished; on a Hard mirror question the target's corner mark was
     // barely visible while the trap option showed it clearly (device
-    // screenshot, 2026-09-25). Now a vivid orange core with a thin white
-    // outline: visible on the dark fill AND on the white background.
+    // screenshot, 2026-09-25). Now a white core with a thin navy outline:
+    // visible on the dark fill AND on the white background (an orange
+    // variant was tried first and looked out of place with the app).
     // Outline-only (unfilled) figures keep plain ink details.
     void detail(double width, void Function(Paint p) draw) {
       Paint p(Color c, double w) => Paint()
@@ -133,7 +137,7 @@ class EnhancedFigurePainter extends CustomPainter {
         ..strokeJoin = StrokeJoin.round
         ..style = PaintingStyle.stroke;
       if (filled) {
-        draw(p(Colors.white, width + 2.2));
+        draw(p(_detailOutline, width + 2.2));
         draw(p(_detailOnFill, width));
       } else {
         draw(p(_ink, width));
