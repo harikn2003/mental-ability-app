@@ -152,8 +152,11 @@ class LineFigurePainter extends CustomPainter {
       final tip = p(a[2], a[3]);
       final dir = tip - p(a[0], a[1]);
       final u = dir / dir.distance, n = Offset(-u.dy, u.dx);
-      final back = tip - u * (unit * 0.5);
-      final half = unit * 0.24;
+      // Never smaller than on a 4x4 figure, so heads stay visible on finer
+      // lattices (the 6x6 series arrow).
+      final headLen = max(unit * 0.5, size.shortestSide * 0.095);
+      final back = tip - u * headLen;
+      final half = headLen * 0.48;
       canvas.drawPath(
           Path()
             ..moveTo(tip.dx, tip.dy)
@@ -182,7 +185,7 @@ class LineFigurePainter extends CustomPainter {
       }
     }
     for (final d in list('dots')) {
-      canvas.drawCircle(p(d[0] + 0.5, d[1] + 0.5), unit * 0.16, ink);
+      canvas.drawCircle(p(d[0] + 0.5, d[1] + 0.5), max(unit * 0.16, size.shortestSide * 0.03), ink); // 4x4 size at least
     }
     final ringPaint = Paint()
       ..color = _ink
@@ -190,8 +193,9 @@ class LineFigurePainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
     final ringFill = Paint()..color = Colors.white;
     for (final r in list('rings')) {
-      canvas.drawCircle(p(r[0], r[1]), unit * 0.17, ringFill);
-      canvas.drawCircle(p(r[0], r[1]), unit * 0.17, ringPaint);
+      final ringR = max(unit * 0.17, size.shortestSide * 0.032); // as on a 4x4 figure, at least
+      canvas.drawCircle(p(r[0], r[1]), ringR, ringFill);
+      canvas.drawCircle(p(r[0], r[1]), ringR, ringPaint);
     }
   }
 

@@ -823,7 +823,13 @@ class _QuizScreenState extends State<QuizScreen>
             Center(
                 child: OptionRenderer(
                     data: optionData,
-                    size: _currentQ.category == 'space_vis' ? QuestionRenderer.spaceVisOptionSize : 64)),
+                    size: _currentQ.category == 'space_vis'
+                        ? QuestionRenderer.spaceVisOptionSize
+                        // Exam-style series figures: symbols and cross-bars
+                        // need room.
+                        : _currentQ.category == 'figure_series' && optionData['type'] == 'line_fig'
+                            ? 96
+                            : 64)),
             Positioned(
               top: 7,
               left: 9,

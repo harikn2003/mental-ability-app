@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'exam_style_generator.dart';
 import 'hard_question_generator.dart';
 import 'line_figure.dart';
+import 'series_generator.dart';
 import 'space_vis_generator.dart';
 import 'reasoning_question.dart';
 
@@ -51,6 +52,7 @@ class QuestionGenerator {
     HardQuestionGenerator.seed(s);
     ExamStyleGenerator.seed(s);
     SpaceVisGenerator.seed(s);
+    SeriesGenerator.seed(s);
   }
 
   static bool _seen(String sig) => _history.contains(sig);
@@ -122,7 +124,11 @@ class QuestionGenerator {
   /// for Sandia-engine categories whose Sandia items differ from the exam.
   /// odd_man: the mirror-image item (added when the two shade-step Sandia
   /// rules were retired) takes a third of Hard Odd Man Out.
-  static const examStyleHardShare = {'pattern': 60, 'figure_match': 60, 'odd_man': 35};
+  ///
+  /// figure_series: 100 - the Sandia series was one fixed template (23
+  /// distinct questions in 400, answer always the most central option);
+  /// SeriesGenerator replaces it. The Sandia code stays for the diagnostics.
+  static const examStyleHardShare = {'pattern': 60, 'figure_match': 60, 'odd_man': 35, 'figure_series': 100};
 
   /// Main generator entry point.
   static ReasoningQuestion generate(String category, {bool isHardMode = false}) {
@@ -201,6 +207,7 @@ class QuestionGenerator {
         'figure_match' => ExamStyleGenerator.figureMatch(),
         'odd_man' => ExamStyleGenerator.oddManOut(),
         'embedded' => ExamStyleGenerator.embeddedFigure(),
+        'figure_series' => SeriesGenerator.generate(hard: true),
         'punch_hole' => ExamStyleGenerator.punchHole(),
         // Mostly the exam's irregular grid cut; a quarter keep the circle /
         // triangle pieces, which the exam also uses occasionally.
@@ -226,6 +233,10 @@ class QuestionGenerator {
           return _matrixDualRule();
         }
       case 'figure_series':
+        // Exam-style series (SeriesGenerator) at both levels; the older
+        // single-shape series below only if it ever fails to build one.
+        final exam = isHardMode ? null : SeriesGenerator.generate();
+        if (exam != null) return exam;
         return (isHardMode
             ? [
           _seriesRotFill,

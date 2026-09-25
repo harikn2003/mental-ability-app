@@ -160,7 +160,10 @@ class QuestionRenderer extends StatelessWidget {
     // back and forth to compare figures cumbersome, and the last figure was
     // hidden behind the scroll edge (tracker: "Figure match horiz scroll is
     // tough to see"). The first row ends with an arrow so the order reads on.
-    final tiles = <Widget>[for (final s in seq) _fig(s, size: 64), _qBox(size: 64)];
+    // Exam-style line figures carry more detail (symbols, cross-bars), so
+    // they get bigger tiles; FittedBox still shrinks the block to fit.
+    final tile = seq.isNotEmpty && seq.first['type'] == 'line_fig' ? 84.0 : 64.0;
+    final tiles = <Widget>[for (final s in seq) _fig(s, size: tile), _qBox(size: tile)];
     final firstRow = (tiles.length + 1) ~/ 2;
     Widget arrow() => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),

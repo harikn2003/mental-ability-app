@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mental_ability_app/engine/line_figure.dart';
 import 'package:mental_ability_app/engine/question_generator.dart';
 
 // Re-implement the generator's visibleKey logic for test verification.
@@ -22,6 +23,8 @@ String visibleKey(Map<String, dynamic> m) {
     final int trapIdx = m['trap_char_index'] ?? -1;
     return 'txt|$ch|h:${m["mirror_h"]}|v:${m["mirror_v"]}|trap:$trap|trapIdx:$trapIdx';
   }
+  // Exam-style line figures: the exact drawing key (same picture <=> same key).
+  if (m['type'] == 'line_fig') return 'line|${LineFig.fromMap(m).key}';
   // Geo cell
   if (m['type'] == 'geo_cell') {
     return 'geocell|f:${m["filled"]}|mk:${m["mark"] ?? "none"}';
