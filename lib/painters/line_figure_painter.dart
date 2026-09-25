@@ -181,7 +181,8 @@ class LineFigurePainter extends CustomPainter {
         canvas.drawLine(q(x1, y1), q(x2, y2), glyphStroke);
       }
       for (final (x, y, r, filled) in shape.$2) {
-        canvas.drawCircle(q(x, y), r * g * 0.8, filled ? ink : glyphStroke);
+        // Filled dots a little bigger: at r * 0.8 a 'dot' symbol was easy to miss.
+        canvas.drawCircle(q(x, y), r * g * (filled ? 1.3 : 0.8), filled ? ink : glyphStroke);
       }
     }
     for (final d in list('dots')) {

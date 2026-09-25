@@ -827,7 +827,8 @@ class _QuizScreenState extends State<QuizScreen>
                         ? QuestionRenderer.spaceVisOptionSize
                         // Exam-style series figures: symbols and cross-bars
                         // need room.
-                        : _currentQ.category == 'figure_series' && optionData['type'] == 'line_fig'
+                        : (_currentQ.category == 'figure_series' || _currentQ.category == 'analogy') &&
+                                optionData['type'] == 'line_fig'
                             ? 96
                             : 64)),
             Positioned(

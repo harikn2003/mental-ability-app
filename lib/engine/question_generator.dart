@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import 'exam_style_generator.dart';
 import 'hard_question_generator.dart';
+import 'analogy_generator.dart';
 import 'line_figure.dart';
 import 'series_generator.dart';
 import 'space_vis_generator.dart';
@@ -53,6 +54,7 @@ class QuestionGenerator {
     ExamStyleGenerator.seed(s);
     SpaceVisGenerator.seed(s);
     SeriesGenerator.seed(s);
+    AnalogyGenerator.seed(s);
   }
 
   static bool _seen(String sig) => _history.contains(sig);
@@ -127,11 +129,11 @@ class QuestionGenerator {
   ///
   /// figure_series: exam-style SeriesGenerator alongside the Sandia series,
   /// which stays in the mix (the user wants existing question logic kept).
-  static const examStyleHardShare = {'pattern': 60, 'figure_match': 60, 'odd_man': 35, 'figure_series': 60};
+  static const examStyleHardShare = {'pattern': 60, 'figure_match': 60, 'odd_man': 35, 'figure_series': 60, 'analogy': 60};
 
   /// Share (%) of Easy questions served by a newer exam-style generator;
   /// the rest keep the topic's original easy generators.
-  static const examStyleEasyShare = {'figure_series': 60};
+  static const examStyleEasyShare = {'figure_series': 60, 'analogy': 60};
 
   /// Main generator entry point.
   static ReasoningQuestion generate(String category, {bool isHardMode = false}) {
@@ -211,6 +213,7 @@ class QuestionGenerator {
         'odd_man' => ExamStyleGenerator.oddManOut(),
         'embedded' => ExamStyleGenerator.embeddedFigure(),
         'figure_series' => SeriesGenerator.generate(hard: true),
+        'analogy' => AnalogyGenerator.generate(hard: true),
         'punch_hole' => ExamStyleGenerator.punchHole(),
         // Mostly the exam's irregular grid cut; a quarter keep the circle /
         // triangle pieces, which the exam also uses occasionally.
@@ -264,6 +267,12 @@ class QuestionGenerator {
           _seriesMorph,
         ])[isHardMode ? _r.nextInt(8) : _r.nextInt(7)]();
       case 'analogy':
+        // Easy: exam-style analogy (AnalogyGenerator) for a share, the
+        // original analogy for the rest and as the fallback.
+        if (!isHardMode && _r.nextInt(100) < examStyleEasyShare['analogy']!) {
+          final exam = AnalogyGenerator.generate();
+          if (exam != null) return exam;
+        }
         return _analogy(isHardMode: isHardMode);
       case 'geo_completion':
         return _geoCompletion(isHardMode: isHardMode);
@@ -649,7 +658,9 @@ class QuestionGenerator {
         final a = changes[i].$2(answer);
         final opts = [answer, a, changes[j].$2(answer), changes[j].$2(a)];
         final keys = opts.map(_optionKey).toList();
-        if (keys.toSet().length == 4 && !keys.any(frameKeys.contains)) return _packExact(answer, opts.sublist(1));
+        // Only WRONG options must not copy a problem figure: an analogy
+        // whose rule is "no change" has the answer equal to C.
+        if (keys.toSet().length == 4 && !keys.skip(1).any(frameKeys.contains)) return _packExact(answer, opts.sublist(1));
       }
     }
     return null;
@@ -1991,18 +2002,33 @@ class QuestionGenerator {
       if (_seen(sigKey)) continue;
 
       final ans = _f(sh2D, rot: rotD, filled: fillD, dots: dotsD, inner: innD);
+      final figA = _f(sh1, rot: rotA, filled: fillA, dots: dotsA, inner: innA);
+      final figB = _f(sh1B, rot: rotB, filled: fillB, dots: dotsB, inner: innB);
+      final figC = _f(sh2, rot: rotC, filled: fillC, dots: dotsC, inner: innC);
 
-      final res = _pack(ans, [
-        _f(sh2D, rot: (rotD + 1) % 4, filled: fillD, dots: dotsD, inner: innD),
-        _f(sh2D, rot: rotD, filled: !fillD, dots: dotsD, inner: innD),
-        _f(
-          sh2D,
-          rot: rotD,
-          filled: fillD,
-          dots: (dotsD - 1).clamp(0, 3),
-          inner: innD,
-        ),
+      // Balanced wrong options (the rule is unchanged): two single changes
+      // to different attributes and both together, trying the attributes
+      // this rule changes first. The old one-change-per-option set made the
+      // answer the option most like the others 61% of the time (measured).
+      final changesByAttr = {
+        'rotation': _set('rotation', (rotD + 1) % 4),
+        'filled': _flipFill,
+        'dots': _set('dots', dotsD < 4 ? dotsD + 1 : dotsD - 1),
+        if (innD > 0) 'inner': _set('inner', innD % 3 + 1),
+        'mirror': _flipMirror,
+      };
+      final ruleChanges = [
+        if (rotA != rotB) 'rotation',
+        if (fillA != fillB) 'filled',
+        if (dotsA != dotsB) 'dots',
+        if (innA != innB && innD > 0) 'inner',
+      ];
+      final res = _balanced(ans, [figA, figB, figC], [
+        for (final a in ruleChanges) changesByAttr[a]!,
+        for (final e in changesByAttr.entries)
+          if (!ruleChanges.contains(e.key)) e.value,
       ]);
+      if (res == null) continue;
 
       _markSeen(sigKey);
       return ReasoningQuestion(
@@ -2010,9 +2036,9 @@ class QuestionGenerator {
         type: 'analogy_r$rule',
         puzzle: {
           'type': 'analogy',
-          'A': _f(sh1, rot: rotA, filled: fillA, dots: dotsA, inner: innA),
-          'B': _f(sh1B, rot: rotB, filled: fillB, dots: dotsB, inner: innB),
-          'C': _f(sh2, rot: rotC, filled: fillC, dots: dotsC, inner: innC),
+          'A': figA,
+          'B': figB,
+          'C': figC,
         },
         options: res.opts,
         correctIndex: res.idx,

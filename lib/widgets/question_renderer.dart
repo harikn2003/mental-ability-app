@@ -209,6 +209,37 @@ class QuestionRenderer extends StatelessWidget {
 
   // ── 5. Analogy ─────────────────────────────────────────────────────────────
   Widget _analogy() {
+    // Exam-style line figures (hatching, corner fills, nested shapes) are
+    // too detailed for 58px: two rows, "A : B ::" then "C : ?", at 84px.
+    if ((puzzle['A'] as Map)['type'] == 'line_fig') {
+      Widget sep(String s, Color c) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(s, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: c)),
+          );
+      Map<String, dynamic> fig(String k) => Map<String, dynamic>.from(puzzle[k] as Map);
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _label(AppLocale.s('instr_analogy')),
+          const SizedBox(height: 14),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  _fig(fig('A'), size: 84), sep(':', _ink), _fig(fig('B'), size: 84), sep('::', _blue),
+                ]),
+                const SizedBox(height: 12),
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  _fig(fig('C'), size: 84), sep(':', _ink), _qBox(size: 84), sep('::', Colors.transparent),
+                ]),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [

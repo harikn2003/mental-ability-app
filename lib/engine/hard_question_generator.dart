@@ -2463,11 +2463,15 @@ class HardQuestionGenerator {
         {'surface': 2, 'fill': 2, 'scale': 1.2, 'rotation': 2},
       ],
     };
+    // d3 = d1's change AND d2's change (background fill and background
+    // turn both wrong): a balanced 2x2 set. The old d3 changed other
+    // things, so the answer was always the option most like the other three
+    // (100% of 400 questions, measured).
     final d3 = {
       'type': 'sandia_cell',
       'layers': [
-        {'surface': bgShape2, 'fill': 3, 'scale': 2.2, 'rotation': 2, 'grid_box': true},
-        {'surface': 2, 'fill': 1, 'scale': 1.2, 'rotation': 0},
+        {'surface': bgShape2, 'fill': 0, 'scale': 2.2, 'rotation': 0, 'grid_box': true},
+        {'surface': 2, 'fill': 2, 'scale': 1.2, 'rotation': 2},
       ],
     };
 
