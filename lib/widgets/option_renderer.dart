@@ -73,6 +73,8 @@ class EnhancedFigureWidget extends StatelessWidget {
 class EnhancedFigurePainter extends CustomPainter {
   final Map<String, dynamic> data;
   static const Color _ink = Color(0xFF1E293B);
+  // Orange-600: contrasts with both the navy fill and the white background.
+  static const Color _detailOnFill = Color(0xFFEA580C);
 
   const EnhancedFigurePainter(this.data);
 
@@ -115,83 +117,67 @@ class EnhancedFigurePainter extends CustomPainter {
     final outerR = inner > 0 ? r * 1.10 : r;
     _drawShape(canvas, shape, outerR, cx, cy, paint);
 
-    final strokeColor = filled ? Colors.white : _ink;
+    // Details (inner shape, crossing lines, corner mark) on a FILLED shape.
+    // BUGFIX: they used to be plain white, so wherever a detail extended past
+    // the fill - e.g. into an L-shape's empty notch - it was white on white
+    // and vanished; on a Hard mirror question the target's corner mark was
+    // barely visible while the trap option showed it clearly (device
+    // screenshot, 2026-09-25). Now a vivid orange core with a thin white
+    // outline: visible on the dark fill AND on the white background.
+    // Outline-only (unfilled) figures keep plain ink details.
+    void detail(double width, void Function(Paint p) draw) {
+      Paint p(Color c, double w) => Paint()
+        ..color = c
+        ..strokeWidth = w
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke;
+      if (filled) {
+        draw(p(Colors.white, width + 2.2));
+        draw(p(_detailOnFill, width));
+      } else {
+        draw(p(_ink, width));
+      }
+    }
 
-    // Inner shape with selective mirror trap support
-    if (inner > 0) {
-      canvas.save();
-      // If selective mirror trap is active and shape is mirrored, cancel the horizontal scaling
+    // If selective mirror trap is active and shape is mirrored, cancel the
+    // horizontal scaling for the details.
+    void trapFrame() {
       if (mirror && selectiveMirrorTrap) {
         canvas.translate(cx, cy);
         canvas.scale(-1.0, 1.0);
         canvas.translate(-cx, -cy);
       }
+    }
 
+    // Inner shape with selective mirror trap support
+    if (inner > 0) {
+      canvas.save();
+      trapFrame();
       final innerR = r * 0.56;
-      final shadowPaint = Paint()
-        ..color = strokeColor.withValues(alpha: 0.08)
-        ..strokeWidth = 2.2
-        ..style = PaintingStyle.stroke;
-      _drawShape(canvas, inner - 1, innerR * 1.03, cx, cy, shadowPaint);
-
-      final innerPaint = Paint()
-        ..color = strokeColor
-        ..strokeWidth = 2.2
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..style = PaintingStyle.stroke;
-      _drawShape(canvas, inner - 1, innerR, cx, cy, innerPaint);
-
+      detail(2.2, (p) => _drawShape(canvas, inner - 1, innerR, cx, cy, p));
       canvas.restore();
     }
 
     // Crossing lines with selective mirror trap support
     if (lines > 0) {
-      final lp = Paint()
-        ..color = strokeColor
-        ..strokeWidth = 1.8
-        ..style = PaintingStyle.stroke;
-
       canvas.save();
-      // If selective mirror trap is active, draw the crossing lines unmirrored
-      if (mirror && selectiveMirrorTrap) {
-        canvas.translate(cx, cy);
-        canvas.scale(-1.0, 1.0);
-        canvas.translate(-cx, -cy);
-      }
-
+      trapFrame();
       for (int i = 1; i <= lines; i++) {
         final x = cx - r * 0.72 + (r * 1.44 / (lines + 1)) * i;
-        canvas.drawLine(Offset(x, cy - r * 0.85), Offset(x, cy + r * 0.85), lp);
+        detail(1.8, (p) => canvas.drawLine(Offset(x, cy - r * 0.85), Offset(x, cy + r * 0.85), p));
       }
       canvas.restore();
     }
 
-    // Dense custom asymmetric decorator inside shape
+    // Dense custom asymmetric decorator (a small plus near the top-right)
     if (dense) {
-      final densePaint = Paint()
-        ..color = strokeColor
-        ..strokeWidth = 2.0
-        ..style = PaintingStyle.stroke;
-
       canvas.save();
-      if (mirror && selectiveMirrorTrap) {
-        canvas.translate(cx, cy);
-        canvas.scale(-1.0, 1.0);
-        canvas.translate(-cx, -cy);
-      }
-
-      // Draw asymmetric crossing lines at top right corner
-      canvas.drawLine(
-        Offset(cx + r * 0.45, cy - r * 0.45),
-        Offset(cx + r * 0.75, cy - r * 0.45),
-        densePaint,
-      );
-      canvas.drawLine(
-        Offset(cx + r * 0.6, cy - r * 0.6),
-        Offset(cx + r * 0.6, cy - r * 0.3),
-        densePaint,
-      );
+      trapFrame();
+      detail(2.0, (p) {
+        canvas.drawLine(Offset(cx + r * 0.45, cy - r * 0.45), Offset(cx + r * 0.75, cy - r * 0.45), p);
+        canvas.drawLine(Offset(cx + r * 0.6, cy - r * 0.6), Offset(cx + r * 0.6, cy - r * 0.3), p);
+      });
       canvas.restore();
     }
 

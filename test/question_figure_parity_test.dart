@@ -57,6 +57,22 @@ void main() {
     expect(light, greaterThan(20), reason: 'inner L invisible - question figure drawn with the wrong painter?');
   });
 
+  testWidgets('details on a filled shape stay visible where they leave the fill', (tester) async {
+    // Device screenshot 2026-09-25: filled L (shape 8) + inner triangle +
+    // corner mark; parts of the white details fell in the L's empty notch
+    // and vanished white-on-white. Details are now orange with a white
+    // outline - count orange pixels over the plain white background.
+    const fig = {'shape': 8, 'filled': true, 'rotation': 0, 'mirror': false, 'dots': 0, 'inner': 3, 'lines': 0, 'missingCorner': 0, 'dense': true};
+    const size = 88.0;
+    final px = (await _capture(tester, [QuestionRenderer.figure(fig, size: size)], size)).single;
+    bool isOrange(int i) => px[i] > 190 && px[i + 1] > 60 && px[i + 1] < 140 && px[i + 2] < 90;
+    var orange = 0;
+    for (int i = 0; i < px.length; i += 4) {
+      if (isOrange(i)) orange++;
+    }
+    expect(orange, greaterThan(40), reason: 'details on a filled figure should be drawn in the contrasting colour');
+  });
+
   testWidgets('question figures and answer options render identically', (tester) async {
     QuestionGenerator.seed(3);
     QuestionGenerator.resetSession();
