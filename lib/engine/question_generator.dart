@@ -125,10 +125,13 @@ class QuestionGenerator {
   /// odd_man: the mirror-image item (added when the two shade-step Sandia
   /// rules were retired) takes a third of Hard Odd Man Out.
   ///
-  /// figure_series: 100 - the Sandia series was one fixed template (23
-  /// distinct questions in 400, answer always the most central option);
-  /// SeriesGenerator replaces it. The Sandia code stays for the diagnostics.
-  static const examStyleHardShare = {'pattern': 60, 'figure_match': 60, 'odd_man': 35, 'figure_series': 100};
+  /// figure_series: exam-style SeriesGenerator alongside the Sandia series,
+  /// which stays in the mix (the user wants existing question logic kept).
+  static const examStyleHardShare = {'pattern': 60, 'figure_match': 60, 'odd_man': 35, 'figure_series': 60};
+
+  /// Share (%) of Easy questions served by a newer exam-style generator;
+  /// the rest keep the topic's original easy generators.
+  static const examStyleEasyShare = {'figure_series': 60};
 
   /// Main generator entry point.
   static ReasoningQuestion generate(String category, {bool isHardMode = false}) {
@@ -233,10 +236,13 @@ class QuestionGenerator {
           return _matrixDualRule();
         }
       case 'figure_series':
-        // Exam-style series (SeriesGenerator) at both levels; the older
-        // single-shape series below only if it ever fails to build one.
-        final exam = isHardMode ? null : SeriesGenerator.generate();
-        if (exam != null) return exam;
+        // Easy: exam-style series (SeriesGenerator) for a share, the
+        // original single-shape series below for the rest - and as the
+        // fallback if SeriesGenerator ever fails to build one.
+        if (!isHardMode && _r.nextInt(100) < examStyleEasyShare['figure_series']!) {
+          final exam = SeriesGenerator.generate();
+          if (exam != null) return exam;
+        }
         return (isHardMode
             ? [
           _seriesRotFill,

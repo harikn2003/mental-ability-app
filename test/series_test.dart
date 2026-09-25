@@ -187,17 +187,22 @@ void main() {
     }
   }
 
-  test('both difficulties route to the exam-style series, with variety', () {
+  test('both difficulties mix exam-style and the original series', () {
     QuestionGenerator.seed(3);
     for (final hard in [false, true]) {
       QuestionGenerator.resetSession();
       final rules = <String>{};
-      for (int i = 0; i < 40; i++) {
+      var exam = 0;
+      const n = 200;
+      for (int i = 0; i < n; i++) {
         final q = QuestionGenerator.generate('figure_series', isHardMode: hard);
-        expect(q.type, startsWith('series_exam_'));
+        if (!q.type.startsWith('series_exam_')) continue;
+        exam++;
         rules.add(q.puzzle['rule'] as String);
         check(q);
       }
+      // ~60% exam-style, the rest the original generators (kept on purpose).
+      expect(exam / n, inInclusiveRange(0.45, 0.75), reason: '${hard ? 'hard' : 'easy'} exam-style share');
       expect(rules, SeriesGenerator.families.toSet());
     }
   });
