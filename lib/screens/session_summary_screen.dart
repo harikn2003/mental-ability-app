@@ -364,6 +364,7 @@ class SessionSummaryScreen extends StatelessWidget {
             'mirror_text': AppLocale.s('cat_mirror_text'),
             'punch_hole': AppLocale.s('cat_punch'),
             'embedded': AppLocale.s('cat_embedded'),
+            'space_vis': AppLocale.s('cat_space_vis'),
           };
           final formattedName = catLabels[categoryName]
               ?? (categoryName[0].toUpperCase() + categoryName.substring(1));

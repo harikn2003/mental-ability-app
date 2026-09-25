@@ -42,6 +42,8 @@ class QuestionRenderer extends StatelessWidget {
         return _punchHole();
       case 'embedded':
         return _embedded();
+      case 'space_vis':
+        return _spaceVis();
       default:
         return const Center(child: Text('?'));
     }
@@ -382,6 +384,36 @@ class QuestionRenderer extends StatelessWidget {
           child: CustomPaint(
             size: const Size(100, 100),
             painter: piece['type'] == 'line_fig' ? LineFigurePainter(piece) : _GeoPiecePainter(piece),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Space Visualisation (JNVST Part 9): the cut-out pieces ────────────────
+  // All pieces share one scale (each map's lattice is the largest piece's
+  // extent), so their sizes can be compared with each other.
+  Widget _spaceVis() {
+    final pieces = [for (final p in puzzle['pieces'] as List) Map<String, dynamic>.from(p as Map)];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _label(AppLocale.s('instr_space_vis')),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _blue.withValues(alpha: 0.3), width: 1.5),
+          ),
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              for (final p in pieces) CustomPaint(size: const Size(92, 92), painter: LineFigurePainter(p)),
+            ],
           ),
         ),
       ],

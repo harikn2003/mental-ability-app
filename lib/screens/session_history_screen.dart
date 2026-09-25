@@ -263,6 +263,7 @@ class _SessionCard extends StatelessWidget {
       'mirror_text': AppLocale.s('short_mirtext'),
       'punch_hole': AppLocale.s('short_punch'),
       'embedded': AppLocale.s('short_embedded'),
+      'space_vis': AppLocale.s('short_space_vis'),
     };
 
     return Wrap(

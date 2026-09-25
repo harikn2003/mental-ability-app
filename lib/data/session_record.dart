@@ -59,6 +59,7 @@ class SessionRecord extends HiveObject {
       'mirror_text': 'cat_mirror_text',
       'punch_hole': 'cat_punch',
       'embedded': 'cat_embedded',
+      'space_vis': 'cat_space_vis',
     };
     final key = m[mode];
     return key == null ? mode : AppLocale.s(key);

@@ -78,6 +78,7 @@ class StudentResultScreen extends StatelessWidget {
       'mirror_text': 'cat_mirror_text',
       'punch_hole': 'cat_punch',
       'embedded': 'cat_embedded',
+      'space_vis': 'cat_space_vis',
     };
     return AppLocale.s(map[key] ?? key);
   }

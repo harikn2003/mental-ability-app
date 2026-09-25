@@ -47,7 +47,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
   static const _kWeightsKey = 'bias_weights';
   static const _defaultCategories = [
     'pattern', 'analogy', 'odd_man', 'mirror_shape', 'figure_match',
-    'figure_series', 'geo_completion', 'mirror_text', 'punch_hole', 'embedded',
+    'figure_series', 'geo_completion', 'mirror_text', 'punch_hole', 'space_vis', 'embedded',
   ];
 
   Map<String, String> get _categoryLabels =>
@@ -62,6 +62,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
         'mirror_text': AppLocale.get(currentLang, 'cat_mirror_text'),
         'punch_hole': AppLocale.get(currentLang, 'cat_punch'),
         'embedded': AppLocale.get(currentLang, 'cat_embedded'),
+        'space_vis': AppLocale.get(currentLang, 'cat_space_vis'),
   };
 
   // Categories with weight > 1 are considered weak
@@ -198,7 +199,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
 
                       const SizedBox(height: 16),
 
-                      // TOPIC GRID — all 10 topics
+                      // TOPIC GRID — all 11 topics
                       GridView.count(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
@@ -236,6 +237,9 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                           _buildTopicCard(id: 'punch_hole', title: AppLocale
                               .get(currentLang, 'punch_hole'), icon: Icons
                               .radio_button_unchecked, color: accentEmerald),
+                          _buildTopicCard(id: 'space_vis', title: AppLocale.get(
+                              currentLang, 'space_vis'), icon: Icons
+                              .extension, color: const Color(0xFF6366F1)),
                           _buildTopicCard(id: 'embedded', title: AppLocale.get(
                               currentLang, 'embedded'), icon: Icons
                               .center_focus_strong, color: const Color(

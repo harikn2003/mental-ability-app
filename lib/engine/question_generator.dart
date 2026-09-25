@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'exam_style_generator.dart';
 import 'hard_question_generator.dart';
 import 'line_figure.dart';
+import 'space_vis_generator.dart';
 import 'reasoning_question.dart';
 
 /// QuestionGenerator
@@ -49,6 +50,7 @@ class QuestionGenerator {
     _r = Random(s);
     HardQuestionGenerator.seed(s);
     ExamStyleGenerator.seed(s);
+    SpaceVisGenerator.seed(s);
   }
 
   static bool _seen(String sig) => _history.contains(sig);
@@ -256,6 +258,10 @@ class QuestionGenerator {
         return _punchHole(isHardMode: isHardMode);
       case 'embedded':
         return _embedded(isHardMode: isHardMode);
+      case 'space_vis':
+        // Hard: more pieces, 45° cuts, more outlines. Easy is the fallback
+        // (it has never failed in the tests, but never return null here).
+        return SpaceVisGenerator.generate(hard: isHardMode) ?? SpaceVisGenerator.generate()!;
       default:
         return _matrixShapeCycle();
     }

@@ -82,6 +82,7 @@ class _QuizScreenState extends State<QuizScreen>
     'geo_completion',
     'mirror_text',
     'punch_hole',
+    'space_vis',
     'embedded',
   ];
 
@@ -454,6 +455,7 @@ class _QuizScreenState extends State<QuizScreen>
       'geo_completion': AppLocale.get(currentLang, 'topic_geo'),
       'punch_hole': AppLocale.get(currentLang, 'topic_punch'),
       'embedded': AppLocale.get(currentLang, 'topic_embedded'),
+      'space_vis': AppLocale.get(currentLang, 'topic_space_vis'),
     };
     return labels[category] ?? AppLocale.get(currentLang, 'topic_odd');
   }
@@ -949,6 +951,7 @@ class _QuizScreenState extends State<QuizScreen>
       'mirror_text': AppLocale.get(currentLang, 'short_mirtext'),
       'punch_hole': AppLocale.get(currentLang, 'short_punch'),
       'embedded': AppLocale.get(currentLang, 'short_embedded'),
+      'space_vis': AppLocale.get(currentLang, 'short_space_vis'),
     };
 
     return Container(

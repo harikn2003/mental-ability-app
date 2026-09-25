@@ -24,6 +24,7 @@ class AppLocale {
       'mirror_text': 'Mirror Text/Clock',
       'punch_hole': 'Punch Hole',
       'embedded': 'Embedded Figure',
+      'space_vis': 'Space Visualisation',
       'practice_weak_card': 'Practice Weak Areas',
       'weak_topics': 'topics',
       'questions_label': 'questions',
@@ -73,6 +74,7 @@ class AppLocale {
       'topic_geo': 'GEO COMPLETION',
       'topic_punch': 'PUNCH HOLE',
       'topic_embedded': 'EMBEDDED FIGURE',
+      'topic_space_vis': 'SPACE VISUALISATION',
 
       // ── Summary Screen ───────────────────────────────────────────────────
       'report_title': 'Session Summary',
@@ -173,6 +175,7 @@ class AppLocale {
       'cat_mirror_text': 'Mirror Text',
       'cat_punch': 'Punch Hole',
       'cat_embedded': 'Embedded Figure',
+      'cat_space_vis': 'Space Visualisation',
 
       // ── Category short labels (history bar chart) ─────────────────────────
       'short_odd': 'Odd',
@@ -185,6 +188,7 @@ class AppLocale {
       'short_mirtext': 'MirT',
       'short_punch': 'Pnc',
       'short_embedded': 'Emb',
+      'short_space_vis': 'Spc',
 
       // ── Misc UI ───────────────────────────────────────────────────────────
       'time_unlimited': 'Unlimited',
@@ -200,6 +204,7 @@ class AppLocale {
       'instr_mirror': 'Find the mirror image',
       'instr_embedded':
           'Find the option that contains this shape hidden inside it',
+      'instr_space_vis': 'Which figure can be made from these cut-out pieces?',
       'instr_analogy': 'A : B :: C : ?  — Find D',
       'instr_error': 'Unable to generate — please skip this question.',
     },
@@ -228,6 +233,7 @@ class AppLocale {
       'mirror_text': 'अक्षर / घड्याळ आरसा',
       'punch_hole': 'छिद्र आकृती',
       'embedded': 'अंतर्भूत आकृती',
+      'space_vis': 'अवकाश कल्पना',
       'practice_weak_card': 'कमकुवत विषयांचा सराव',
       'weak_topics': 'विषय',
       'questions_label': 'प्रश्न',
@@ -277,6 +283,7 @@ class AppLocale {
       'topic_geo': 'भौमितिक पूर्तता',
       'topic_punch': 'छिद्र आकृती',
       'topic_embedded': 'अंतर्भूत आकृती',
+      'topic_space_vis': 'अवकाश कल्पना',
 
       // ── Summary Screen ───────────────────────────────────────────────────
       'report_title': 'सत्र सारांश',
@@ -375,6 +382,7 @@ class AppLocale {
       'cat_mirror_text': 'अक्षर आरसा',
       'cat_punch': 'छिद्र आकृती',
       'cat_embedded': 'अंतर्भूत आकृती',
+      'cat_space_vis': 'अवकाश कल्पना',
 
       // ── Category short labels ─────────────────────────────────────────────
       'short_odd': 'वेग',
@@ -387,6 +395,7 @@ class AppLocale {
       'short_mirtext': 'अक्ष',
       'short_punch': 'छिद्र',
       'short_embedded': 'अंत',
+      'short_space_vis': 'अवका',
 
       // ── Misc UI ───────────────────────────────────────────────────────────
       'time_unlimited': 'अमर्यादित',
@@ -401,6 +410,7 @@ class AppLocale {
       'instr_geo': 'कोणता तुकडा ही आकृती पूर्ण करतो?',
       'instr_mirror': 'आरसा प्रतिमा शोधा',
       'instr_embedded': 'या आकृतीला आतमध्ये लपवणारा पर्याय शोधा',
+      'instr_space_vis': 'हे कापलेले तुकडे जोडून कोणती आकृती बनेल?',
       'instr_analogy': 'A : B :: C : ?  — D शोधा',
       'instr_error': 'प्रश्न तयार करता आला नाही — हा प्रश्न वगळा.',
     },
@@ -429,6 +439,7 @@ class AppLocale {
       'mirror_text': 'दर्पण अक्षर / घड़ी',
       'punch_hole': 'छेद आकृति',
       'embedded': 'अंतर्निहित आकृति',
+      'space_vis': 'स्थान दृश्यावलोकन',
       'practice_weak_card': 'कमज़ोर क्षेत्रों का अभ्यास',
       'weak_topics': 'विषय',
       'questions_label': 'प्रश्न',
@@ -478,6 +489,7 @@ class AppLocale {
       'topic_geo': 'ज्यामितीय पूर्णता',
       'topic_punch': 'छेद आकृति',
       'topic_embedded': 'अंतर्निहित आकृति',
+      'topic_space_vis': 'स्थान दृश्यावलोकन',
 
       // ── Summary Screen ───────────────────────────────────────────────────
       'report_title': 'सत्र सारांश',
@@ -576,6 +588,7 @@ class AppLocale {
       'cat_mirror_text': 'दर्पण अक्षर',
       'cat_punch': 'छेद आकृति',
       'cat_embedded': 'अंतर्निहित आकृति',
+      'cat_space_vis': 'स्थान दृश्यावलोकन',
 
       // ── Category short labels (history bar chart) ─────────────────────────
       'short_odd': 'अल',
@@ -588,6 +601,7 @@ class AppLocale {
       'short_mirtext': 'अक्ष',
       'short_punch': 'छेद',
       'short_embedded': 'अंत',
+      'short_space_vis': 'स्था',
 
       // ── Misc UI ───────────────────────────────────────────────────────────
       'time_unlimited': 'असीमित',
@@ -602,6 +616,7 @@ class AppLocale {
       'instr_geo': 'कौन-सा भाग यह आकृति पूरी करता है?',
       'instr_mirror': 'दर्पण आकृति ढूँढिए',
       'instr_embedded': 'ऐसा विकल्प ढूँढिए जिसमें यह आकृति छिपी हो',
+      'instr_space_vis': 'इन कटे हुए टुकड़ों से कौन-सी आकृति बनाई जा सकती है?',
       'instr_analogy': 'A : B :: C : ?  — D ढूँढिए',
       'instr_error': 'प्रश्न बन नहीं सका — यह प्रश्न छोड़ दें।',
     },
