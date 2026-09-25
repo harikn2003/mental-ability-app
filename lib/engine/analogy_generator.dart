@@ -8,11 +8,11 @@ import 'reasoning_question.dart';
 ///
 /// Rule families, each at an easy and a hard setting:
 ///   turn    - the figure is turned (hard: or mirrored) AND a small marker
-///             changes, e.g. a dot becomes a ring (Q17, Q19). Easy: simpler
-///             figure, quarter turns only, no mirror-image trap
+///             changes, e.g. a dot becomes a ring (Q17, Q19). Easy: one
+///             change only - a half turn, or the marker changes
 ///   corners - four corner squares with different fills; the fills move to
-///             other corners (Q18). Easy: bold fills only, and the wrong
-///             move is clearly different from the right one
+///             other corners (Q18). Easy: bold fills, left<->right or
+///             top<->bottom swaps only
 ///   nest    - three shapes in a row become nested one inside another, the
 ///             row order deciding which is outermost (Q20)
 ///
@@ -91,20 +91,21 @@ class AnalogyGenerator {
   static (LineFig, LineFig, LineFig, LineFig, LineFig, LineFig, LineFig)? _turn(bool hard) {
     final f1 = _strokeFigure(hard: hard), f2 = _strokeFigure(hard: hard);
     if (f1 == null || f2 == null || f1.key == f2.key) return null;
-    // The rule: easy turns; hard also flips (the mirror-image trap flips
-    // round - the right answer is the flipped one).
-    // Easy: a quarter turn either way; hard: also flips and turn + flip.
-    final t = hard ? _pick([4, 5, 6, 7, 1, 3]) : _pick([1, 3]);
-    // Wrong transform. Hard: the mirror image of the right one, or another
-    // turn. Easy: turned the other way - upside-down compared with the
-    // answer, so it's clearly different; the mirror-image trap (the
-    // hardest discrimination in the app) is kept for Hard.
-    final wrongs = hard ? [t < 4 ? t + 4 : t - 4, (t + 2) % 4 + (t < 4 ? 0 : 4)] : [(t + 2) % 4];
+    // Hard: turns, flips and turn + flip, and the marker changes too; the
+    // wrong options include the mirror image (the classic trap).
+    // Easy (grades 2-3): ONE change - either the figure turns upside-down
+    // and the marker stays, or the figure stays and only the marker
+    // changes. No quarter-turn rules, no mirror images.
+    final easyHalfTurn = !hard && _r.nextBool();
+    final t = hard ? _pick([4, 5, 6, 7, 1, 3]) : (easyHalfTurn ? 2 : 0);
+    final wrongs = hard ? [t < 4 ? t + 4 : t - 4, (t + 2) % 4 + (t < 4 ? 0 : 4)] : (easyHalfTurn ? [1, 3] : [2]);
     final w = _pick(wrongs.where((x) => x != t).toList());
-    final (m1, m2) = () {
-      final ms = [...markers]..shuffle(_r);
-      return (ms[0], ms[1]);
-    }();
+    final ms = [...markers]..shuffle(_r);
+    final m1 = ms[0];
+    final m2 = hard || !easyHalfTurn ? ms[1] : m1; // the marker B/D shows
+    // The wrong-marker options: Hard keeps C's marker ("forgot to change
+    // it"); Easy uses a third kind, since keeping it would copy C.
+    final mWrong = hard ? m1 : ms[2];
     // The marker goes in a cell no diagonal stroke crosses, so it never
     // sits on a line (straight strokes only run along cell edges).
     (int, int)? freeCell(LineFig f) {
@@ -132,8 +133,8 @@ class AnalogyGenerator {
       a, b, c,
       after(f2, cell2, t, m2), // right turn, marker changed
       after(f2, cell2, w, m2), // wrong turn
-      after(f2, cell2, t, m1), // marker not changed
-      after(f2, cell2, w, m1), // both
+      after(f2, cell2, t, mWrong), // wrong marker
+      after(f2, cell2, w, mWrong), // both
     );
   }
 
@@ -190,7 +191,9 @@ class AnalogyGenerator {
   }
 
   static (LineFig, LineFig, LineFig, LineFig, LineFig, LineFig, LineFig)? _corners(bool hard) {
-    final rule = hard ? _pick(['half', 'diagonal', 'antiDiagonal', 'cw', 'ccw']) : _pick(['cw', 'leftRight', 'topBottom']);
+    // Easy (grades 2-3): only the mirror-like swaps, left<->right or
+    // top<->bottom - the easiest moves to see.
+    final rule = hard ? _pick(['half', 'diagonal', 'antiDiagonal', 'cw', 'ccw']) : _pick(['leftRight', 'topBottom']);
     // The tempting wrong move: the other direction / the other swap.
     const confusions = {
       'cw': ['ccw', 'half'],
@@ -282,7 +285,8 @@ class AnalogyGenerator {
 
   static (LineFig, LineFig, LineFig, LineFig, LineFig, LineFig, LineFig)? _nest(bool hard) {
     const allLevels = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
-    final levels = hard ? _pick(allLevels) : _pick(const [[2, 1, 0], [0, 1, 2]]); // Q20: left innermost
+    // Easy: always the paper's rule (Q20) - the left shape goes innermost.
+    final levels = hard ? _pick(allLevels) : const [2, 1, 0];
     // Same three shapes in both rows, in a different order (as in Q20).
     final ka = [...kinds]..shuffle(_r);
     final kc = [...kinds]..shuffle(_r);

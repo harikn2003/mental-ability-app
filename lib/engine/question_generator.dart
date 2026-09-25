@@ -1836,9 +1836,12 @@ class QuestionGenerator {
     const allAsym = [2, 3, 7, 8];
 
     for (int attempt = 0; attempt < 40; attempt++) {
+      // Easy (grades 2-3): only the rules that change ONE thing - half turn
+      // (1, 7), fill (3), no change (5). The rules that change two or three
+      // things at once (turn + fill + dots) are served in Hard.
       final rule = isHardMode
           ? _pickWeighted([8, 9, 4, 6, 2, 8, 0, 1])
-          : _r.nextInt(8);
+          : _pickWeighted([1, 3, 3, 5, 7]);
 
       final sh1 = allAsym[_r.nextInt(allAsym.length)];
       int sh2;

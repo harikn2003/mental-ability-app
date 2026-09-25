@@ -203,26 +203,47 @@ void main() {
     }
   });
 
-  test('easy stays a notch below hard', () {
+  test('easy (grades 2-3) changes exactly one thing', () {
     AnalogyGenerator.seed(41);
     for (int i = 0; i < runs; i++) {
-      // Turn: quarter turns only, and no option is a mirror image of C -
-      // every option is C (strokes) turned, never flipped.
+      // Turn: either a half turn with the same marker, or no turn with a
+      // different marker - never both, never a quarter turn or a mirror.
       final t = AnalogyGenerator.generate(family: 'turn')!;
       final a = fig(t.puzzle['A']), b = fig(t.puzzle['B']), c = fig(t.puzzle['C']);
       final ts = [for (int k = 0; k < 8; k++) if (AnalogyGenerator.transform(bare(a), k).key == bare(b).key) k];
-      expect(ts.single, anyOf(1, 3), reason: 'easy rule must be a quarter turn');
+      final sameMarker = a.glyphs.single.$3 == b.glyphs.single.$3;
+      expect(ts.single == 2 ? sameMarker : (ts.single == 0 && !sameMarker), isTrue,
+          reason: 'easy turn must change one thing (turn ${ts.single}, same marker $sameMarker)');
       final turns = {for (int k = 0; k < 4; k++) bare(c).rot(k).key};
       for (final o in t.options) {
         expect(turns.contains(bare(fig(o)).key), isTrue, reason: 'easy options must not include a mirror image');
       }
-      expect(bare(c).segs.length, lessThanOrEqualTo(5), reason: 'easy figures are simpler');
 
-      // Corners: only the bold fills.
+      // Corners: bold fills, and only a left-right or top-bottom swap.
       final q = AnalogyGenerator.generate(family: 'corners')!;
       for (final m in [q.puzzle['A'], q.puzzle['B'], q.puzzle['C'], ...q.options]) {
         expect(readCorners(fig(m)).toSet().difference({'black', 'dot', 'hatch', 'plain'}), isEmpty);
       }
+      final ra = readCorners(fig(q.puzzle['A'])), rb = readCorners(fig(q.puzzle['B']));
+      final swaps = [AnalogyGenerator.moves['leftRight']!, AnalogyGenerator.moves['topBottom']!];
+      expect(swaps.any((p) => AnalogyGenerator.move(ra, p).join() == rb.join()), isTrue);
+
+      // Nest: always left shape innermost.
+      final n = AnalogyGenerator.generate(family: 'nest')!;
+      expect(readNest(fig(n.puzzle['B']))!.last, readRow(fig(n.puzzle['A']))!.first);
+    }
+
+    // The original analogy in Easy: A -> B changes at most one attribute.
+    QuestionGenerator.seed(9);
+    var classic = 0;
+    for (int i = 0; i < 600 && classic < 200; i++) {
+      if (i % 10 == 0) QuestionGenerator.resetSession();
+      final q = QuestionGenerator.generate('analogy');
+      if (q.type.startsWith('analogy_exam_')) continue;
+      classic++;
+      final a = q.puzzle['A'] as Map, b = q.puzzle['B'] as Map;
+      final changed = ['shape', 'rotation', 'filled', 'dots', 'inner'].where((k) => a[k] != b[k]).toList();
+      expect(changed.length, lessThanOrEqualTo(1), reason: '${q.type} changes $changed');
     }
   });
 }
