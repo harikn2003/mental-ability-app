@@ -202,4 +202,27 @@ void main() {
       expect(central / classic, lessThan(0.25));
     }
   });
+
+  test('easy stays a notch below hard', () {
+    AnalogyGenerator.seed(41);
+    for (int i = 0; i < runs; i++) {
+      // Turn: quarter turns only, and no option is a mirror image of C -
+      // every option is C (strokes) turned, never flipped.
+      final t = AnalogyGenerator.generate(family: 'turn')!;
+      final a = fig(t.puzzle['A']), b = fig(t.puzzle['B']), c = fig(t.puzzle['C']);
+      final ts = [for (int k = 0; k < 8; k++) if (AnalogyGenerator.transform(bare(a), k).key == bare(b).key) k];
+      expect(ts.single, anyOf(1, 3), reason: 'easy rule must be a quarter turn');
+      final turns = {for (int k = 0; k < 4; k++) bare(c).rot(k).key};
+      for (final o in t.options) {
+        expect(turns.contains(bare(fig(o)).key), isTrue, reason: 'easy options must not include a mirror image');
+      }
+      expect(bare(c).segs.length, lessThanOrEqualTo(5), reason: 'easy figures are simpler');
+
+      // Corners: only the bold fills.
+      final q = AnalogyGenerator.generate(family: 'corners')!;
+      for (final m in [q.puzzle['A'], q.puzzle['B'], q.puzzle['C'], ...q.options]) {
+        expect(readCorners(fig(m)).toSet().difference({'black', 'dot', 'hatch', 'plain'}), isEmpty);
+      }
+    }
+  });
 }

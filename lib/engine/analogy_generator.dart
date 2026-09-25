@@ -8,9 +8,11 @@ import 'reasoning_question.dart';
 ///
 /// Rule families, each at an easy and a hard setting:
 ///   turn    - the figure is turned (hard: or mirrored) AND a small marker
-///             changes, e.g. a dot becomes a ring (Q17, Q19)
+///             changes, e.g. a dot becomes a ring (Q17, Q19). Easy: simpler
+///             figure, quarter turns only, no mirror-image trap
 ///   corners - four corner squares with different fills; the fills move to
-///             other corners (Q18)
+///             other corners (Q18). Easy: bold fills only, and the wrong
+///             move is clearly different from the right one
 ///   nest    - three shapes in a row become nested one inside another, the
 ///             row order deciding which is outermost (Q20)
 ///
@@ -65,11 +67,12 @@ class AnalogyGenerator {
   /// Turns / flips by index: 0-3 quarter turns, 4-7 mirror then turn.
   static LineFig transform(LineFig f, int t) => t < 4 ? f.rot(t) : f.mirrorX().rot(t - 4);
 
-  static LineFig? _strokeFigure() {
+  static LineFig? _strokeFigure({bool hard = true}) {
     for (int attempt = 0; attempt < 60; attempt++) {
       final segs = <(int, int, int, int)>{};
       final pts = <(int, int)>[(_r.nextInt(5), _r.nextInt(5))];
-      final count = 6 + _r.nextInt(3);
+      // Easy: a simpler figure, easier to turn in your head.
+      final count = hard ? 6 + _r.nextInt(3) : 4 + _r.nextInt(2);
       for (int guard = 0; segs.length < count && guard < 120; guard++) {
         final (x, y) = _pick(pts);
         final (dx, dy) = _pick(_steps);
@@ -86,14 +89,17 @@ class AnalogyGenerator {
   static LineFig _marked(LineFig f, (int, int) cell, String marker) => f.copyWith(glyphs: {(cell.$1, cell.$2, marker)});
 
   static (LineFig, LineFig, LineFig, LineFig, LineFig, LineFig, LineFig)? _turn(bool hard) {
-    final f1 = _strokeFigure(), f2 = _strokeFigure();
+    final f1 = _strokeFigure(hard: hard), f2 = _strokeFigure(hard: hard);
     if (f1 == null || f2 == null || f1.key == f2.key) return null;
     // The rule: easy turns; hard also flips (the mirror-image trap flips
     // round - the right answer is the flipped one).
-    final t = hard ? _pick([4, 5, 6, 7, 1, 3]) : _pick([1, 2, 3]);
-    // Wrong transform: for a turn, its mirror image or another turn; for a
-    // flip, the turn it's easily confused with.
-    final wrongs = hard ? [t < 4 ? t + 4 : t - 4, (t + 2) % 4 + (t < 4 ? 0 : 4)] : [t + 4, (t + 2) % 4];
+    // Easy: a quarter turn either way; hard: also flips and turn + flip.
+    final t = hard ? _pick([4, 5, 6, 7, 1, 3]) : _pick([1, 3]);
+    // Wrong transform. Hard: the mirror image of the right one, or another
+    // turn. Easy: turned the other way - upside-down compared with the
+    // answer, so it's clearly different; the mirror-image trap (the
+    // hardest discrimination in the app) is kept for Hard.
+    final wrongs = hard ? [t < 4 ? t + 4 : t - 4, (t + 2) % 4 + (t < 4 ? 0 : 4)] : [(t + 2) % 4];
     final w = _pick(wrongs.where((x) => x != t).toList());
     final (m1, m2) = () {
       final ms = [...markers]..shuffle(_r);
@@ -184,7 +190,7 @@ class AnalogyGenerator {
   }
 
   static (LineFig, LineFig, LineFig, LineFig, LineFig, LineFig, LineFig)? _corners(bool hard) {
-    final rule = hard ? _pick(['half', 'diagonal', 'antiDiagonal', 'cw', 'ccw']) : _pick(['cw', 'ccw', 'leftRight', 'topBottom']);
+    final rule = hard ? _pick(['half', 'diagonal', 'antiDiagonal', 'cw', 'ccw']) : _pick(['cw', 'leftRight', 'topBottom']);
     // The tempting wrong move: the other direction / the other swap.
     const confusions = {
       'cw': ['ccw', 'half'],
@@ -195,10 +201,16 @@ class AnalogyGenerator {
       'diagonal': ['antiDiagonal', 'half'],
       'antiDiagonal': ['diagonal', 'half'],
     };
-    final wrong = _pick(confusions[rule]!);
-    final pool = [...fills]..shuffle(_r);
+    // Easy: the wrong move is a clearly different one (clockwise vs half
+    // turn, not clockwise vs anticlockwise).
+    const easyConfusions = {'cw': 'half', 'leftRight': 'topBottom', 'topBottom': 'leftRight'};
+    final wrong = hard ? _pick(confusions[rule]!) : easyConfusions[rule]!;
+    // Easy: only the four boldest fills - no look-alikes (hatched vs lined
+    // vs cross) to tell apart at a glance.
+    final palette = hard ? fills : const ['black', 'dot', 'hatch', 'plain'];
+    final pool = [...palette]..shuffle(_r);
     final ca = pool.take(4).toList();
-    final cc = ([...fills]..shuffle(_r)).take(4).toList();
+    final cc = ([...palette]..shuffle(_r)).take(4).toList();
     if (ca.join() == cc.join()) return null;
     final right = move(cc, moves[rule]!), bad = move(cc, moves[wrong]!);
     // Second mistake: two neighbouring corners' fills the wrong way round.
