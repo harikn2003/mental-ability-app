@@ -7,7 +7,8 @@ import 'reasoning_question.dart';
 /// (SS256J Q13-16): three problem figures, find the fourth.
 ///
 /// Rule families, each at an easy and a hard setting:
-///   arrow    - an arrow turns while its cross-bars go up/down by one (Q14)
+///   arrow    - an arrow turns while its cross-bars go up/down by one (Q14);
+///              easy: it turns 45° a step like a clock hand, bars fixed
 ///   symbols  - symbols move round the cells of a grid (Q15, Q16)
 ///   spokes   - lines from the centre appear/disappear one by one (Q13)
 ///              while a dot moves round
@@ -27,9 +28,14 @@ class SeriesGenerator {
 
   static const families = ['arrow', 'symbols', 'spokes', 'turning'];
 
+  /// Easy (grades 2-3) families: ONE thing changes per step. 'turning' is
+  /// Hard only - with the figure the only thing changing, its sole honest
+  /// wrong option is the mirror image, too hard at that age.
+  static const easyFamilies = ['arrow', 'symbols', 'spokes'];
+
   static ReasoningQuestion? generate({bool hard = false, String? family}) {
     for (int attempt = 0; attempt < 60; attempt++) {
-      final f = family ?? _pick(families);
+      final f = family ?? _pick(hard ? families : easyFamilies);
       final built = switch (f) {
         'arrow' => _arrowSeries(hard),
         'symbols' => _symbolSeries(hard),
@@ -81,7 +87,8 @@ class SeriesGenerator {
   }
 
   static (List<LineFig>, LineFig, LineFig, LineFig, LineFig)? _arrowSeries(bool hard) {
-    final turn = hard ? _pick([1, -1, 3, -3]) : _pick([2, -2]);
+    if (!hard) return _easyArrow();
+    final turn = _pick([1, -1, 3, -3]);
     final d0 = _r.nextInt(8);
     final up = _r.nextBool();
     final bars = up ? [0, 1, 2, 3] : [3, 2, 1, 0];
@@ -99,6 +106,23 @@ class SeriesGenerator {
       arrow(w, bars[3]),
       arrow(dirs[3], wb),
       arrow(w, wb),
+    );
+  }
+
+  /// Easy: the arrow turns like a clock hand, 45° a step, and nothing else
+  /// changes. Wrong options: one step too far, and an extra cross-bar.
+  static (List<LineFig>, LineFig, LineFig, LineFig, LineFig)? _easyArrow() {
+    final turn = _pick([1, -1]);
+    final d0 = _r.nextInt(8);
+    final bars = 1 + _r.nextInt(2);
+    final dirs = [for (int i = 0; i < 5; i++) (d0 + turn * i) % 8];
+    final wb = bars + _pick<int>(const [1, -1]);
+    return (
+      [for (int i = 0; i < 3; i++) arrow(dirs[i], bars)],
+      arrow(dirs[3], bars),
+      arrow(dirs[4], bars),
+      arrow(dirs[3], wb),
+      arrow(dirs[4], wb),
     );
   }
 
@@ -145,7 +169,9 @@ class SeriesGenerator {
     final step = (hard && n == 8 ? _pick([1, 2]) : 1) * (_r.nextBool() ? 1 : -1);
     final symbols = [...symbolPool]..shuffle(_r);
     final slots = [for (int i = 0; i < n; i++) i]..shuffle(_r);
-    final start = <int, String>{for (int i = 0; i < 4; i++) slots[i]: symbols[i]};
+    // Easy: just two symbols to follow; hard: four.
+    final count = hard ? 4 : 2;
+    final start = <int, String>{for (int i = 0; i < count; i++) slots[i]: symbols[i]};
     final centre = w == 3 && h == 3 && _r.nextBool() ? symbols[4] : null;
 
     Map<(int, int), String> at(Map<int, String> m) => {
@@ -215,7 +241,8 @@ class SeriesGenerator {
     final base = remove ? {...changed, ...others.skip(hard ? 2 : 1)} : {...others.take(1 + _r.nextInt(2))};
     Set<int> at(int k) => remove ? base.difference(changed.take(k).toSet()) : {...base, ...changed.take(k)};
 
-    final dStep = (hard ? _pick([1, 2]) : 1) * (_r.nextBool() ? 1 : -1);
+    // Easy: the dot stays put - the spokes are the one thing changing.
+    final dStep = hard ? _pick([1, 2]) * (_r.nextBool() ? 1 : -1) : 0;
     final d0 = _r.nextInt(4);
     int dot(int k) => ((d0 + dStep * k) % 4 + 4) % 4;
 
@@ -230,7 +257,9 @@ class SeriesGenerator {
     if (wrongs.isEmpty) return null;
     final wrongSpokes = _pick(wrongs);
     // Wrong dot: didn't move, or moved one step too far.
-    final wrongDot = _pick([dot(2), ((dot(3) + dStep) % 4 + 4) % 4].where((d) => d != dot(3)).toList());
+    final wrongDot = hard
+        ? _pick([dot(2), ((dot(3) + dStep) % 4 + 4) % 4].where((d) => d != dot(3)).toList())
+        : (dot(3) + 1) % 4; // easy: the dot moved when it shouldn't have
 
     return (
       [for (int k = 0; k < 3; k++) _spokes(at(k), dot(k))],

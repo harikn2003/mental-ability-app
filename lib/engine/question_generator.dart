@@ -135,6 +135,10 @@ class QuestionGenerator {
   /// the rest keep the topic's original easy generators.
   static const examStyleEasyShare = {'figure_series': 60, 'analogy': 60};
 
+  /// Sandia-engine categories whose Hard previous-logic share is split with
+  /// the classic single-shape generator (see [generate]).
+  static const classicHardCategories = {'figure_series', 'analogy'};
+
   /// Main generator entry point.
   static ReasoningQuestion generate(String category, {bool isHardMode = false}) {
     // BUGFIX: every Hard Mode request used to go to HardQuestionGenerator,
@@ -148,12 +152,18 @@ class QuestionGenerator {
     // majority and keeps Sandia as the extra-challenge share.
     final examStyleShare = examStyleHardShare[category];
     final useExamStyle = isHardMode && examStyleShare != null && _r.nextInt(100) < examStyleShare;
-    if (isHardMode && hardEngineCategories.contains(category) && !useExamStyle) {
+    // Hard Figure Series / Analogy: the previous-logic share is split between
+    // the Sandia template and the classic single-shape questions. Easy only
+    // serves the classic rules that change ONE thing (grades 2-3), so the
+    // multi-change ones (turn + fill + dots) are served here - otherwise
+    // they would drop out of rotation entirely.
+    final classicHard = isHardMode && !useExamStyle && classicHardCategories.contains(category) && _r.nextBool();
+    if (isHardMode && hardEngineCategories.contains(category) && !useExamStyle && !classicHard) {
       return HardQuestionGenerator.generate(category);
     }
 
     for (int attempt = 0; attempt < 80; attempt++) {
-      final q = _generateRaw(category, isHardMode: isHardMode);
+      final q = _generateRaw(category, isHardMode: isHardMode, classic: classicHard);
       // Diagnostic logging: detect visual-duplicate options and emit a
       // structured JSON blob so device logs (adb/flutter logs) can be
       // searched for duplicate events.
@@ -196,14 +206,16 @@ class QuestionGenerator {
     }
     // Safety valve: if a category is fully exhausted in a long session, return
     // the latest generated instance instead of stalling generation.
-    final fallback = _generateRaw(category, isHardMode: isHardMode);
+    final fallback = _generateRaw(category, isHardMode: isHardMode, classic: classicHard);
     _markQuestionIfNew(fallback);
     return fallback;
   }
 
+  /// [classic]: serve the topic's original generator even in Hard Mode
+  /// (skipping the exam-style items) - see [classicHardCategories].
   static ReasoningQuestion _generateRaw(String category,
-      {bool isHardMode = false}) {
-    if (isHardMode) {
+      {bool isHardMode = false, bool classic = false}) {
+    if (isHardMode && !classic) {
       // Exam-style items (see ExamStyleGenerator); each returns null only if
       // it failed to build a valid item, in which case the older hard
       // branch below is used.
@@ -246,26 +258,21 @@ class QuestionGenerator {
           final exam = SeriesGenerator.generate();
           if (exam != null) return exam;
         }
-        return (isHardMode
+        // Easy (grades 2-3): only the series where ONE thing changes each
+        // step. The two- and three-change series are served in Hard.
+        final classicSeries = isHardMode
             ? [
-          _seriesRotFill,
-          _seriesDotsRot,
-          _seriesMorph,
-          _seriesAltDual,
-          _seriesInner,
-          _seriesDots,
-          _seriesRotation,
-          _seriesAltDual,
-        ]
-            : [
-          _seriesRotation,
-          _seriesDots,
-          _seriesFillToggle,
-          _seriesRotFill,
-          _seriesInner,
-          _seriesDotsRot,
-          _seriesMorph,
-        ])[isHardMode ? _r.nextInt(8) : _r.nextInt(7)]();
+                _seriesRotFill,
+                _seriesDotsRot,
+                _seriesMorph,
+                _seriesAltDual,
+                _seriesFillToggle,
+                _seriesInner,
+                _seriesDots,
+                () => _seriesRotation(hard: true),
+              ]
+            : [_seriesRotation, _seriesDots, _seriesInner];
+        return classicSeries[_r.nextInt(classicSeries.length)]();
       case 'analogy':
         // Easy: exam-style analogy (AnalogyGenerator) for a share, the
         // original analogy for the rest and as the fallback.
@@ -1368,7 +1375,8 @@ class QuestionGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   // 4a. SERIES — clockwise rotation
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion _seriesRotation() {
+  /// Easy: rotation only; hard may also cycle an inner shape.
+  static ReasoningQuestion _seriesRotation({bool hard = false}) {
     for (int attempt = 0; attempt < 30; attempt++) {
       final shape = [2, 3, 7, 8][_r.nextInt(4)];
       final filled = _r.nextBool();
@@ -1377,7 +1385,7 @@ class QuestionGenerator {
       final sigKey = 'serRot2:s$shape,f$filled,st$start,d$dots';
       if (_seen(sigKey)) continue;
 
-      final subV2 = _r.nextInt(2);
+      final subV2 = hard ? _r.nextInt(2) : 0;
       final innerCy = subV2 == 1 ? (_r.nextInt(3) + 1) : 0;
 
       final seq = List.generate(

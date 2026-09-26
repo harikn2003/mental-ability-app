@@ -166,7 +166,7 @@ int distance(LineFig a, LineFig b) {
 
 void main() {
   for (final hard in [false, true]) {
-    for (final family in SeriesGenerator.families) {
+    for (final family in hard ? SeriesGenerator.families : SeriesGenerator.easyFamilies) {
       test('${hard ? 'hard' : 'easy'} $family: the rule read from the figures picks exactly one option', () {
         SeriesGenerator.seed(21);
         var central = 0;
@@ -203,7 +203,7 @@ void main() {
       }
       // ~60% exam-style, the rest the original generators (kept on purpose).
       expect(exam / n, inInclusiveRange(0.45, 0.75), reason: '${hard ? 'hard' : 'easy'} exam-style share');
-      expect(rules, SeriesGenerator.families.toSet());
+      expect(rules, (hard ? SeriesGenerator.families : SeriesGenerator.easyFamilies).toSet());
     }
   });
 
@@ -249,5 +249,48 @@ void main() {
           '${(100 * central / classic).toStringAsFixed(1)}% of $classic (was 64% easy / 100% hard)');
       expect(central / classic, lessThan(0.25));
     }
+  });
+
+  test('easy (grades 2-3): one thing changes per step', () {
+    SeriesGenerator.seed(51);
+    for (int i = 0; i < runs; i++) {
+      // Arrow: bars never change, the turn is one 45° step.
+      final a = SeriesGenerator.generate(family: 'arrow')!;
+      final r = [for (final m in a.puzzle['sequence'] as List) readArrow(fig(m))];
+      expect(r.map((x) => x.$2).toSet().length, 1, reason: 'easy arrow: bars stay the same');
+      expect(mod(r[1].$1 - r[0].$1, 8), anyOf(1, 7), reason: 'easy arrow: 45° steps');
+      // Spokes: the dot never moves.
+      final sp = SeriesGenerator.generate(family: 'spokes')!;
+      expect({for (final m in sp.puzzle['sequence'] as List) readSpokes(fig(m)).$2}.length, 1, reason: 'easy spokes: dot stays');
+      // Symbols: two symbols on a 2x2 grid.
+      final sy = SeriesGenerator.generate(family: 'symbols')!;
+      final f0 = fig((sy.puzzle['sequence'] as List).first);
+      expect((f0.w, f0.h, f0.glyphs.length), (2, 2, 2));
+    }
+    // The original series in Easy: one attribute changes between frames.
+    QuestionGenerator.seed(12);
+    var classic = 0;
+    for (int i = 0; i < 800 && classic < 200; i++) {
+      if (i % 10 == 0) QuestionGenerator.resetSession();
+      final q = QuestionGenerator.generate('figure_series');
+      if (q.type.startsWith('series_exam_')) continue;
+      classic++;
+      final seq = [for (final m in q.puzzle['sequence'] as List) m as Map];
+      final changing = {
+        for (final k in ['shape', 'rotation', 'filled', 'dots', 'inner'])
+          if ({for (final f in seq) f[k]}.length > 1) k,
+      };
+      expect(changing.length, 1, reason: '${q.type} changes $changing');
+    }
+  });
+
+  test('hard still serves the classic multi-change series and the Sandia series', () {
+    QuestionGenerator.seed(13);
+    final types = <String>{};
+    for (int i = 0; i < 300; i++) {
+      if (i % 10 == 0) QuestionGenerator.resetSession();
+      types.add(QuestionGenerator.generate('figure_series', isHardMode: true).type);
+    }
+    expect(types, containsAll(['hard_series_sandia_3layer', 'series_rot_fill', 'series_morph', 'series_fill_toggle']));
   });
 }

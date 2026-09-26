@@ -246,4 +246,16 @@ void main() {
       expect(changed.length, lessThanOrEqualTo(1), reason: '${q.type} changes $changed');
     }
   });
+
+  test('hard still serves the classic multi-change analogies and the Sandia analogy', () {
+    QuestionGenerator.seed(14);
+    final types = <String>{};
+    for (int i = 0; i < 400; i++) {
+      if (i % 10 == 0) QuestionGenerator.resetSession();
+      types.add(QuestionGenerator.generate('analogy', isHardMode: true).type);
+    }
+    // Rules 0, 2, 4, 6, 8, 9 change two or three things; Easy no longer
+    // serves them, so Hard must.
+    expect(types, containsAll(['hard_analogy_sandia_3layer', 'analogy_r0', 'analogy_r2', 'analogy_r6', 'analogy_r8', 'analogy_r9']));
+  });
 }
