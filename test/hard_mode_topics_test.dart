@@ -56,8 +56,9 @@ void main() {
 
   test('punch_hole: double fold, answer = every punch mirrored across both folds', () {
     for (final q in _hard('punch_hole')) {
-      if (q.type == 'punch_hole_exam') continue; // see exam_style_test.dart
-      expect(q.type, 'punch_hole_double_fold');
+      // Hard also serves the exam item (exam_style_test.dart) and the
+      // original one-fold item (easy_level_test.dart checks its cards).
+      if (q.type != 'punch_hole_double_fold') continue;
       expect(q.puzzle['fold_axis'], 2);
       final expected = <String>{};
       for (final h in q.puzzle['holes'] as List) {
@@ -92,8 +93,15 @@ void main() {
       } else {
         strings++;
         final content = q.puzzle['content'] as String;
-        expect(content.length, 5);
-        expect(RegExp(r'\d').hasMatch(content) && RegExp(r'[A-Z]').hasMatch(content), isTrue, reason: content);
+        // 5 mixed characters, or the original 4-character set with
+        // single-letter traps (moved here from Easy).
+        if (q.type == 'mirror_text_hard') {
+          expect(content.length, 5);
+          expect(RegExp(r'\d').hasMatch(content) && RegExp(r'[A-Z]').hasMatch(content), isTrue, reason: content);
+        } else {
+          expect(q.type, anyOf('mirror_text_word', 'mirror_text_num'));
+          expect(content.length, 4);
+        }
         final correct = q.options[q.correctIndex];
         expect(correct['content'], content);
         expect(correct['mirror_h'], isTrue);

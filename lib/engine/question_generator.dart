@@ -226,7 +226,9 @@ class QuestionGenerator {
         'embedded' => ExamStyleGenerator.embeddedFigure(),
         'figure_series' => SeriesGenerator.generate(hard: true),
         'analogy' => AnalogyGenerator.generate(hard: true),
-        'punch_hole' => ExamStyleGenerator.punchHole(),
+        // 60% exam-style; the rest the double-fold / original one-fold items
+        // (_punchHole), which were only reachable as a fallback.
+        'punch_hole' => _r.nextInt(100) < 60 ? ExamStyleGenerator.punchHole() : null,
         // Mostly the exam's irregular grid cut; a quarter keep the circle /
         // triangle pieces, which the exam also uses occasionally.
         'geo_completion' => _r.nextInt(4) != 0 ? ExamStyleGenerator.geoCompletion() : null,
@@ -2616,14 +2618,31 @@ class QuestionGenerator {
       }
     }
 
+    // Easy (grades 2-3): three characters whose mirror image clearly
+    // differs, so every flip is visible.
+    String pickEasyContent(bool isDigit) {
+      final pool = (isDigit ? '234579' : 'BCDEFGJKLNPRSZ').split('')..shuffle(_r);
+      return pool.take(3).join();
+    }
+
     mirrorTextAttempt:
     for (int attempt = 0; attempt < 80; attempt++) {
       final isDigit = _r.nextBool();
-      final content = isHardMode ? pickHardContent() : pickBaseContent(isDigit);
-      final sigKey = 'mirTextAdv:$content|${isDigit ? 'digit' : 'word'}';
+      // Hard: half the questions are the balanced 5-character set; the other
+      // half are the original 4-character set with single-letter traps (one
+      // letter left unflipped, two letters swapped), which used to be Easy's
+      // and is too fine a distinction for grades 2-3.
+      final classicTraps = isHardMode && _r.nextBool();
+      final content = !isHardMode
+          ? pickEasyContent(isDigit)
+          : classicTraps
+              ? pickBaseContent(isDigit)
+              : pickHardContent();
+      final sigKey = 'mirTextAdv:$content|${isDigit ? 'digit' : 'word'}${classicTraps ? '|traps' : ''}';
       if (_seen(sigKey)) continue;
 
-      if (isHardMode) {
+      // Balanced whole-word set (Hard 5 characters, Easy 3).
+      if (!classicTraps) {
         // Balanced answer set: {letter order reversed, not} x {each letter
         // flipped, not} - the mistakes a mirror image invites (JNV 2018-2019
         // BOY / CLASS / FAN items): reversing only the order, flipping only
@@ -2646,7 +2665,7 @@ class QuestionGenerator {
         _markSeen(sigKey);
         return ReasoningQuestion(
           category: 'mirror_text',
-          type: 'mirror_text_hard',
+          type: isHardMode ? 'mirror_text_hard' : 'mirror_text_easy',
           puzzle: {'type': 'mirror_text', 'is_clock': false, 'content': content, 'mirror_h': false, 'mirror_v': false},
           options: packed.opts,
           correctIndex: packed.idx,
@@ -2826,15 +2845,81 @@ class QuestionGenerator {
         correctIndex: packed.idx,
       );
     }
-    return _punchHole();
+    return _punchHoleClassic();
+  }
+
+  /// Hole centres closer than this overlap on the card (hole radius is 7%
+  /// of the card width).
+  static const _minHoleGap = 0.18;
+
+  static bool _holesSeparated(List<Map<String, dynamic>> holes) {
+    for (int i = 0; i < holes.length; i++) {
+      for (int j = i + 1; j < holes.length; j++) {
+        final dx = (holes[i]['x'] as num) - (holes[j]['x'] as num);
+        final dy = (holes[i]['y'] as num) - (holes[j]['y'] as num);
+        if (dx * dx + dy * dy < _minHoleGap * _minHoleGap) return false;
+      }
+    }
+    return true;
   }
 
   static ReasoningQuestion _punchHole({bool isHardMode = false}) {
-    if (isHardMode) return _punchHoleHard();
+    // Hard (the share not served exam-style): the double-fold item or the
+    // original one-fold item with one or two holes, which used to be Easy's.
+    if (isHardMode) return _r.nextBool() ? _punchHoleHard() : _punchHoleClassic();
+    return _punchHoleEasy() ?? _punchHoleClassic();
+  }
+
+  /// Easy (grades 2-3): one fold, one hole kept well away from the fold.
+  /// The wrong cards are clearly different: mirrored across the other fold,
+  /// mirrored corner-to-corner, or never unfolded (one hole).
+  static ReasoningQuestion? _punchHoleEasy() {
+    for (int attempt = 0; attempt < 50; attempt++) {
+      final axis = _r.nextInt(2); // 0: fold down the middle (left half shown), 1: across (top half)
+      double away() => 0.15 + _r.nextDouble() * 0.2; // 0.15-0.35: far from the middle line
+      double anywhere() => _r.nextBool() ? away() : 1 - away();
+      final hx = axis == 0 ? away() : anywhere();
+      final hy = axis == 0 ? anywhere() : away();
+      final sigKey = 'punchEasy:ax$axis,${hx.toStringAsFixed(2)},${hy.toStringAsFixed(2)}';
+      if (_seen(sigKey)) continue;
+
+      Map<String, dynamic> h(double x, double y) => {'x': x, 'y': y};
+      Map<String, dynamic> card(List<Map<String, dynamic>> holes, int ax) =>
+          {'type': 'punch_hole', 'unfolded': true, 'fold_axis': ax, 'holes': holes};
+      final correct = [h(hx, hy), axis == 0 ? h(1 - hx, hy) : h(hx, 1 - hy)];
+      final wrongs = [
+        [h(hx, hy), axis == 0 ? h(hx, 1 - hy) : h(1 - hx, hy)], // mirrored across the other fold
+        [h(hx, hy), h(1 - hx, 1 - hy)], // mirrored corner to corner
+        [h(hx, hy)], // never unfolded
+      ];
+      final all = [correct, ...wrongs];
+      if (!all.every(_holesSeparated)) continue;
+      if (all.map(_holesKey).toSet().length != 4) continue;
+      final packed = _packExact(card(correct, axis), [
+        card(wrongs[0], 1 - axis),
+        card(wrongs[1], axis),
+        card(wrongs[2], axis),
+      ]);
+      _markSeen(sigKey);
+      return ReasoningQuestion(
+        category: 'punch_hole',
+        type: 'punch_hole_easy',
+        puzzle: {'type': 'punch_hole', 'unfolded': false, 'fold_axis': axis, 'holes': [h(hx, hy)]},
+        options: packed.opts,
+        correctIndex: packed.idx,
+      );
+    }
+    return null;
+  }
+
+  /// The original one-fold item (one or two holes); served in Hard.
+  static ReasoningQuestion _punchHoleClassic() {
     for (int attempt = 0; attempt < 50; attempt++) {
       final int axis = _r.nextInt(2);
-      final double hx = 0.18 + _r.nextDouble() * 0.32;
-      final double hy = 0.18 + _r.nextDouble() * 0.32;
+      // Up to 0.38 (was 0.5): a hole next to the fold line landed on top of
+      // its own unfolded mirror image.
+      final double hx = 0.18 + _r.nextDouble() * 0.2;
+      final double hy = 0.18 + _r.nextDouble() * 0.2;
       final int variant = _r.nextInt(4);
 
       final List<Map<String, dynamic>> foldedHoles = [
@@ -2871,7 +2956,7 @@ class QuestionGenerator {
         {'x': ox.clamp(0.08, 0.92), 'y': oy.clamp(0.08, 0.92)}
       ];
       if (variant == 2 || variant == 3) {
-        wPosHoles.add({'x': (ox - 0.1).clamp(0.08, 0.92), 'y': (oy - 0.1).clamp(0.08, 0.92)});
+        wPosHoles.add({'x': (ox + 0.15).clamp(0.08, 0.92), 'y': (oy + 0.15).clamp(0.08, 0.92)});
       }
       final wrongPos = unfold(wPosHoles, axis);
 
@@ -2883,7 +2968,7 @@ class QuestionGenerator {
         {'x': fx.clamp(0.08, 0.92), 'y': fy.clamp(0.08, 0.92)}
       ];
       if (variant == 2 || variant == 3) {
-        w3Holes.add({'x': (fx + 0.05).clamp(0.08, 0.92), 'y': (fy + 0.05).clamp(0.08, 0.92)});
+        w3Holes.add({'x': (fx + 0.15).clamp(0.08, 0.92), 'y': (fy + 0.15).clamp(0.08, 0.92)});
       }
       final wrongMixed = unfold(w3Holes, 1 - axis);
 
@@ -2914,6 +2999,10 @@ class QuestionGenerator {
           'holes': wrongMixed,
         },
       ];
+
+      // No card may show overlapping holes (they used to: wrong cards put a
+      // second hole 0.05-0.1 from the first).
+      if (![correctHoles, wrongPos, wrongOppAxis, wrongMixed].every(_holesSeparated)) continue;
 
       final packed = _pack(correctOpt, wrongOpts);
 

@@ -313,8 +313,12 @@ void main() {
   });
 
   test('mirror text options follow requested mirror-jumble logic', () {
-    for (int i = 0; i < 80; i++) {
-      final q = QuestionGenerator.generate('mirror_text');
+    // This trap-based set (one letter unflipped, two swapped, ...) was
+    // Easy's; it is served in Hard now - Easy (grades 2-3) uses 3 letters and
+    // whole-word mistakes only (easy_level_test.dart).
+    for (int i = 0; i < 160; i++) {
+      final q = QuestionGenerator.generate('mirror_text', isHardMode: true);
+      if (q.type != 'mirror_text_word' && q.type != 'mirror_text_num') continue;
       final puzzle = Map<String, dynamic>.from(q.puzzle);
       final keys = q.options
           .map((

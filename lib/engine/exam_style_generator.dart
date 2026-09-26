@@ -481,6 +481,14 @@ class ExamStyleGenerator {
         option(changeA: true, changeB: true),
       ];
       if (sets.map(_punchKey).toSet().length != 4) continue;
+      // Every card, not just the right one: a wrong unfolding (e.g. the other
+      // diagonal) can bring two holes on top of each other.
+      bool apart(List<Map<String, dynamic>> hs) => [
+            for (int i = 0; i < hs.length; i++)
+              for (int j = i + 1; j < hs.length; j++)
+                pow((hs[i]['x'] as double) - (hs[j]['x'] as double), 2) + pow((hs[i]['y'] as double) - (hs[j]['y'] as double), 2) >= 0.18 * 0.18,
+          ].every((ok) => ok);
+      if (!sets.every(apart)) continue;
 
       Map<String, dynamic> card(List<Map<String, dynamic>> hs) => {'type': 'punch_hole', 'unfolded': true, 'fold_axis': -1, 'holes': hs};
       return _question('punch_hole', 'punch_hole_exam',
