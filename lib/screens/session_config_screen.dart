@@ -29,6 +29,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
       });
   bool isBiasEnabled = true;
   bool isHardMode = false;
+  bool isMediumMode = false; // Easy: both false; Medium / Hard: one true
   String currentLang = 'EN';
 
   // Pull-to-refresh + auto-scroll
@@ -48,6 +49,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
   static const Color accentEmerald = Color(0xFF10B981);
   static const Color accentPurple = Color(0xFFA855F7);
   static const Color hardAccent = Color(0xFFEF4444); // Hard Mode: same red as the weak-area severity pills
+  static const Color mediumAccent = Color(0xFFD97706); // Medium: amber, between Easy's blue and Hard's red
 
   // Persisted bias weights loaded from SharedPreferences
   // Passed into QuizScreen so the session starts from where the student left off
@@ -73,6 +75,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
       final time = prefs.getString('${_kSetup}time');
       if (time != null && _times.contains(time)) selectedTime = time;
       isHardMode = prefs.getBool('${_kSetup}hard') ?? isHardMode;
+      isMediumMode = !isHardMode && (prefs.getBool('${_kSetup}medium') ?? false);
       isBiasEnabled = prefs.getBool('${_kSetup}bias') ?? isBiasEnabled;
       final topics = (prefs.getStringList('${_kSetup}topics') ?? const [])
           .where(_defaultCategories.contains);
@@ -99,6 +102,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
     await prefs.setInt('${_kSetup}count', selectedCount);
     await prefs.setString('${_kSetup}time', selectedTime);
     await prefs.setBool('${_kSetup}hard', isHardMode);
+    await prefs.setBool('${_kSetup}medium', isMediumMode);
     await prefs.setBool('${_kSetup}bias', isBiasEnabled);
     await prefs.setString('${_kSetup}mode', selectedMode);
     await prefs.setStringList('${_kSetup}topics', selectedTopics.toList());
@@ -535,23 +539,27 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
             child: Row(
-              key: ValueKey(isHardMode),
+              key: ValueKey('$isHardMode$isMediumMode'),
               children: [
                 Icon(
-                  isHardMode ? Icons.bolt_rounded : Icons.check_circle_outline_rounded,
+                  isHardMode
+                      ? Icons.bolt_rounded
+                      : isMediumMode
+                          ? Icons.tune_rounded
+                          : Icons.check_circle_outline_rounded,
                   size: 14,
-                  color: isHardMode ? hardAccent : textSubtle,
+                  color: isHardMode ? hardAccent : isMediumMode ? mediumAccent : textSubtle,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    AppLocale.get(currentLang, isHardMode ? 'hard_desc' : 'easy_desc'),
+                    AppLocale.get(currentLang, isHardMode ? 'hard_desc' : isMediumMode ? 'medium_desc' : 'easy_desc'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: isHardMode ? hardAccent : textSubtle,
+                      color: isHardMode ? hardAccent : isMediumMode ? mediumAccent : textSubtle,
                     ),
                   ),
                 ),
@@ -1079,24 +1087,32 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
         children: [
           Positioned.fill(
             child: AnimatedAlign(
-              alignment: isHardMode ? Alignment.centerRight : Alignment.centerLeft,
+              alignment: isHardMode
+                  ? Alignment.centerRight
+                  : isMediumMode
+                      ? Alignment.center
+                      : Alignment.centerLeft,
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOutCubic,
               child: FractionallySizedBox(
-                widthFactor: 0.5,
+                widthFactor: 1 / 3,
                 heightFactor: 1,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: isHardMode ? const [accentOrange, hardAccent] : const [primary, primaryDark],
+                      colors: isHardMode
+                          ? const [accentOrange, hardAccent]
+                          : isMediumMode
+                              ? const [Color(0xFFF59E0B), mediumAccent]
+                              : const [primary, primaryDark],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(9),
                     boxShadow: [
                       BoxShadow(
-                        color: (isHardMode ? hardAccent : primary).withOpacity(0.3),
+                        color: (isHardMode ? hardAccent : isMediumMode ? mediumAccent : primary).withOpacity(0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
                       ),
@@ -1112,14 +1128,29 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                 segment(
                   label: AppLocale.get(currentLang, 'easy'),
                   icon: Icons.spa_rounded,
-                  selected: !isHardMode,
-                  onTap: () => setState(() => isHardMode = false),
+                  selected: !isHardMode && !isMediumMode,
+                  onTap: () => setState(() {
+                    isHardMode = false;
+                    isMediumMode = false;
+                  }),
+                ),
+                segment(
+                  label: AppLocale.get(currentLang, 'medium'),
+                  icon: Icons.tune_rounded,
+                  selected: isMediumMode,
+                  onTap: () => setState(() {
+                    isHardMode = false;
+                    isMediumMode = true;
+                  }),
                 ),
                 segment(
                   label: AppLocale.get(currentLang, 'hard'),
                   icon: Icons.local_fire_department_rounded,
                   selected: isHardMode,
-                  onTap: () => setState(() => isHardMode = true),
+                  onTap: () => setState(() {
+                    isHardMode = true;
+                    isMediumMode = false;
+                  }),
                 ),
               ],
             ),
@@ -1201,6 +1232,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                         initialWeights: weakWeights,
                         topics: weakWeights.keys.toList(),
                         isHardMode: isHardMode,
+                        isMediumMode: isMediumMode,
                       ),
                 ),
               ).then((_) => _onReturn());
@@ -1221,6 +1253,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                   initialWeights: isBiasEnabled ? _savedWeights : {},
                   topics: topics.length > 1 ? topics : const [],
                   isHardMode: isHardMode,
+                  isMediumMode: isMediumMode,
                 ),
               ),
             ).then((_) => _onReturn());

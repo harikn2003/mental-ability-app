@@ -21,6 +21,10 @@ class QuizScreen extends StatefulWidget {
   final String timePerQuestion;
   final bool biasEnabled;
   final bool isHardMode;
+
+  /// Medium: each question comes from the Easy or the Hard pool at random,
+  /// so the session sits between the two (overrides [isHardMode]).
+  final bool isMediumMode;
   final Map<String, int> initialWeights; // persisted from previous session
   final List<ReasoningQuestion> retryQuestions;
 
@@ -35,6 +39,7 @@ class QuizScreen extends StatefulWidget {
     required this.timePerQuestion,
     this.biasEnabled = true,
     this.isHardMode = false,
+    this.isMediumMode = false,
     this.initialWeights = const {},
     this.retryQuestions = const [],
     this.topics = const [],
@@ -220,7 +225,8 @@ class _QuizScreenState extends State<QuizScreen>
     int attempts = 0;
     do {
       final category = _pickCategory();
-      q = QuestionGenerator.generate(category, isHardMode: widget.isHardMode);
+      final hard = widget.isMediumMode ? Random().nextBool() : widget.isHardMode;
+      q = QuestionGenerator.generate(category, isHardMode: hard);
       attempts++;
     } while (_seenSignatures.contains(_questionSignature(q)) && attempts < 40);
     _seenSignatures.add(_questionSignature(q));
