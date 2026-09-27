@@ -49,4 +49,33 @@ void main() {
       }
     });
   }
+
+  testWidgets('category breakdown shows the score; Return to Home goes home', (tester) async {
+    AppLocale.setLang('EN');
+    tester.view.physicalSize = const Size(1084, 2412);
+    tester.view.devicePixelRatio = 2.75;
+    addTearDown(tester.view.reset);
+    final nav = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(MaterialApp(navigatorKey: nav, home: const Scaffold(body: Text('HOME'))));
+    // home -> result stand-in -> report
+    nav.currentState!.push(MaterialPageRoute(builder: (_) => const Scaffold(body: Text('RESULT'))));
+    nav.currentState!.push(MaterialPageRoute(
+      builder: (_) => const SessionSummaryScreen(
+        score: 1,
+        totalQuestions: 3,
+        timeSpent: [10, 50, 30],
+        categoryStats: {'analogy': [true, false, false]},
+        attempts: [],
+      ),
+    ));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('1/3'), findsOneWidget);
+    await tester.ensureVisible(find.text(AppLocale.s('return_home')));
+    await tester.tap(find.text(AppLocale.s('return_home')));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('HOME'), findsOneWidget);
+    expect(find.text('RESULT'), findsNothing);
+  });
 }
