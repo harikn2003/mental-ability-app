@@ -32,6 +32,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
   bool isBiasEnabled = true;
   bool isHardMode = false;
   bool isMediumMode = false; // Easy: both false; Medium / Hard: one true
+  bool childMode = false; // see QuizScreen.childMode
   String currentLang = 'EN';
 
   // Pull-to-refresh + auto-scroll
@@ -94,6 +95,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
       isHardMode = prefs.getBool('${_kSetup}hard') ?? isHardMode;
       isMediumMode = !isHardMode && (prefs.getBool('${_kSetup}medium') ?? false);
       isBiasEnabled = prefs.getBool('${_kSetup}bias') ?? isBiasEnabled;
+      childMode = prefs.getBool('${_kSetup}child') ?? childMode;
       final topics = (prefs.getStringList('${_kSetup}topics') ?? const [])
           .where(_defaultCategories.contains);
       selectedTopics
@@ -121,6 +123,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
     await prefs.setBool('${_kSetup}hard', isHardMode);
     await prefs.setBool('${_kSetup}medium', isMediumMode);
     await prefs.setBool('${_kSetup}bias', isBiasEnabled);
+    await prefs.setBool('${_kSetup}child', childMode);
     await prefs.setString('${_kSetup}mode', selectedMode);
     await prefs.setStringList('${_kSetup}topics', selectedTopics.toList());
   }
@@ -455,7 +458,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Setting 1: Total Questions — slider from 10 to 50, step 10
+          // Setting 1: Total Questions — slider over _counts (5 ... 50)
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -588,10 +591,52 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 6),
+          _buildChildModeRow(),
         ],
       ),
     );
   }
+
+  /// Child mode switch, under the difficulty setting.
+  Widget _buildChildModeRow() => Row(
+        children: [
+          const Icon(Icons.lock_outline_rounded, size: 18, color: textSubtle),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(AppLocale.get(currentLang, 'child_mode'),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textMain)),
+                Text(AppLocale.get(currentLang, 'child_mode_sub'),
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: textSubtle)),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: AppLocale.get(currentLang, 'child_mode'),
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.info_outline_rounded, size: 18, color: textSubtle),
+            onPressed: () => showDialog(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: Text(AppLocale.get(currentLang, 'child_mode')),
+                content: Text(AppLocale.get(currentLang, 'child_mode_info')),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context), child: Text(AppLocale.get(currentLang, 'close'))),
+                ],
+              ),
+            ),
+          ),
+          Switch(
+            value: childMode,
+            activeThumbColor: Colors.white,
+            activeTrackColor: primary,
+            onChanged: (v) => setState(() => childMode = v),
+          ),
+        ],
+      );
 
   /// Confirm, then clear the weak-area weights.
   void _confirmReset() {
@@ -1275,6 +1320,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                         topics: weakWeights.keys.toList(),
                         isHardMode: isHardMode,
                         isMediumMode: isMediumMode,
+                        childMode: childMode,
                       ),
                 ),
               ).then((_) => _onReturn());
@@ -1296,6 +1342,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                   topics: topics.length > 1 ? topics : const [],
                   isHardMode: isHardMode,
                   isMediumMode: isMediumMode,
+                  childMode: childMode,
                 ),
               ),
             ).then((_) => _onReturn());
