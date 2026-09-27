@@ -63,6 +63,10 @@ class _QuizScreenState extends State<QuizScreen>
   Timer? _timer;
 
   late AnimationController _pulseController;
+
+  /// The question area's scroll position: moved to show the result after an
+  /// answer, and back to the top for each new question.
+  final ScrollController _scrollCtrl = ScrollController();
   late Animation<double> _pulseAnim;
 
   // ── Scoring ───────────────────────────────────────────────────────────────
@@ -149,6 +153,7 @@ class _QuizScreenState extends State<QuizScreen>
   void dispose() {
     _timer?.cancel();
     _pulseController.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
@@ -302,6 +307,19 @@ class _QuizScreenState extends State<QuizScreen>
       }
     });
     _updateWeights(cat, correct);
+    _revealResult();
+  }
+
+  /// After an answer the result message appears below the options; on a tall
+  /// question it would be off-screen, so scroll it into view.
+  void _revealResult() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollCtrl.hasClients) return;
+      final end = _scrollCtrl.position.maxScrollExtent;
+      if (end > _scrollCtrl.offset) {
+        _scrollCtrl.animateTo(end, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+      }
+    });
   }
 
   void _skipQuestion() {
@@ -328,6 +346,7 @@ class _QuizScreenState extends State<QuizScreen>
       );
     });
     _updateWeights(cat, false);
+    _revealResult();
   }
 
   void _nextQuestion() {
@@ -400,6 +419,9 @@ class _QuizScreenState extends State<QuizScreen>
       _timedOut = false;
       _startTimer();
     });
+    // Each question starts at the top (the previous one may have been
+    // scrolled down to show its result).
+    if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(0);
   }
 
   // ── Exit Lifecycle ────────────────────────────────────────────────────────
@@ -511,8 +533,11 @@ class _QuizScreenState extends State<QuizScreen>
               _buildHeader(progress, _currentQ.category),
               Expanded(
                 child: SingleChildScrollView(
+                  controller: _scrollCtrl,
                   physics: const ClampingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
+                  // The buttons have their own strip below (bottomNavigationBar),
+                  // so no room needs to be left for them here.
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -528,8 +553,16 @@ class _QuizScreenState extends State<QuizScreen>
             ],
           ),
         ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-        floatingActionButton: _buildBottomActions(),
+        // Skip / Next get their own fixed strip under the question area.
+        // They used to float over it, covering the result message and, on
+        // tall questions, option D (headless walkthrough, 2026-09-27).
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 76,
+            child: Align(alignment: Alignment.center, child: _buildBottomActions()),
+          ),
+        ),
       ),
     );
   }
@@ -561,27 +594,41 @@ class _QuizScreenState extends State<QuizScreen>
           const SizedBox(height: 10),
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  _getTopicLabel(category),
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: primary,
-                    letterSpacing: 0.8,
-                  ),
+              // The topic label (and bias tag) take all the space left of the
+              // timer; a long name (e.g. Space Visualisation, or in Hindi /
+              // Marathi) only shortens with an ellipsis if it truly doesn't
+              // fit. (A Flexible label next to a Spacer split the free space
+              // in half and cut names that fit.)
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          _getTopicLabel(category),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: primary,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (widget.biasEnabled) ...[
+                      const SizedBox(width: 6),
+                      _buildBiasIndicator(category),
+                    ],
+                  ],
                 ),
               ),
-              if (widget.biasEnabled) ...[
-                const SizedBox(width: 6),
-                _buildBiasIndicator(category),
-              ],
-              const Spacer(),
               _buildTimerWidget(),
               const SizedBox(width: 12),
               Text(
