@@ -563,6 +563,33 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
     );
   }
 
+  /// Confirm, then clear the weak-area weights.
+  void _confirmReset() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(AppLocale.get(currentLang, 'reset_title')),
+        content: Text(AppLocale.get(currentLang, 'reset_body')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppLocale.get(currentLang, 'cancel')),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _resetWeights();
+            },
+            child: Text(
+              AppLocale.get(currentLang, 'reset'),
+              style: const TextStyle(color: Color(0xFFEF4444)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildWeakAreasCard() {
     final weak = _weakCategories;
     final isSelected = selectedMode == 'weak_areas';
@@ -579,32 +606,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
         selectedMode = 'weak_areas';
         selectedTopics.clear();
       }),
-      onLongPress: () {
-        showDialog(
-          context: context,
-          builder: (_) =>
-              AlertDialog(
-                title: Text(AppLocale.get(currentLang, 'reset_title')),
-                content: Text(AppLocale.get(currentLang, 'reset_body')),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(AppLocale.get(currentLang, 'cancel')),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _resetWeights();
-                    },
-                    child: Text(
-                      AppLocale.get(currentLang, 'reset'),
-                      style: TextStyle(color: Color(0xFFEF4444)),
-                    ),
-                  ),
-                ],
-              ),
-        );
-      },
+      onLongPress: _confirmReset,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(16),
@@ -728,13 +730,20 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    AppLocale.get(currentLang, 'hold_reset'),
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey.shade500,
-                      fontStyle: FontStyle.italic,
+                  // A visible Reset (the only way used to be a hidden
+                  // long-press on the card).
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _confirmReset,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        minimumSize: const Size(0, 32),
+                        foregroundColor: textSubtle,
+                        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                      icon: const Icon(Icons.restart_alt_rounded, size: 16),
+                      label: Text(AppLocale.get(currentLang, 'reset')),
                     ),
                   ),
                 ],
@@ -863,7 +872,8 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Column(
+                    Expanded(
+                      child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
@@ -882,6 +892,26 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                           ),
                         ),
                       ],
+                    ),
+                    ),
+                    // What "Intelligent Bias" does, for coordinators.
+                    IconButton(
+                      tooltip: AppLocale.get(currentLang, 'intelligent_bias'),
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
+                      onPressed: () => showDialog(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: Text(AppLocale.get(currentLang, 'intelligent_bias')),
+                          content: Text(AppLocale.get(currentLang, 'bias_info')),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: Text(AppLocale.get(currentLang, 'close')),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),

@@ -122,4 +122,26 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Start Random Challenge'), findsOneWidget);
   });
+
+  testWidgets('weak areas have a visible Reset; Intelligent Bias has an explanation', (tester) async {
+    phone(tester);
+    SharedPreferences.setMockInitialValues({'bias_weights_analogy': 5, 'bias_weights_punch_hole': 3});
+    await tester.pumpWidget(MaterialApp(theme: ThemeData(fontFamily: 'Roboto'), home: const SessionConfigScreen()));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text(AppLocale.s('practice_weak_card')), findsOneWidget);
+
+    await tester.tap(find.byTooltip(AppLocale.s('intelligent_bias')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text(AppLocale.s('bias_info')), findsOneWidget);
+    await tester.tap(find.text(AppLocale.s('close')));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.ensureVisible(find.text(AppLocale.s('reset')));
+    await tester.tap(find.text(AppLocale.s('reset')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text(AppLocale.s('reset_title')), findsOneWidget);
+    await tester.tap(find.text(AppLocale.s('reset')).last); // confirm in the dialog
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text(AppLocale.s('practice_weak_card')), findsNothing, reason: 'weak areas cleared');
+  });
 }
