@@ -24,6 +24,10 @@ class QuizScreen extends StatefulWidget {
   final Map<String, int> initialWeights; // persisted from previous session
   final List<ReasoningQuestion> retryQuestions;
 
+  /// Random mode only: draw questions from just these topics (a coordinator's
+  /// multi-topic selection, or the weak-areas practice). Empty = all topics.
+  final List<String> topics;
+
   const QuizScreen({
     super.key,
     required this.mode,
@@ -33,6 +37,7 @@ class QuizScreen extends StatefulWidget {
     this.isHardMode = false,
     this.initialWeights = const {},
     this.retryQuestions = const [],
+    this.topics = const [],
   });
 
   @override
@@ -118,8 +123,12 @@ class _QuizScreenState extends State<QuizScreen>
   void initState() {
     super.initState();
 
+    // Only the chosen topics when a subset was selected. (Weak-areas
+    // practice used to pass weights for the weak topics only, and every other
+    // topic was still drawn at weight 1.)
     _weights = {
-      for (final cat in _allCategories) cat: widget.initialWeights[cat] ?? 1,
+      for (final cat in _allCategories)
+        if (widget.topics.isEmpty || widget.topics.contains(cat)) cat: widget.initialWeights[cat] ?? 1,
     };
 
     _pulseController = AnimationController(
@@ -1055,7 +1064,10 @@ class _QuizScreenState extends State<QuizScreen>
           color: Colors.grey.shade200,
           borderRadius: BorderRadius.circular(14),
         ),
+        // Next to a wide Next button ("Look at Option D", or Hindi /
+        // Marathi) the pill's text shortens instead of overflowing.
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.skip_next_rounded,
@@ -1063,12 +1075,16 @@ class _QuizScreenState extends State<QuizScreen>
               color: Colors.grey.shade600,
             ),
             const SizedBox(width: 4),
-            Text(
-              '$skippedCount ${AppLocale.get(currentLang, "skipped_count")}',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w600,
+            Flexible(
+              child: Text(
+                '$skippedCount ${AppLocale.get(currentLang, "skipped_count")}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],

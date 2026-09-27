@@ -17,7 +17,16 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
   // --- STATE VARIABLES ---
   int selectedCount = 10;
   String selectedTime = '2m';
-  String selectedMode = 'random'; // 'random' or 'odd_man', etc.
+  String selectedMode = 'random'; // 'random', 'weak_areas' or 'topics'
+
+  /// Topics picked from the grid (one or several); used when selectedMode is
+  /// 'topics'. Tapping a tile toggles it; Random Mix clears them.
+  final Set<String> selectedTopics = {};
+
+  void _toggleTopic(String id) => setState(() {
+        if (!selectedTopics.remove(id)) selectedTopics.add(id);
+        selectedMode = selectedTopics.isEmpty ? 'random' : 'topics';
+      });
   bool isBiasEnabled = true;
   bool isHardMode = false;
   String currentLang = 'EN';
@@ -186,6 +195,11 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                           letterSpacing: 1.0,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        AppLocale.get(currentLang, 'topics_hint'),
+                        style: const TextStyle(fontSize: 12, color: textSubtle),
+                      ),
                       const SizedBox(height: 12),
 
                       // RANDOM MIX CARD (Hero)
@@ -274,13 +288,17 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                AppLocale.get(currentLang, 'title'),
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: textMain,
-                  fontFamily: 'Lexend',
+              Flexible(
+                child: Text(
+                  AppLocale.get(currentLang, 'title'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: textMain,
+                    fontFamily: 'Lexend',
+                  ),
                 ),
               ),
               Row(
@@ -502,7 +520,10 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
     }
 
     return GestureDetector(
-      onTap: () => setState(() => selectedMode = 'weak_areas'),
+      onTap: () => setState(() {
+        selectedMode = 'weak_areas';
+        selectedTopics.clear();
+      }),
       onLongPress: () {
         showDialog(
           context: context,
@@ -683,7 +704,10 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
     bool isSelected = selectedMode == 'random';
 
     return GestureDetector(
-      onTap: () => setState(() => selectedMode = 'random'),
+      onTap: () => setState(() {
+        selectedMode = 'random';
+        selectedTopics.clear();
+      }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(20),
@@ -820,11 +844,14 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
     required IconData icon,
     required Color color,
   }) {
-    bool isSelected = selectedMode == id;
+    final isSelected = selectedMode == 'topics' && selectedTopics.contains(id);
 
     return GestureDetector(
-      onTap: () => setState(() => selectedMode = id),
-      child: AnimatedContainer(
+      onTap: () => _toggleTopic(id),
+      // The tick sits in the corner so it adds no height to the tile.
+      child: Stack(
+        children: [
+          Positioned.fill(child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -865,6 +892,14 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
             ),
           ],
         ),
+      )),
+          if (isSelected)
+            const Positioned(
+              top: 10,
+              right: 10,
+              child: Icon(Icons.check_circle_rounded, color: primary, size: 20),
+            ),
+        ],
       ),
     );
   }
@@ -1078,6 +1113,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                         timePerQuestion: selectedTime,
                         biasEnabled: true,
                         initialWeights: weakWeights,
+                        topics: weakWeights.keys.toList(),
                         isHardMode: isHardMode,
                       ),
                 ),
@@ -1085,15 +1121,19 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
               return;
             }
             setState(() => _pendingScrollToWeak = true);
+            // One topic: that topic's session, as before. Several: a mixed
+            // session over just those topics.
+            final topics = selectedMode == 'topics' ? selectedTopics.toList() : <String>[];
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => QuizScreen(
-                  mode: selectedMode,
+                  mode: topics.length == 1 ? topics.single : 'random',
                   totalQuestions: selectedCount,
                   timePerQuestion: selectedTime,
                   biasEnabled: isBiasEnabled,
                   initialWeights: isBiasEnabled ? _savedWeights : {},
+                  topics: topics.length > 1 ? topics : const [],
                   isHardMode: isHardMode,
                 ),
               ),
@@ -1111,16 +1151,22 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
+              Flexible(
+                child: Text(
                 selectedMode == 'random'
                     ? AppLocale.get(currentLang, 'start_random')
                     : selectedMode == 'weak_areas'
                     ? AppLocale.get(currentLang, 'start_weak')
-                    : AppLocale.get(currentLang, 'start_linear'),
+                    : selectedTopics.length == 1
+                    ? AppLocale.get(currentLang, 'start_one').replaceAll('{t}', _categoryLabels[selectedTopics.single] ?? '')
+                    : AppLocale.get(currentLang, 'start_topics').replaceAll('{n}', '${selectedTopics.length}'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
+              ),
               ),
               const SizedBox(width: 8),
               const Icon(Icons.arrow_forward_rounded, size: 20),
