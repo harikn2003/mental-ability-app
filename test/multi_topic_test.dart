@@ -97,4 +97,29 @@ void main() {
     await tap(AppLocale.s('random_mix'));
     expect(find.text('Start Random Challenge'), findsOneWidget);
   });
+
+  testWidgets('the last setup comes back on the next launch', (tester) async {
+    phone(tester);
+    SharedPreferences.setMockInitialValues({
+      'last_setup_count': 40,
+      'last_setup_time': '1m',
+      'last_setup_hard': true,
+      'last_setup_bias': false,
+      'last_setup_mode': 'topics',
+      'last_setup_topics': ['analogy', 'figure_series'],
+    });
+    await tester.pumpWidget(MaterialApp(theme: ThemeData(fontFamily: 'Roboto'), home: const SessionConfigScreen()));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('40 ${AppLocale.s('questions_label')}'), findsOneWidget);
+    expect(find.text('Start 2 Topics'), findsOneWidget);
+    expect(find.text(AppLocale.s('hard_desc')), findsOneWidget); // Hard is selected
+  });
+
+  testWidgets('a remembered weak-areas session falls back to Random Mix when nothing is weak', (tester) async {
+    phone(tester);
+    SharedPreferences.setMockInitialValues({'last_setup_mode': 'weak_areas'});
+    await tester.pumpWidget(MaterialApp(theme: ThemeData(fontFamily: 'Roboto'), home: const SessionConfigScreen()));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Start Random Challenge'), findsOneWidget);
+  });
 }

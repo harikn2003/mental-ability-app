@@ -245,13 +245,8 @@ class _QuizScreenState extends State<QuizScreen>
     _timer?.cancel();
     secondsElapsedForCurrent = 0;
 
-    if (widget.timePerQuestion == '30s') {
-      remainingSeconds = 30;
-    } else if (widget.timePerQuestion == '2m') {
-      remainingSeconds = 120;
-    } else {
-      remainingSeconds = -1;
-    }
+    // -1 = unlimited.
+    remainingSeconds = AppLocale.timeSettingSeconds(widget.timePerQuestion) ?? -1;
 
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;

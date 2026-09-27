@@ -54,6 +54,55 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
   Map<String, int> _savedWeights = {};
 
   static const _kWeightsKey = 'bias_weights';
+
+  /// Question counts on the slider (40 = the exam's Mental Ability section).
+  static const _counts = [5, 10, 15, 20, 25, 30, 40, 50];
+
+  /// Time-per-question choices ('unlimited' = no timer).
+  static const _times = ['30s', '1m', '2m', 'unlimited'];
+
+  // The last setup a coordinator started, restored on the next launch.
+  static const _kSetup = 'last_setup_';
+
+  Future<void> _loadSetup() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      final count = prefs.getInt('${_kSetup}count');
+      if (count != null && _counts.contains(count)) selectedCount = count;
+      final time = prefs.getString('${_kSetup}time');
+      if (time != null && _times.contains(time)) selectedTime = time;
+      isHardMode = prefs.getBool('${_kSetup}hard') ?? isHardMode;
+      isBiasEnabled = prefs.getBool('${_kSetup}bias') ?? isBiasEnabled;
+      final topics = (prefs.getStringList('${_kSetup}topics') ?? const [])
+          .where(_defaultCategories.contains);
+      selectedTopics
+        ..clear()
+        ..addAll(topics);
+      final mode = prefs.getString('${_kSetup}mode');
+      // Weak-areas practice is only restored if there still are weak areas
+      // (checked when they load); topics only if some are remembered.
+      selectedMode = mode == 'topics' && selectedTopics.isNotEmpty
+          ? 'topics'
+          : mode == 'weak_areas'
+              ? 'weak_areas'
+              : 'random';
+      // The weights may have loaded first (both load at once).
+      if (selectedMode == 'weak_areas' && _savedWeights.isNotEmpty && _weakCategories.isEmpty) {
+        selectedMode = 'random';
+      }
+    });
+  }
+
+  Future<void> _saveSetup() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('${_kSetup}count', selectedCount);
+    await prefs.setString('${_kSetup}time', selectedTime);
+    await prefs.setBool('${_kSetup}hard', isHardMode);
+    await prefs.setBool('${_kSetup}bias', isBiasEnabled);
+    await prefs.setString('${_kSetup}mode', selectedMode);
+    await prefs.setStringList('${_kSetup}topics', selectedTopics.toList());
+  }
   static const _defaultCategories = [
     'pattern', 'analogy', 'odd_man', 'mirror_shape', 'figure_match',
     'figure_series', 'geo_completion', 'mirror_text', 'punch_hole', 'space_vis', 'embedded',
@@ -85,6 +134,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
   void initState() {
     super.initState();
     currentLang = AppLocale.current; // sync with global lang on entry
+    _loadSetup();
     _loadSavedWeights();
   }
 
@@ -118,7 +168,12 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
     for (final cat in _defaultCategories) {
       saved[cat] = prefs.getInt('${_kWeightsKey}_$cat') ?? 1;
     }
-    if (mounted) setState(() => _savedWeights = saved);
+    if (mounted) {
+      setState(() {
+        _savedWeights = saved;
+        if (selectedMode == 'weak_areas' && _weakCategories.isEmpty) selectedMode = 'random';
+      });
+    }
   }
 
   Future<void> _resetWeights() async {
@@ -419,13 +474,13 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                   showValueIndicator: ShowValueIndicator.never,
                 ),
                 child: Slider(
-                  min: 10,
-                  max: 50,
-                  divisions: 4,
-                  // 10, 20, 30, 40, 50
-                  value: selectedCount.toDouble(),
+                  // One stop per entry of _counts (5 ... 50).
+                  min: 0,
+                  max: (_counts.length - 1).toDouble(),
+                  divisions: _counts.length - 1,
+                  value: _counts.indexOf(selectedCount).clamp(0, _counts.length - 1).toDouble(),
                   onChanged: (v) =>
-                      setState(() => selectedCount = v.round()),
+                      setState(() => selectedCount = _counts[v.round()]),
                 ),
               ),
               // Tick labels
@@ -433,7 +488,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: ['10', '20', '30', '40', '50']
+                  children: [for (final c in _counts) '$c']
                       .map((l) =>
                       Text(l,
                           style: TextStyle(
@@ -456,7 +511,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
           _buildSettingRow(
             icon: Icons.timer_outlined,
             label: AppLocale.get(currentLang, 'time_per_question'),
-            children: ['30s', '2m', 'unlimited']
+            children: _times
                 .map(
                   (val) => _buildChip(
                     label: AppLocale.timeSettingLabel(val),
@@ -1096,6 +1151,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
         height: 56,
         child: ElevatedButton(
           onPressed: () {
+            _saveSetup();
             // weak_areas mode: random session using only the weak categories,
             // with weights proportional to how weak each one is
             if (selectedMode == 'weak_areas') {

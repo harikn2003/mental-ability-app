@@ -658,6 +658,7 @@ class AppLocale {
   /// Seconds allowed per question for a time setting; null = unlimited.
   static int? timeSettingSeconds(String setting) => switch (setting) {
         '30s' => 30,
+        '1m' => 60,
         '2m' => 120,
         _ => null,
       };
