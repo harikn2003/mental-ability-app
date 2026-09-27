@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:mental_ability_app/config/localization.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/hive_service.dart';
+
 import '../widgets/version_badge.dart';
 import 'quiz_screen.dart';
 import 'session_history_screen.dart';
@@ -50,6 +52,21 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
   static const Color accentPurple = Color(0xFFA855F7);
   static const Color hardAccent = Color(0xFFEF4444); // Hard Mode: same red as the weak-area severity pills
   static const Color mediumAccent = Color(0xFFD97706); // Medium: amber, between Easy's blue and Hard's red
+
+  /// Each topic's result in the most recent session that had it
+  /// (correct, total), shown on its tile.
+  Map<String, (int, int)> _lastResults = {};
+
+  void _loadLastResults() {
+    if (!HiveService.isReady) return;
+    final out = <String, (int, int)>{};
+    for (final s in HiveService.getSessions()) { // newest first
+      for (final e in s.categoryTotal.entries) {
+        if (e.value > 0) out.putIfAbsent(e.key, () => (s.categoryCorrect[e.key] ?? 0, e.value));
+      }
+    }
+    setState(() => _lastResults = out);
+  }
 
   // Persisted bias weights loaded from SharedPreferences
   // Passed into QuizScreen so the session starts from where the student left off
@@ -140,6 +157,9 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
     currentLang = AppLocale.current; // sync with global lang on entry
     _loadSetup();
     _loadSavedWeights();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadLastResults();
+    });
   }
 
   @override
@@ -151,6 +171,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
   // Called when returning from QuizScreen/SummaryScreen via Navigator.pop chain.
   // Reloads weights so the weak areas card appears immediately.
   Future<void> _onReturn() async {
+    _loadLastResults();
     await _loadSavedWeights();
     if (_weakCategories.isNotEmpty && _pendingScrollToWeak) {
       _pendingScrollToWeak = false;
@@ -272,14 +293,15 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
 
                       const SizedBox(height: 16),
 
-                      // TOPIC GRID — all 11 topics
+                      // TOPIC GRID — all 11 topics, three per row so a
+                      // coordinator sees most of them without scrolling.
                       GridView.count(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 1.1,
+                        crossAxisCount: 3,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
+                        childAspectRatio: 0.86,
                         children: [
                           _buildTopicCard(id: 'odd_man',
                               title: AppLocale.get(currentLang, 'odd_man'),
@@ -946,7 +968,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
         children: [
           Positioned.fill(child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
         decoration: BoxDecoration(
           color: isSelected ? primaryLight : surface,
           borderRadius: BorderRadius.circular(20),
@@ -966,31 +988,51 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: isSelected ? Colors.white : color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: isSelected ? primary : color, size: 28),
+              child: Icon(icon, color: isSelected ? primary : color, size: 22),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Text(
               title,
               textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
                 color: textMain,
+                height: 1.15,
               ),
             ),
+            // The last result for this topic, coloured by how it went.
+            if (_lastResults[id] case (final c, final t)) ...[
+              const SizedBox(height: 4),
+              Text(
+                '${AppLocale.get(currentLang, 'last_label')} $c/$t',
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: c / t >= 0.8
+                      ? accentEmerald
+                      : c / t >= 0.5
+                          ? const Color(0xFFD97706)
+                          : hardAccent,
+                ),
+              ),
+            ],
           ],
         ),
       )),
           if (isSelected)
             const Positioned(
-              top: 10,
-              right: 10,
-              child: Icon(Icons.check_circle_rounded, color: primary, size: 20),
+              top: 6,
+              right: 6,
+              child: Icon(Icons.check_circle_rounded, color: primary, size: 18),
             ),
         ],
       ),
