@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Prints the QR code for the live-reload preview (port 8080). Runs
+       automatically before "Phone preview (web, live reload)". -->
+  <configuration default="false" name="Phone preview QR (live)" type="DartCommandLineRunConfigurationType" factoryName="Dart Command Line Application">
+    <option name="filePath" value="$PROJECT_DIR$/tool/phone_preview.dart" />
+    <option name="arguments" value="--qr-only 8080" />
+    <option name="workingDirectory" value="$PROJECT_DIR$" />
+    <method v="2" />
+  </configuration>
+</component>

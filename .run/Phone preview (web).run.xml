@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Builds the web release, serves it on the Wi-Fi and prints a QR code:
+       scan it with the phone to open the app in its browser. No install,
+       no debugging needed. See docs/phone_preview.md. -->
+  <configuration default="false" name="Phone preview (web)" type="DartCommandLineRunConfigurationType" factoryName="Dart Command Line Application">
+    <option name="filePath" value="$PROJECT_DIR$/tool/phone_preview.dart" />
+    <option name="workingDirectory" value="$PROJECT_DIR$" />
+    <method v="2" />
+  </configuration>
+</component>

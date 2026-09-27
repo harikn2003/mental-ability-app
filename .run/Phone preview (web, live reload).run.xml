@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Debug web build served on the Wi-Fi (port 8080): after editing code,
+       press Hot Restart and the page on the phone updates. Slower to load on
+       the phone than the release preview. The QR is printed first. -->
+  <configuration default="false" name="Phone preview (web, live reload)" type="FlutterRunConfigurationType" factoryName="Flutter">
+    <option name="additionalArgs" value="-d web-server --web-hostname 0.0.0.0 --web-port 8080" />
+    <option name="filePath" value="$PROJECT_DIR$/lib/main.dart" />
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="Phone preview QR (live)" run_configuration_type="DartCommandLineRunConfigurationType" />
+    </method>
+  </configuration>
+</component>
