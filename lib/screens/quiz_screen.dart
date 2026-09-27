@@ -632,10 +632,9 @@ class _QuizScreenState extends State<QuizScreen>
                         ),
                       ),
                     ),
-                    if (widget.biasEnabled) ...[
-                      const SizedBox(width: 6),
-                      _buildBiasIndicator(category),
-                    ],
+                    // (A "Reviewing" / "Weak area" tag used to show here: that's
+                    // coordinator information, on the New Session screen's
+                    // weak-areas card, not something the child needs mid-quiz.)
                   ],
                 ),
               ),
@@ -663,44 +662,6 @@ class _QuizScreenState extends State<QuizScreen>
           ),
           const SizedBox(height: 8),
           Container(height: 1, color: Colors.grey.shade200),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBiasIndicator(String category) {
-    final weight = _weights[category] ?? 1;
-    if (weight <= 1) return const SizedBox.shrink();
-
-    Color dotColor;
-    String tooltip;
-    if (weight <= 3) {
-      dotColor = warning;
-      tooltip = AppLocale.get(currentLang, 'reviewing');
-    } else {
-      dotColor = error;
-      tooltip = AppLocale.get(currentLang, 'weak_area');
-    }
-
-    return Tooltip(
-      message: tooltip,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 3),
-          Text(
-            tooltip,
-            style: TextStyle(
-              fontSize: 9,
-              color: dotColor,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
         ],
       ),
     );
@@ -776,6 +737,9 @@ class _QuizScreenState extends State<QuizScreen>
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // A tick makes "3/5" read as "3 correct out of 5".
+            const Icon(Icons.check_circle_rounded, color: success, size: 16),
+            const SizedBox(width: 6),
             Text(
               '$score/$attempted',
               style: const TextStyle(
