@@ -139,6 +139,7 @@ class _SessionCard extends StatelessWidget {
   String _formatDate(DateTime d) {
     final now = DateTime.now();
     final diff = now.difference(d);
+    if (diff.inMinutes < 1) return AppLocale.s('just_now'); // was "0 m ago"
     if (diff.inMinutes < 60) {
       return '${diff.inMinutes}${AppLocale.s('minutes_ago_suffix')}';
     }
@@ -247,31 +248,33 @@ class _SessionCard extends StatelessWidget {
         .where((e) => e.value > 0)
         .map((e) {
       final correct = session.categoryCorrect[e.key] ?? 0;
-      return MapEntry(e.key, correct / e.value);
+      return MapEntry(e.key, (correct, e.value));
     })
         .toList()
-      ..sort((a, b) => a.value.compareTo(b.value)); // worst first
+      ..sort((a, b) => (a.value.$1 / a.value.$2).compareTo(b.value.$1 / b.value.$2)); // worst first
 
+    // Full topic names with the score ("Figure Series 0/5"): the old
+    // three-letter codes ("Ser 0%") were hard to read for coordinators.
     final labels = {
-      'odd_man': AppLocale.s('short_odd'),
-      'figure_match': AppLocale.s('short_fig'),
-      'pattern': AppLocale.s('short_pattern'),
-      'figure_series': AppLocale.s('short_series'),
-      'analogy': AppLocale.s('short_analogy'),
-      'geo_completion': AppLocale.s('short_geo'),
-      'mirror_shape': AppLocale.s('short_mirshape'),
-      'mirror_text': AppLocale.s('short_mirtext'),
-      'punch_hole': AppLocale.s('short_punch'),
-      'embedded': AppLocale.s('short_embedded'),
-      'space_vis': AppLocale.s('short_space_vis'),
+      'odd_man': AppLocale.s('cat_odd_man'),
+      'figure_match': AppLocale.s('cat_fig_match'),
+      'pattern': AppLocale.s('cat_pattern'),
+      'figure_series': AppLocale.s('cat_fig_series'),
+      'analogy': AppLocale.s('cat_analogy'),
+      'geo_completion': AppLocale.s('cat_geo'),
+      'mirror_shape': AppLocale.s('cat_mirror_shape'),
+      'mirror_text': AppLocale.s('cat_mirror_text'),
+      'punch_hole': AppLocale.s('cat_punch'),
+      'embedded': AppLocale.s('cat_embedded'),
+      'space_vis': AppLocale.s('cat_space_vis'),
     };
 
     return Wrap(
       spacing: 6,
       runSpacing: 4,
       children: cats.map((e) {
-        final pct = e.value;
-        final color = _accuracyColor(pct);
+        final (correct, total) = e.value;
+        final color = _accuracyColor(correct / total);
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
           decoration: BoxDecoration(
@@ -279,7 +282,7 @@ class _SessionCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
-            '${labels[e.key] ?? e.key} ${(pct * 100).toStringAsFixed(0)}%',
+            '${labels[e.key] ?? e.key} $correct/$total',
             style: TextStyle(
               fontSize: 10, fontWeight: FontWeight.w600, color: color,
             ),

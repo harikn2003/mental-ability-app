@@ -16,6 +16,9 @@ class SessionSummaryScreen extends StatelessWidget {
   final Map<String, List<bool>> categoryStats;
   final List<QuestionAttempt> attempts;
 
+  /// The session's time per question ('30s', '2m', 'unlimited').
+  final String timeSetting;
+
   const SessionSummaryScreen({
     super.key,
     required this.score,
@@ -24,6 +27,7 @@ class SessionSummaryScreen extends StatelessWidget {
     required this.timeSpent,
     required this.categoryStats,
     required this.attempts,
+    this.timeSetting = 'unlimited',
   });
 
   @override
@@ -214,9 +218,13 @@ class SessionSummaryScreen extends StatelessWidget {
 
     // Find the highest time spent to scale the Y axis properly
     double maxTime = timeSpent.reduce(max).toDouble();
+    // The limit line is the session's real time per question (it used to
+    // be a fixed 45s whatever was chosen); none when unlimited.
+    final limit = AppLocale.timeSettingSeconds(timeSetting);
     double chartMaxY = maxTime > 60
         ? maxTime + 10
         : 60; // minimum 60s Y-axis height
+    if (limit != null && chartMaxY < limit + 10) chartMaxY = limit + 10.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,8 +242,9 @@ class SessionSummaryScreen extends StatelessWidget {
               maxY: chartMaxY,
               extraLinesData: ExtraLinesData(
                 horizontalLines: [
+                  if (limit != null)
                   HorizontalLine(
-                    y: 45,
+                    y: limit.toDouble(),
                     // Time Trap Threshold
                     color: Colors.orange.shade700,
                     strokeWidth: 2,
@@ -248,7 +257,8 @@ class SessionSummaryScreen extends StatelessWidget {
                         color: Colors.orange.shade700,
                         fontSize: 10,
                       ),
-                      labelResolver: (line) => AppLocale.s('limit_45s'),
+                      labelResolver: (line) =>
+                          AppLocale.s('limit_label').replaceAll('{t}', AppLocale.timeSettingLabel(timeSetting)),
                     ),
                   ),
                 ],
@@ -291,7 +301,8 @@ class SessionSummaryScreen extends StatelessWidget {
                   index,
                   timeSpent[index].toDouble(),
                   context,
-                  isTimeTrap: timeSpent[index] > 45,
+                  // Ran out of time on this question.
+                  isTimeTrap: limit != null && timeSpent[index] >= limit,
                 );
               }),
             ),

@@ -54,7 +54,6 @@ class _QuizScreenState extends State<QuizScreen>
   bool isCorrect = false;
   int skippedCount = 0;
   bool _nextLocked = false; // true for 1.2s after wrong answer
-  bool _showBiasChart = false; // coordinator toggle for bias weight chart
   bool _timedOut = false; // true when timer expired on current question
 
   // ── Timer ─────────────────────────────────────────────────────────────────
@@ -403,6 +402,7 @@ class _QuizScreenState extends State<QuizScreen>
             timeSpent: timeSpentPerQuestion,
             categoryStats: categoryPerformance,
             attempts: List.unmodifiable(_attempts),
+            timeSetting: widget.timePerQuestion,
           ),
         ),
       );
@@ -954,144 +954,10 @@ class _QuizScreenState extends State<QuizScreen>
             ],
           ),
         ),
-        if (widget.biasEnabled && widget.mode == 'random') ...[
-          const SizedBox(height: 10),
-          GestureDetector(
-            onTap: () => setState(() => _showBiasChart = !_showBiasChart),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.analytics_outlined,
-                  size: 13,
-                  color: Color(0xFF94A3B8),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  _showBiasChart
-                      ? AppLocale.get(currentLang, 'hide_bias')
-                      : AppLocale.get(currentLang, 'show_bias'),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF94A3B8),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(width: 2),
-                Icon(
-                  _showBiasChart
-                      ? Icons.keyboard_arrow_up_rounded
-                      : Icons.keyboard_arrow_down_rounded,
-                  size: 14,
-                  color: const Color(0xFF94A3B8),
-                ),
-              ],
-            ),
-          ),
-          if (_showBiasChart) ...[
-            const SizedBox(height: 6),
-            _buildWeightPreview(),
-          ],
-        ],
+        // The coordinator's bias-weight chart used to be toggled from here,
+        // in the child's view; the same weights show on the New Session
+        // screen's weak-areas card.
       ],
-    );
-  }
-
-  Widget _buildWeightPreview() {
-    final maxW = _weights.values.reduce(max).toDouble();
-    final shortLabels = {
-      'pattern': AppLocale.get(currentLang, 'short_pattern'),
-      'analogy': AppLocale.get(currentLang, 'short_analogy'),
-      'odd_man': AppLocale.get(currentLang, 'short_odd'),
-      'mirror_shape': AppLocale.get(currentLang, 'short_mirshape'),
-      'figure_match': AppLocale.get(currentLang, 'short_fig'),
-      'figure_series': AppLocale.get(currentLang, 'short_series'),
-      'geo_completion': AppLocale.get(currentLang, 'short_geo'),
-      'mirror_text': AppLocale.get(currentLang, 'short_mirtext'),
-      'punch_hole': AppLocale.get(currentLang, 'short_punch'),
-      'embedded': AppLocale.get(currentLang, 'short_embedded'),
-      'space_vis': AppLocale.get(currentLang, 'short_space_vis'),
-    };
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.analytics_outlined,
-                size: 13,
-                color: Color(0xFF64748B),
-              ),
-              const SizedBox(width: 5),
-              Text(
-                AppLocale.get(currentLang, 'bias_weights'),
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF64748B),
-                  letterSpacing: 0.8,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: _weights.entries.map((e) {
-              final isCurrentCat = e.key == _currentQ.category;
-              final barH = 4.0 + (e.value / maxW) * 28.0;
-              final barColor =
-                  e.value <= 1 ? success : e.value <= 4 ? warning : error;
-              final marker = isCurrentCat
-                  ? Container(
-                      width: 4,
-                      height: 4,
-                      decoration: const BoxDecoration(
-                        color: primary,
-                        shape: BoxShape.circle,
-                      ),
-                    )
-                  : const SizedBox(height: 4);
-              return Expanded(
-                child: Column(
-                  children: [
-                    marker,
-                    const SizedBox(height: 2),
-                    Container(
-                      height: barH,
-                      margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                      decoration: BoxDecoration(
-                        color: isCurrentCat
-                            ? barColor
-                            : barColor.withValues(alpha: 0.45),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      shortLabels[e.key] ?? e.key.substring(0, 3),
-                      style: TextStyle(
-                        fontSize: 7.5,
-                        color: isCurrentCat ? primary : Colors.grey.shade500,
-                        fontWeight:
-                            isCurrentCat ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1228,8 +1094,10 @@ class _QuizScreenState extends State<QuizScreen>
               ),
             ),
             const SizedBox(width: 8),
+            // Names the right option while Next is briefly locked (the text
+            // used to end in "..." with no letter).
             Text(
-              AppLocale.get(currentLang, 'look_at'),
+              AppLocale.get(currentLang, 'look_at').replaceAll('{x}', String.fromCharCode(65 + _currentQ.correctIndex)),
               style: const TextStyle(
                 color: Colors.white70,
                 fontWeight: FontWeight.bold,

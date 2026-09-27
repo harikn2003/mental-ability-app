@@ -80,22 +80,23 @@ class _SessionReviewScreenState extends State<SessionReviewScreen> {
               // ── Score strip ──────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
+                // One row; if long Hindi / Marathi labels don't fit, the
+                // chips shrink a little instead of overflowing (the strip
+                // has a fixed height, so it can't wrap to two lines).
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _statChip(_correctCount.toString(), AppLocale.s('correct'),
-                        _green),
+                    Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: _statChip(_correctCount.toString(), AppLocale.s('correct'), _green))),
                     const SizedBox(width: 12),
-                    _statChip(
-                        _wrongCount.toString(), AppLocale.s('incorrect'), _red),
+                    Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: _statChip(_wrongCount.toString(), AppLocale.s('incorrect'), _red))),
                     const SizedBox(width: 12),
-                    _statChip(
+                    Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: _statChip(
                       widget.attempts
                           .where((a) => a.wasSkipped)
                           .length
                           .toString(),
                       AppLocale.s('skipped_label'), _orange,
-                    ),
+                    ))),
                   ],
                 ),
               ),
@@ -274,8 +275,10 @@ class _SessionReviewScreenState extends State<SessionReviewScreen> {
           color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(20),
         ),
-        child: RichText(
-          text: TextSpan(
+        // Text.rich (not RichText) so the chips use the app's font and
+        // text size like everything else.
+        child: Text.rich(
+          TextSpan(
             children: [
               TextSpan(
                 text: '$value ',

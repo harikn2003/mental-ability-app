@@ -441,9 +441,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
             children: ['30s', '2m', 'unlimited']
                 .map(
                   (val) => _buildChip(
-                    label: val == 'unlimited'
-                        ? AppLocale.get(currentLang, 'time_unlimited')
-                        : val,
+                    label: AppLocale.timeSettingLabel(val),
                     isSelected: selectedTime == val,
                     onTap: () => setState(() => selectedTime = val),
                   ),

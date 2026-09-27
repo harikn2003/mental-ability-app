@@ -502,6 +502,19 @@ class _SnapshotCardState extends State<_SnapshotCard> {
                           Center(
                             child: OptionRenderer(data: options[i]),
                           ),
+                          // A-D label, as on the quiz and review cards.
+                          Positioned(
+                            top: 6,
+                            left: 8,
+                            child: Text(
+                              String.fromCharCode(65 + i),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isCorr ? _green : (isSel ? _red : Colors.grey.shade500),
+                              ),
+                            ),
+                          ),
                           // Corner badges
                           if (isCorr)
                             Positioned(
@@ -541,11 +554,12 @@ class _SnapshotCardState extends State<_SnapshotCard> {
                       Icon(statusIcon, size: 14, color: statusColor),
                       const SizedBox(width: 8),
                       Text(
+                        // Letters, as in the quiz and review (was "Option 2").
                         wasSkipped
-                            ? '${AppLocale.s("skipped_msg")} ${correct + 1}'
+                            ? '${AppLocale.s("skipped_msg")} ${String.fromCharCode(65 + correct)}'
                             : isCorrect
                             ? AppLocale.s('correct_msg')
-                            : '${AppLocale.s("wrong_msg")} ${correct + 1}',
+                            : '${AppLocale.s("wrong_msg")} ${String.fromCharCode(65 + correct)}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,

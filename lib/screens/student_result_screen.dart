@@ -29,6 +29,10 @@ class StudentResultScreen extends StatelessWidget {
   final Map<String, List<bool>> categoryStats;
   final List<QuestionAttempt> attempts;
 
+  /// The session's time per question ('30s', '2m', 'unlimited'), passed on
+  /// to the detailed report's time chart.
+  final String timeSetting;
+
   const StudentResultScreen({
     super.key,
     required this.score,
@@ -37,6 +41,7 @@ class StudentResultScreen extends StatelessWidget {
     required this.timeSpent,
     required this.categoryStats,
     required this.attempts,
+    this.timeSetting = 'unlimited',
   });
 
   // ── Theme ──────────────────────────────────────────────────────────────
@@ -356,6 +361,7 @@ class StudentResultScreen extends StatelessWidget {
                   timeSpent: timeSpent,
                   categoryStats: categoryStats,
                   attempts: attempts,
+                  timeSetting: timeSetting,
                 ),
               ),
             );

@@ -50,7 +50,7 @@ class AppLocale {
       'bias_weights': 'BIAS WEIGHTS',
       'show_bias': 'Coordinator: show bias chart',
       'hide_bias': 'Hide bias chart',
-      'look_at': 'Look at Option...',
+      'look_at': 'Look at Option {x}',
       'reviewing': 'Reviewing',
       'weak_area': 'Weak area',
       'times_up': "Time's up! Correct answer was Option",
@@ -107,6 +107,7 @@ class AppLocale {
       'full_report': 'Full Report',
       'practice_weak_summary': 'Practice Weak Areas:',
       'limit_45s': 'Limit (45s)',
+      'limit_label': 'Limit ({t})',
       'topic_badge_good': 'Good',
       'topic_badge_ok': 'OK',
       'topic_badge_retry': 'Retry',
@@ -115,6 +116,7 @@ class AppLocale {
       'skipped_answer_is': 'Skipped — correct answer is Option',
       'skipped_label': 'skipped',
       'minutes_ago_suffix': ' m ago',
+      'just_now': 'Just now',
       'hours_ago_suffix': ' h ago',
       'days_ago_suffix': ' d ago',
       'excellent_headline': 'Outstanding!',
@@ -259,7 +261,7 @@ class AppLocale {
       'bias_weights': 'बायस वेट',
       'show_bias': 'समन्वयक: बायस चार्ट दाखवा',
       'hide_bias': 'बायस चार्ट लपवा',
-      'look_at': 'पर्याय पाहा...',
+      'look_at': 'पर्याय {x} पाहा',
       'reviewing': 'पुनरावलोकन',
       'weak_area': 'कमकुवत विषय',
       'times_up': 'वेळ संपला! बरोबर उत्तर पर्याय',
@@ -316,6 +318,7 @@ class AppLocale {
       'full_report': 'पूर्ण अहवाल',
       'practice_weak_summary': 'कमकुवत विषयांचा सराव:',
       'limit_45s': 'मर्यादा (45 सेकंद)',
+      'limit_label': 'मर्यादा ({t})',
       'topic_badge_good': 'चांगले',
       'topic_badge_ok': 'ठीक',
       'topic_badge_retry': 'पुन्हा प्रयत्न',
@@ -324,6 +327,7 @@ class AppLocale {
       'skipped_answer_is': 'वगळले — बरोबर उत्तर पर्याय',
       'skipped_label': 'वगळलेले',
       'minutes_ago_suffix': ' मिनिटांपूर्वी',
+      'just_now': 'आत्ताच',
       'hours_ago_suffix': ' तासांपूर्वी',
       'days_ago_suffix': ' दिवसांपूर्वी',
       'excellent_headline': 'अतिशय उत्कृष्ट!',
@@ -465,7 +469,7 @@ class AppLocale {
       'bias_weights': 'बायस वेट',
       'show_bias': 'समन्वयक: बायस चार्ट दिखाएँ',
       'hide_bias': 'बायस चार्ट छिपाएँ',
-      'look_at': 'विकल्प देखें...',
+      'look_at': 'विकल्प {x} देखें',
       'reviewing': 'समीक्षा',
       'weak_area': 'कमज़ोर क्षेत्र',
       'times_up': 'समय समाप्त! सही उत्तर विकल्प',
@@ -522,6 +526,7 @@ class AppLocale {
       'full_report': 'पूरी रिपोर्ट',
       'practice_weak_summary': 'कमज़ोर क्षेत्रों का अभ्यास:',
       'limit_45s': 'सीमा (45 सेकंड)',
+      'limit_label': 'सीमा ({t})',
       'topic_badge_good': 'अच्छा',
       'topic_badge_ok': 'ठीक',
       'topic_badge_retry': 'फिर प्रयास',
@@ -530,6 +535,7 @@ class AppLocale {
       'skipped_answer_is': 'छोड़ा गया — सही उत्तर विकल्प',
       'skipped_label': 'छोड़ा गया',
       'minutes_ago_suffix': ' मिनट पहले',
+      'just_now': 'अभी-अभी',
       'hours_ago_suffix': ' घंटे पहले',
       'days_ago_suffix': ' दिन पहले',
       'excellent_headline': 'बहुत शानदार!',
@@ -631,6 +637,21 @@ class AppLocale {
     final idx = cycle.indexOf(current);
     return cycle[(idx + 1) % cycle.length];
   }
+
+  /// A time-per-question setting ('30s', '2m', 'unlimited') as shown to
+  /// people, in the current language: "30s", "2m" / "30से", "2मि", ...
+  static String timeSettingLabel(String setting) {
+    if (setting == 'unlimited') return s('time_unlimited');
+    final n = setting.substring(0, setting.length - 1);
+    return setting.endsWith('m') ? '$n${s('minute_short')}' : '$n${s('second_short')}';
+  }
+
+  /// Seconds allowed per question for a time setting; null = unlimited.
+  static int? timeSettingSeconds(String setting) => switch (setting) {
+        '30s' => 30,
+        '2m' => 120,
+        _ => null,
+      };
 
   static String langLabel(String lang) {
     const labels = {'EN': 'EN', 'MR': 'म', 'HI': 'हि'};
