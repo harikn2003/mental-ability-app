@@ -4,30 +4,14 @@
 // only, and the quiz still drew every other topic at weight 1. A topic list
 // now restricts the session to exactly those topics.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mental_ability_app/config/localization.dart';
 import 'package:mental_ability_app/screens/quiz_screen.dart';
 import 'package:mental_ability_app/screens/session_config_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Real letter widths (the default test font's glyphs are much wider than
-/// any real font's, which makes rows overflow that fit on a phone).
-Future<void> _realFont() async {
-  const dir = 'C:/Flutter/flutter/bin/cache/artifacts/material_fonts';
-  final f = File('$dir/roboto-regular.ttf');
-  if (!f.existsSync()) return;
-  Future<ByteData> load(String n) async => ByteData.sublistView(File('$dir/$n').readAsBytesSync());
-  for (final family in ['Roboto', 'Lexend']) {
-    await (FontLoader(family)..addFont(load('roboto-regular.ttf'))..addFont(load('roboto-bold.ttf'))).load();
-  }
-}
-
 void main() {
-  setUpAll(_realFont);
   setUp(() {
     AppLocale.setLang('EN');
     SharedPreferences.setMockInitialValues({});
@@ -79,7 +63,8 @@ void main() {
     await tester.pumpWidget(MaterialApp(theme: ThemeData(fontFamily: 'Roboto'), home: const SessionConfigScreen()));
     await tester.pump(const Duration(milliseconds: 500));
     Future<void> tap(String text) async {
-      await tester.ensureVisible(find.text(text));
+      // Mid-screen, clear of the sticky Start button at the bottom.
+      await Scrollable.ensureVisible(tester.element(find.text(text)), alignment: 0.5);
       await tester.pump(const Duration(milliseconds: 200));
       await tester.tap(find.text(text));
       await tester.pump(const Duration(milliseconds: 300));

@@ -466,14 +466,20 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                 children: [
                   Icon(Icons.format_list_numbered, size: 18, color: primary),
                   const SizedBox(width: 8),
-                  Text(
-                    AppLocale.get(currentLang, 'total_questions').toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.bold,
-                      color: textSubtle,
+                  // Shortens rather than overflows with large system text or
+                  // long translations.
+                  Expanded(
+                    child: Text(
+                      AppLocale.get(currentLang, 'total_questions').toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.bold,
+                        color: textSubtle,
+                      ),
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   // Current value badge
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -727,12 +733,16 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        AppLocale.get(currentLang, 'practice_weak_card'),
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: textMain,
+                      Flexible(
+                        child: Text(
+                          AppLocale.get(currentLang, 'practice_weak_card'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: textMain,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
