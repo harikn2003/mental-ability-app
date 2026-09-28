@@ -1,10 +1,7 @@
 // Child mode: once a coordinator starts a session and hands the device over,
 // the child can't get back to the setup screen without a teacher's hold.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mental_ability_app/config/localization.dart';
 import 'package:mental_ability_app/screens/quiz_screen.dart';
@@ -12,18 +9,7 @@ import 'package:mental_ability_app/screens/session_config_screen.dart';
 import 'package:mental_ability_app/screens/student_result_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Real letter widths, as on a phone (the default test font is much wider).
-Future<void> _realFont() async {
-  const dir = 'C:/Flutter/flutter/bin/cache/artifacts/material_fonts';
-  if (!File('$dir/roboto-regular.ttf').existsSync()) return;
-  Future<ByteData> load(String n) async => ByteData.sublistView(File('$dir/$n').readAsBytesSync());
-  for (final family in ['Roboto', 'Lexend']) {
-    await (FontLoader(family)..addFont(load('roboto-regular.ttf'))..addFont(load('roboto-bold.ttf'))).load();
-  }
-}
-
 void main() {
-  setUpAll(_realFont);
   setUp(() {
     AppLocale.setLang('EN');
     SharedPreferences.setMockInitialValues({});
