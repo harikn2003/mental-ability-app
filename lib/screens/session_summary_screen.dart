@@ -36,10 +36,8 @@ class SessionSummaryScreen extends StatelessWidget {
     double accuracy = totalQuestions > 0 ? (score / totalQuestions) * 100 : 0;
     int incorrect = totalQuestions - score;
 
-    // The app's own colours (this screen used the stock Material 3 lavender
-    // and purple, so it looked like a different app).
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: Text(
           AppLocale.s('detailed_report'),
@@ -47,9 +45,6 @@ class SessionSummaryScreen extends StatelessWidget {
         ),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        foregroundColor: _ink,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -336,10 +331,6 @@ class SessionSummaryScreen extends StatelessWidget {
   }
 
   // --- 3. TOPIC MASTERY MATRIX (DYNAMIC NOW) ---
-  static const _background = Color(0xFFF6F6F8);
-  static const _ink = Color(0xFF0F172A);
-  static const _blue = Color(0xFF195DE6);
-
   Widget _buildTopicMasteryMatrix(BuildContext context) {
     if (categoryStats.isEmpty) return const SizedBox.shrink();
 
@@ -389,7 +380,7 @@ class SessionSummaryScreen extends StatelessWidget {
           final formattedName = catLabels[categoryName]
               ?? (categoryName[0].toUpperCase() + categoryName.substring(1));
 
-          return _buildMasteryTile(formattedName, status, percent, color, '$correctCount/${results.length}');
+          return _buildMasteryTile(formattedName, status, percent, color);
         }),
       ],
     );
@@ -398,14 +389,12 @@ class SessionSummaryScreen extends StatelessWidget {
   Widget _buildMasteryTile(String title,
       String status,
       double progress,
-      MaterialColor color,
-      String score,) {
+      MaterialColor color,) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: Colors.grey.shade300),
           borderRadius: BorderRadius.circular(16),
         ),
         child: ListTile(
@@ -420,32 +409,20 @@ class SessionSummaryScreen extends StatelessWidget {
             minHeight: 6,
             borderRadius: BorderRadius.circular(4),
           ),
-          // The actual score next to the verdict (it used to say only
-          // "Weak" / "Good" / "Strong").
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                score,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: _ink),
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: color.shade50,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              status,
+              style: TextStyle(
+                color: color.shade700,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
               ),
-              const SizedBox(width: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: color.shade50,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  status,
-                  style: TextStyle(
-                    color: color.shade700,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -539,11 +516,8 @@ class SessionSummaryScreen extends StatelessWidget {
         }),
         const SizedBox(height: 12),
         OutlinedButton(
-          // All the way home (it used to go back one screen, to the result).
-          onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
+          onPressed: () => Navigator.pop(context),
           style: OutlinedButton.styleFrom(
-            foregroundColor: _blue,
-            side: BorderSide(color: Colors.grey.shade300),
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(100),

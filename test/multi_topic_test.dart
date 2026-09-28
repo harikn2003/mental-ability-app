@@ -144,21 +144,4 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text(AppLocale.s('practice_weak_card')), findsNothing, reason: 'weak areas cleared');
   });
-
-  testWidgets('Medium sits between Easy and Hard, and is remembered', (tester) async {
-    phone(tester);
-    await tester.pumpWidget(MaterialApp(theme: ThemeData(fontFamily: 'Roboto'), home: const SessionConfigScreen()));
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.tap(find.text(AppLocale.s('medium')));
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text(AppLocale.s('medium_desc')), findsOneWidget);
-    // Start saves the setup; leave the quiz straight away.
-    await tester.tap(find.text('Start Random Challenge'));
-    await tester.pump(const Duration(milliseconds: 500));
-    final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getBool('last_setup_medium'), isTrue);
-    expect(prefs.getBool('last_setup_hard'), isFalse);
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(seconds: 2));
-  });
 }

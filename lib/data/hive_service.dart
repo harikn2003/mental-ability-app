@@ -16,10 +16,6 @@ class HiveService {
     await Hive.openBox<SessionRecord>(_sessionBox);
   }
 
-  /// Whether the history box is open (it isn't in widget tests that don't
-  /// set Hive up).
-  static bool get isReady => Hive.isBoxOpen(_sessionBox);
-
   /// Save a completed session. Trims to _maxRecords oldest entries.
   static Future<void> saveSession(SessionRecord record) async {
     final box = Hive.box<SessionRecord>(_sessionBox);

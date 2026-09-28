@@ -33,13 +33,6 @@ class StudentResultScreen extends StatelessWidget {
   /// to the detailed report's time chart.
   final String timeSetting;
 
-  /// Child mode (see QuizScreen.childMode): no way back to setup without a
-  /// teacher's hold, Try Again restarts the same session, no Full Report.
-  final bool childMode;
-
-  /// Builds the same session again (used by Try Again in child mode).
-  final Widget Function()? restart;
-
   const StudentResultScreen({
     super.key,
     required this.score,
@@ -49,8 +42,6 @@ class StudentResultScreen extends StatelessWidget {
     required this.categoryStats,
     required this.attempts,
     this.timeSetting = 'unlimited',
-    this.childMode = false,
-    this.restart,
   });
 
   // ── Theme ──────────────────────────────────────────────────────────────
@@ -100,16 +91,7 @@ class StudentResultScreen extends StatelessWidget {
   // ── Build ──────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !childMode,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) {
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(content: Text(AppLocale.s('child_locked_hint'))));
-        }
-      },
-      child: Scaffold(
+    return Scaffold(
       backgroundColor: _bgPage,
       body: SafeArea(
         child: SingleChildScrollView(
@@ -131,7 +113,6 @@ class StudentResultScreen extends StatelessWidget {
           ),
         ),
       ),
-    ),
     );
   }
 
@@ -315,7 +296,6 @@ class StudentResultScreen extends StatelessWidget {
                         totalQuestions: wrongCount,
                         timePerQuestion: 'unlimited',
                         biasEnabled: false,
-                        childMode: childMode,
                         retryQuestions: List<ReasoningQuestion>.unmodifiable(
                           wrongAttempts,
                         ),
@@ -345,14 +325,9 @@ class StudentResultScreen extends StatelessWidget {
           const SizedBox(height: 10),
         ],
 
-        // ── Try Again — a brand-new session from config; in child mode the
-        // same session again (the child never reaches the setup screen) ──
+        // ── Try Again — starts a brand-new session from config ────────────
         FilledButton.icon(
           onPressed: () {
-            if (childMode && restart != null) {
-              Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => restart!()));
-              return;
-            }
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(builder: (_) => const SessionConfigScreen()),
               (route) => false,
@@ -373,27 +348,7 @@ class StudentResultScreen extends StatelessWidget {
         ),
         const SizedBox(height: 10),
 
-        // ── Full report (teacher view): in child mode it stays in History,
-        // and a teacher holds the exit link to leave ──────────────────────
-        if (childMode)
-          GestureDetector(
-            onLongPress: () => Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const SessionConfigScreen()),
-              (route) => false,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.lock_outline_rounded, size: 16, color: _muted),
-                  const SizedBox(width: 6),
-                  Text(AppLocale.s('teacher_hold_exit'), style: const TextStyle(fontSize: 13, color: _muted)),
-                ],
-              ),
-            ),
-          )
-        else
+        // ── Full report (teacher view) ─────────────────────────────────────
         OutlinedButton.icon(
           onPressed: () {
             Navigator.push(
