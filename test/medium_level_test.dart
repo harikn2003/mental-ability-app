@@ -4,6 +4,7 @@
 // and Hard.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mental_ability_app/config/localization.dart';
 import 'package:mental_ability_app/engine/analogy_generator.dart';
 import 'package:mental_ability_app/engine/difficulty.dart';
 import 'package:mental_ability_app/engine/line_figure.dart';
@@ -160,5 +161,10 @@ void main() {
 
   test('Medium Embedded mixes in the lite exam item', () {
     expect({for (final q in medium('embedded')) q.type}, contains('embedded_line'));
+  });
+
+  test('Medium is described as a midpoint, not a mix', () {
+    AppLocale.setLang('EN');
+    expect(AppLocale.s('medium_desc'), 'Between Easy and Hard in every topic');
   });
 }

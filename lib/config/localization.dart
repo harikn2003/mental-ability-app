@@ -46,7 +46,7 @@ class AppLocale {
       'easy_desc': 'Standard puzzles to build confidence',
       'hard_desc': 'Denser figures and trickier options',
       'medium': 'Medium',
-      'medium_desc': 'A mix of standard and exam-level puzzles',
+      'medium_desc': 'Between Easy and Hard in every topic',
 
       // ── Quiz Screen ──────────────────────────────────────────────────────
       'find_the': 'FIND THE',
@@ -265,7 +265,7 @@ class AppLocale {
       'easy_desc': 'आत्मविश्वास वाढवण्यासाठी नेहमीची कोडी',
       'hard_desc': 'गुंतागुंतीच्या आकृत्या आणि फसवे पर्याय',
       'medium': 'मध्यम',
-      'medium_desc': 'नेहमीची आणि परीक्षा-स्तरावरील कोडी एकत्र',
+      'medium_desc': 'प्रत्येक विषयात सोपे आणि कठीण यांच्या मधले',
 
       // ── Quiz Screen ──────────────────────────────────────────────────────
       'find_the': 'खालीलपैकी ओळखा',
@@ -481,7 +481,7 @@ class AppLocale {
       'easy_desc': 'आत्मविश्वास बढ़ाने के लिए सामान्य पहेलियाँ',
       'hard_desc': 'जटिल आकृतियाँ और पेचीदा विकल्प',
       'medium': 'मध्यम',
-      'medium_desc': 'सामान्य और परीक्षा-स्तर की पहेलियाँ मिलाकर',
+      'medium_desc': 'हर विषय में आसान और कठिन के बीच का स्तर',
 
       // ── Quiz Screen ──────────────────────────────────────────────────────
       'find_the': 'ढूँढिए',

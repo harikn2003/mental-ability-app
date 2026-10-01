@@ -1099,6 +1099,11 @@ class QuestionGenerator {
                     rot: (baseRot + i) % 4, filled: filled, mirror: false);
               }
             });
+            // A shape with a mirror symmetry looks the same mirrored as one
+            // of its turns, so the odd one would be drawn exactly like a
+            // majority option - no answer. Draw again.
+            final oddKey = _optionKey(opts[cp]);
+            if (opts.where((o) => _optionKey(o) == oddKey).length > 1) continue;
             break;
           }
         case 9: // Variant 9: Side count vs Dot count (Hard)
