@@ -6,6 +6,7 @@
 // from the puzzle.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mental_ability_app/engine/difficulty.dart';
 import 'package:mental_ability_app/engine/analogy_generator.dart';
 import 'package:mental_ability_app/engine/line_figure.dart';
 import 'package:mental_ability_app/engine/question_generator.dart';
@@ -258,4 +259,21 @@ void main() {
     // serves them, so Hard must.
     expect(types, containsAll(['hard_analogy_sandia_3layer', 'analogy_r0', 'analogy_r2', 'analogy_r6', 'analogy_r8', 'analogy_r9']));
   });
+
+  for (final family in AnalogyGenerator.families) {
+    test('medium $family: the change read from A -> B picks exactly one option', () {
+      AnalogyGenerator.seed(29);
+      var central = 0;
+      for (int i = 0; i < runs; i++) {
+        final q = AnalogyGenerator.generate(level: Difficulty.medium, family: family);
+        expect(q, isNotNull, reason: 'generator gave up on run $i');
+        check(q!);
+        final opts = q.options.map(fig).toList();
+        final totals = [for (final x in opts) opts.fold<int>(0, (s, y) => s + distance(x, y))];
+        final best = totals.reduce((x, y) => x < y ? x : y);
+        if (totals[q.correctIndex] == best && totals.where((t) => t == best).length == 1) central++;
+      }
+      expect(central / runs, lessThan(0.25));
+    });
+  }
 }

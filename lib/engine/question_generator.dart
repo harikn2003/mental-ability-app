@@ -270,11 +270,19 @@ class QuestionGenerator {
         if (pv == 2) return _matrixInnerShape();
         return _matrixDualRule();
       case 'figure_series':
+        if (p < 60) {
+          final q = SeriesGenerator.generate(level: Difficulty.medium);
+          if (q != null) return q;
+        }
         // Classic series with one or two regular changes (no morph, no
         // inner-shape cycling on top of the turn).
         final classic = [_seriesRotFill, _seriesDotsRot, _seriesFillToggle, _seriesAltDual, _seriesRotation, _seriesDots, _seriesInner];
         return classic[_r.nextInt(classic.length)]();
       case 'analogy':
+        if (p < 60) {
+          final q = AnalogyGenerator.generate(level: Difficulty.medium);
+          if (q != null) return q;
+        }
         return _analogy(medium: true);
       case 'geo_completion':
         return _geoCompletion(isHardMode: true);

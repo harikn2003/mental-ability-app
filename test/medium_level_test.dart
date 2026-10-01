@@ -4,9 +4,12 @@
 // and Hard.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mental_ability_app/engine/analogy_generator.dart';
 import 'package:mental_ability_app/engine/difficulty.dart';
+import 'package:mental_ability_app/engine/line_figure.dart';
 import 'package:mental_ability_app/engine/question_generator.dart';
 import 'package:mental_ability_app/engine/reasoning_question.dart';
+import 'package:mental_ability_app/engine/series_generator.dart';
 
 const topics = ['odd_man', 'figure_match', 'pattern', 'figure_series', 'analogy',
     'geo_completion', 'mirror_shape', 'mirror_text', 'punch_hole', 'space_vis', 'embedded'];
@@ -76,6 +79,47 @@ void main() {
     for (final q in medium('mirror_text')) {
       if (q.puzzle['is_clock'] == true) continue;
       expect((q.puzzle['content'] as String).length, 4, reason: q.type);
+    }
+  });
+
+  LineFig fig(dynamic m) => LineFig.fromMap(Map<String, dynamic>.from(m as Map));
+
+  test('Medium series arrow: 90 degree steps and the bars change', () {
+    SeriesGenerator.seed(5);
+    for (int i = 0; i < 100; i++) {
+      final q = SeriesGenerator.generate(level: Difficulty.medium, family: 'arrow')!;
+      final seq = [for (final m in q.puzzle['sequence'] as List) fig(m)];
+      expect(seq.map((f) => f.segs.length).toSet().length, greaterThan(1), reason: 'bars must change');
+      expect(seq.map((f) => f.arrows.single).toSet().length, 3);
+      // Head direction: consecutive arrowheads a quarter turn apart.
+      final heads = [for (final f in seq) f.rings.single];
+      for (int k = 0; k < 2; k++) {
+        final (ax, ay) = (heads[k].$1 - 3, heads[k].$2 - 3);
+        final (bx, by) = (heads[k + 1].$1 - 3, heads[k + 1].$2 - 3);
+        expect(ax * bx + ay * by, 0, reason: 'tails 90 degrees apart');
+      }
+    }
+  });
+
+  test('Medium series symbols: four symbols on a 2x2 grid', () {
+    SeriesGenerator.seed(6);
+    for (int i = 0; i < 100; i++) {
+      final q = SeriesGenerator.generate(level: Difficulty.medium, family: 'symbols')!;
+      final f = fig((q.puzzle['sequence'] as List).first);
+      expect((f.w, f.h), (2, 2));
+      expect(f.glyphs.length, 4);
+    }
+  });
+
+  test('Medium analogy turn: quarter turns, never mirrored', () {
+    AnalogyGenerator.seed(8);
+    for (int i = 0; i < 100; i++) {
+      final q = AnalogyGenerator.generate(level: Difficulty.medium, family: 'turn')!;
+      final a = fig(q.puzzle['A']).copyWith(glyphs: {});
+      final b = fig(q.puzzle['B']).copyWith(glyphs: {});
+      final turns = [for (int t = 0; t < 4; t++) if (a.rot(t).key == b.key) t];
+      expect(turns.length == 1 && (turns.single == 1 || turns.single == 3), isTrue,
+          reason: 'B must be A turned a quarter, got $turns');
     }
   });
 }
