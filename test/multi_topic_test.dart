@@ -7,6 +7,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mental_ability_app/config/localization.dart';
+import 'package:mental_ability_app/engine/difficulty.dart';
+import 'package:mental_ability_app/engine/question_generator.dart';
 import 'package:mental_ability_app/screens/quiz_screen.dart';
 import 'package:mental_ability_app/screens/session_config_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -143,6 +145,26 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool('last_setup_medium'), isTrue);
     expect(prefs.getBool('last_setup_hard'), isFalse);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('a Medium session asks for Medium questions only', (tester) async {
+    phone(tester);
+    final asked = <Difficulty>{};
+    QuestionGenerator.onGenerate = (_, d) => asked.add(d);
+    addTearDown(() => QuestionGenerator.onGenerate = null);
+    await tester.pumpWidget(const MaterialApp(
+      home: QuizScreen(mode: 'random', totalQuestions: 6, timePerQuestion: 'unlimited', isMediumMode: true),
+    ));
+    await tester.pump(const Duration(milliseconds: 500));
+    for (int q = 0; q < 5; q++) {
+      await tester.tap(find.byIcon(Icons.skip_next_rounded).first);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.byWidgetPredicate((w) => w is FloatingActionButton && w.heroTag == 'next_btn'));
+      await tester.pump(const Duration(milliseconds: 500));
+    }
+    expect(asked, {Difficulty.medium});
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 2));
   });

@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import 'difficulty.dart';
 import 'exam_style_generator.dart';
 import 'hard_question_generator.dart';
 import 'analogy_generator.dart';
@@ -139,8 +140,18 @@ class QuestionGenerator {
   /// the classic single-shape generator (see [generate]).
   static const classicHardCategories = {'figure_series', 'analogy'};
 
-  /// Main generator entry point.
-  static ReasoningQuestion generate(String category, {bool isHardMode = false}) {
+  /// Test hook: told the category and difficulty of every [generate] call.
+  @visibleForTesting
+  static void Function(String category, Difficulty d)? onGenerate;
+
+  /// Main generator entry point. [difficulty] wins over [isHardMode] when
+  /// given. Medium has its own router ([_generateMediumRaw]); the Easy and
+  /// Hard paths below are unchanged.
+  static ReasoningQuestion generate(String category, {bool isHardMode = false, Difficulty? difficulty}) {
+    final d = difficulty ?? (isHardMode ? Difficulty.hard : Difficulty.easy);
+    onGenerate?.call(category, d);
+    if (d == Difficulty.medium) return _dedup(() => _generateMediumRaw(category));
+    isHardMode = d == Difficulty.hard;
     // BUGFIX: every Hard Mode request used to go to HardQuestionGenerator,
     // which only knows the 5 Sandia categories and fell back to Odd Man Out
     // for anything else - so Hard + Mirror Shape (or Punch Hole, Embedded,
@@ -210,6 +221,21 @@ class QuestionGenerator {
     _markQuestionIfNew(fallback);
     return fallback;
   }
+
+  /// Up to 80 tries for a question not seen this session, as [generate]
+  /// does for Easy and Hard.
+  static ReasoningQuestion _dedup(ReasoningQuestion Function() make) {
+    for (int attempt = 0; attempt < 80; attempt++) {
+      final q = make();
+      if (_markQuestionIfNew(q)) return q;
+    }
+    final q = make();
+    _markQuestionIfNew(q);
+    return q;
+  }
+
+  /// Medium (replaced by the per-topic recipes).
+  static ReasoningQuestion _generateMediumRaw(String category) => _generateRaw(category, isHardMode: false);
 
   /// [classic]: serve the topic's original generator even in Hard Mode
   /// (skipping the exam-style items) - see [classicHardCategories].
