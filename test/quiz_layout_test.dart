@@ -46,4 +46,39 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
     });
   }
+
+  // Medium: every topic renders at phone size, no overflow, result visible.
+  const topics = ['odd_man', 'figure_match', 'pattern', 'figure_series', 'analogy',
+      'geo_completion', 'mirror_shape', 'mirror_text', 'punch_hole', 'space_vis', 'embedded'];
+  for (final topic in topics) {
+    testWidgets('$topic medium: renders at phone size, result above the buttons', (tester) async {
+      tester.view.physicalSize = const Size(1084, 2412);
+      tester.view.devicePixelRatio = 2.75;
+      addTearDown(tester.view.reset);
+      SharedPreferences.setMockInitialValues({});
+      QuestionGenerator.seed(19);
+      await tester.pumpWidget(MaterialApp(
+        home: QuizScreen(mode: topic, totalQuestions: 10, timePerQuestion: 'none', biasEnabled: false, initialWeights: const {}, isMediumMode: true),
+      ));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(tester.takeException(), isNull);
+
+      final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+      const strip = 76.0;
+      for (int q = 0; q < 4; q++) {
+        await tester.tap(find.text('A').first, warnIfMissed: false);
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(tester.takeException(), isNull, reason: 'question ${q + 1}');
+        final r = tester.getRect(find.textContaining(RegExp(r'correct answer|Correct!')));
+        expect(r.bottom, lessThanOrEqualTo(screen.height - strip), reason: 'question ${q + 1}');
+        await tester.pump(const Duration(milliseconds: 1400));
+        await tester.tap(find.byWidgetPredicate((w) => w is FloatingActionButton && w.heroTag == 'next_btn'));
+        await tester.pump(const Duration(milliseconds: 500));
+      }
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 2));
+    });
+  }
 }
