@@ -214,4 +214,22 @@ void main() {
     }
     expect(_centralShare(qs), lessThan(0.35));
   });
+
+  test('Medium geo completion: answer pieces unturned or half-turned', () {
+    final qs = _make(() => ExamStyleGenerator.geoCompletion(halfTurnsOnly: true));
+    for (final q in qs) {
+      expect(q.puzzle['answer_turn'], anyOf(0, 2));
+    }
+  });
+
+  test('Medium mirror line figure: no option keeps a decoration unflipped', () {
+    final qs = _make(() => ExamStyleGenerator.mirrorLineFigure(noDetailTrap: true));
+    for (final q in qs) {
+      final target = _fig(q.puzzle['target']);
+      final expected = {target.mirrorX().key, target.mirrorY().key, target.key, target.rot(2).key};
+      expect({for (final o in q.options) _fig(o).key}, expected);
+      expect(_fig(q.options[q.correctIndex]).key, target.mirrorX().key);
+    }
+    expect(_centralShare(qs), lessThan(0.35));
+  });
 }

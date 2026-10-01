@@ -285,8 +285,16 @@ class QuestionGenerator {
         }
         return _analogy(medium: true);
       case 'geo_completion':
+        if (p < 75) {
+          final q = ExamStyleGenerator.geoCompletion(halfTurnsOnly: true);
+          if (q != null) return q;
+        }
         return _geoCompletion(isHardMode: true);
       case 'mirror_shape':
+        if (p < 50) {
+          final q = ExamStyleGenerator.mirrorLineFigure(noDetailTrap: true);
+          if (q != null) return q;
+        }
         return _mirrorShape();
       case 'mirror_text':
         return _mirrorText(medium: true);

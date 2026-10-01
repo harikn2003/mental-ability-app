@@ -122,4 +122,13 @@ void main() {
           reason: 'B must be A turned a quarter, got $turns');
     }
   });
+
+  test('Medium Geo and Mirror Shape mix in their lite exam items', () {
+    final geo = medium('geo_completion');
+    expect({for (final q in geo) q.type}, contains('geo_grid_cut'));
+    for (final q in geo.where((q) => q.type == 'geo_grid_cut')) {
+      expect(q.puzzle['answer_turn'], anyOf(0, 2));
+    }
+    expect({for (final q in medium('mirror_shape')) q.type}, contains('mirror_line_fig'));
+  });
 }

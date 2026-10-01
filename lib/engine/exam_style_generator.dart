@@ -64,7 +64,7 @@ class ExamStyleGenerator {
   // piece has to be turned mentally to fit. Pieces can't be flipped over.
   // Answer set: {piece, mirror-image piece} x {as is, one cell moved}.
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion? geoCompletion() {
+  static ReasoningQuestion? geoCompletion({bool halfTurnsOnly = false}) {
     const n = 4;
     final all = {for (int x = 0; x < n; x++) for (int y = 0; y < n; y++) (x, y)};
     List<(int, int)> nbrs((int, int) c) => [(c.$1 + 1, c.$2), (c.$1 - 1, c.$2), (c.$1, c.$2 + 1), (c.$1, c.$2 - 1)];
@@ -140,15 +140,19 @@ class ExamStyleGenerator {
 
       // Show every piece turned by a random amount (the real papers do), all
       // on the square's own 4x4 scale so sizes can be compared.
+      // Medium: answer pieces shown as cut or upside down, never a quarter
+      // turn; Hard: any turn.
+      final turns = [for (int i = 0; i < 4; i++) halfTurnsOnly ? 2 * _r.nextInt(2) : _r.nextInt(4)];
       final shown = [
-        for (final o in options)
+        for (int i = 0; i < 4; i++)
           () {
-            final g = o.rot(_r.nextInt(4)).normalized();
+            final g = options[i].rot(turns[i]).normalized();
             return {...g.shift(0, 0, n, n).toMap(), 'center': true};
           }(),
       ];
       final question = LineFig(n, n, cells: rest, segs: LineFig.cellBoundary(rest));
-      return _question('geo_completion', 'geo_grid_cut', {'type': 'geo_completion', 'piece': question.toMap()},
+      return _question('geo_completion', 'geo_grid_cut',
+          {'type': 'geo_completion', 'piece': question.toMap(), 'answer_turn': turns[0]},
           shown[0], shown.sublist(1));
     }
     return null;
@@ -509,7 +513,7 @@ class ExamStyleGenerator {
   // Answer set: {mirror image, water image} x {all flipped, one decoration
   // left where it was}.
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion? mirrorLineFigure() {
+  static ReasoningQuestion? mirrorLineFigure({bool noDetailTrap = false}) {
     for (int attempt = 0; attempt < 200; attempt++) {
       final segs = _strokes(4, 4, 5 + _r.nextInt(4));
       final ends = {for (final s in segs) ...[(s.$1, s.$2), (s.$3, s.$4)]}.toList()..shuffle(_r);
@@ -523,7 +527,9 @@ class ExamStyleGenerator {
       final mirror = f.mirrorX(), water = f.mirrorY();
       // "Forgot to flip the dot": the flipped figure with the dot left put.
       LineFig dotStays(LineFig g) => g.copyWith(dots: f.dots);
-      final opts = [mirror, water, dotStays(mirror), dotStays(water)];
+      // Medium: {mirror, water image, not mirrored, upside down} - four
+      // clearly different flips, no "one decoration left in place" trap.
+      final opts = noDetailTrap ? [mirror, water, f, f.rot(2)] : [mirror, water, dotStays(mirror), dotStays(water)];
       if (opts.map((o) => o.key).toSet().length != 4) continue;
       return _question('mirror_shape', 'mirror_line_fig', {'type': 'mirror_shape', 'target': f.toMap()}, mirror.toMap(),
           [for (final o in opts.skip(1)) o.toMap()]);
