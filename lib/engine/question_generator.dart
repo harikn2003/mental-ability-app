@@ -295,7 +295,8 @@ class QuestionGenerator {
       case 'embedded':
         return _embeddedHard();
       case 'space_vis':
-        return SpaceVisGenerator.generate() ?? SpaceVisGenerator.generate()!;
+        // Easy is only the never-null last resort, as in the Easy/Hard route.
+        return SpaceVisGenerator.generate(level: Difficulty.medium) ?? SpaceVisGenerator.generate()!;
       default:
         return _matrixShapeCycle();
     }

@@ -4,6 +4,7 @@
 // taken from the generator's own bookkeeping.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mental_ability_app/engine/difficulty.dart';
 import 'package:mental_ability_app/engine/line_figure.dart';
 import 'package:mental_ability_app/engine/question_generator.dart';
 import 'package:mental_ability_app/engine/reasoning_question.dart';
@@ -150,5 +151,31 @@ void main() {
         expect(q.puzzle['type'], 'space_vis');
       }
     }
+  });
+
+  test('medium: exactly one option is made from the pieces', () {
+    SpaceVisGenerator.seed(13);
+    var central = 0;
+    for (int i = 0; i < runs; i++) {
+      final q = SpaceVisGenerator.generate(level: Difficulty.medium);
+      expect(q, isNotNull, reason: 'generator gave up on run $i');
+      final given = pieceKeys(q!).join('|');
+      final matching = [for (int o = 0; o < 4; o++) if (optionKeys(q.options[o]).join('|') == given) o];
+      expect(matching, [q.correctIndex]);
+      final givenFlip = pieceKeys(q, flips: true).join('|');
+      for (int o = 0; o < 4; o++) {
+        if (o != q.correctIndex) expect(optionKeys(q.options[o], flips: true).join('|'), isNot(givenFlip));
+      }
+      expect((q.puzzle['pieces'] as List).length, 3);
+      expect(q.puzzle['diagonal_cuts'], lessThanOrEqualTo(1));
+      expect(SpaceVisGenerator.mediumOutlines, contains(q.puzzle['outline']));
+      final segs = [for (final o in q.options) fig(o).segs];
+      final totals = [for (final a in segs) segs.fold<int>(0, (s, b) => s + a.difference(b).length + b.difference(a).length)];
+      final best = totals.reduce((a, b) => a < b ? a : b);
+      if (totals[q.correctIndex] == best && totals.where((t) => t == best).length == 1) central++;
+    }
+    // ignore: avoid_print
+    print('space_vis medium: answer is the unique most-central option in ${(100 * central / runs).toStringAsFixed(1)}% (chance 25%)');
+    expect(central / runs, lessThan(0.35));
   });
 }
