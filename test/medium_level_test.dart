@@ -146,4 +146,19 @@ void main() {
       expect(((a['clock_minute'] as int) * 6) % 360, (360 - m * 6) % 360);
     }
   });
+
+  test('Medium Punch Hole never folds twice', () {
+    for (final q in medium('punch_hole')) {
+      final folds = q.puzzle['folds'] as List?;
+      if (folds != null) {
+        expect(folds.length, 1);
+      } else {
+        expect(q.puzzle['fold_axis'], anyOf(0, 1), reason: 'classic single fold');
+      }
+    }
+  });
+
+  test('Medium Embedded mixes in the lite exam item', () {
+    expect({for (final q in medium('embedded')) q.type}, contains('embedded_line'));
+  });
 }

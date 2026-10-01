@@ -232,4 +232,28 @@ void main() {
     }
     expect(_centralShare(qs), lessThan(0.35));
   });
+
+  test('Medium punch hole: one fold, two punches', () {
+    final qs = _make(() => ExamStyleGenerator.punchHole(singleFold: true));
+    for (final q in qs) {
+      expect((q.puzzle['folds'] as List).length, 1);
+      expect((q.puzzle['holes'] as List).length, 2);
+      expect(q.options.map((o) => o.toString()).toSet().length, 4);
+    }
+  });
+
+  test('Medium embedded: lighter drawings, near-misses flipped not quarter-turned', () {
+    final qs = _make(() => ExamStyleGenerator.embeddedFigure(lite: true));
+    final counts = <int>[];
+    for (final q in qs) {
+      final t = _fig(q.puzzle['target']);
+      expect(_where(q, (o) => o.embeds(t)), [q.correctIndex]);
+      for (final o in q.options) {
+        counts.add(_fig(o).segs.length);
+      }
+    }
+    // Hard's drawings (measured, seed 7): 17-32 strokes, median 22.
+    expect(counts.every((c) => c <= 22), isTrue, reason: 'max ${counts.reduce((a, b) => a > b ? a : b)}');
+    expect(counts.reduce((a, b) => a + b) / counts.length, lessThan(17));
+  });
 }

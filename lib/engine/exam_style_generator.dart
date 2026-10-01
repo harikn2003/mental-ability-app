@@ -165,7 +165,7 @@ class ExamStyleGenerator {
   // only one hides it as shown - the others hide it flipped and/or turned.
   // Answer set: {as shown, mirrored} x {as shown, turned 90°}.
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion? embeddedFigure() {
+  static ReasoningQuestion? embeddedFigure({bool lite = false}) {
     const n = 4;
     final structures = <Set<(int, int, int, int)>>[
       {...LineFig.line(0, 0, 4, 0), ...LineFig.line(4, 0, 4, 4), ...LineFig.line(4, 4, 0, 4), ...LineFig.line(0, 4, 0, 0)}, // frame
@@ -182,15 +182,17 @@ class ExamStyleGenerator {
       if (!t.segs.any((s) => s.$1 != s.$3 && s.$2 != s.$4) || t.segs.every((s) => s.$1 != s.$3 && s.$2 != s.$4)) {
         continue; // mix of straight and diagonal strokes
       }
-      final variants = [t, t.mirrorX(), t.rot90(), t.mirrorX().rot90()];
+      // Medium (lite): the near-misses are flips and a half turn - no
+      // quarter turns - hidden in a lighter drawing.
+      final variants = lite ? [t, t.mirrorX(), t.mirrorY(), t.rot(2)] : [t, t.mirrorX(), t.rot90(), t.mirrorX().rot90()];
 
       LineFig? host(LineFig v, bool mustEmbed) {
         for (int k = 0; k < 40; k++) {
           final vn = v.normalized();
           final dx = _r.nextInt(n - vn.w + 1), dy = _r.nextInt(n - vn.h + 1);
           final placed = vn.shift(dx, dy, n, n).segs;
-          final base = (List.of(structures)..shuffle(_r)).take(2).expand((s) => s).toSet();
-          final f = LineFig(n, n, segs: {...base, ...placed, ..._strokes(n, n, 2 + _r.nextInt(3))});
+          final base = (List.of(structures)..shuffle(_r)).take(lite ? 1 : 2).expand((s) => s).toSet();
+          final f = LineFig(n, n, segs: {...base, ...placed, ..._strokes(n, n, lite ? 1 + _r.nextInt(2) : 2 + _r.nextInt(3))});
           // The hidden figure must not be a trivial copy of the structure
           // (at least one of its strokes is not part of the base lines)...
           if (placed.every(base.contains)) continue;
@@ -450,12 +452,14 @@ class ExamStyleGenerator {
       ]..sort())
           .join(';');
 
-  static ReasoningQuestion? punchHole() {
+  static ReasoningQuestion? punchHole({bool singleFold = false}) {
     const sequences = [['v', 'h'], ['h', 'v'], ['d'], ['a'], ['d', 'a'], ['a', 'd']];
+    // Medium: one fold (straight or diagonal), two punches.
+    const single = [['v'], ['h'], ['d'], ['a']];
     for (int attempt = 0; attempt < 300; attempt++) {
-      final folds = _pick(sequences);
+      final folds = _pick(singleFold ? single : sequences);
       final shape = _pick(const ['tri', 'tri', 'circle', 'square']);
-      final punches = 1 + _r.nextInt(2);
+      final punches = singleFold ? 2 : 1 + _r.nextInt(2);
       final holes = <Map<String, dynamic>>[];
       for (int k = 0; k < 60 && holes.length < punches; k++) {
         final x = 0.08 + _r.nextInt(21) * 0.04, y = 0.08 + _r.nextInt(21) * 0.04;
@@ -470,7 +474,7 @@ class ExamStyleGenerator {
 
       // Change A: one fold forgotten, or for a single fold, the other diagonal.
       final skip = folds.length > 1 ? _r.nextInt(folds.length) : null;
-      final aFolds = folds.length > 1 ? folds : [folds.single == 'd' ? 'a' : 'd'];
+      final aFolds = folds.length > 1 ? folds : [const {'d': 'a', 'a': 'd', 'v': 'h', 'h': 'v'}[folds.single]!];
       List<Map<String, dynamic>> unfold({required bool changeA, required bool flip}) =>
           _unfold(holes, changeA ? aFolds : folds, skip: changeA ? skip : null, flipShapes: flip);
       // Change B: triangles copied without flipping; for round/square holes,

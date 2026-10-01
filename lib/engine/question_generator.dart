@@ -299,8 +299,16 @@ class QuestionGenerator {
       case 'mirror_text':
         return _mirrorText(medium: true);
       case 'punch_hole':
+        if (p < 60) {
+          final q = ExamStyleGenerator.punchHole(singleFold: true);
+          if (q != null) return q;
+        }
         return _punchHoleClassic();
       case 'embedded':
+        if (p < 60) {
+          final q = ExamStyleGenerator.embeddedFigure(lite: true);
+          if (q != null) return q;
+        }
         return _embeddedHard();
       case 'space_vis':
         // Easy is only the never-null last resort, as in the Easy/Hard route.
