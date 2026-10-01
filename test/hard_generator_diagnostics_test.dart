@@ -356,6 +356,16 @@ void main() {
             final counts = <String, int>{for (final k in keys) k: keys.where((x) => x == k).length};
             expect(counts.values.toList()..sort(), [1, 3], reason: 'run $i (${q.type})');
             expect(counts[keys[q.correctIndex]], 1, reason: 'run $i (${q.type}): answer is not the odd one');
+          } else if (q.type == 'odd_v8') {
+            // Rotation vs mirror trap: the mirrored answer must not look like
+            // ANY turn of the shape - including the one turn not shown, or
+            // the four options are just four turns and none is odd.
+            final answer = Map<String, dynamic>.from(q.options[q.correctIndex]);
+            final turns = {
+              for (int r = 0; r < 4; r++) QuestionGenerator.debugOptionKey({...answer, 'rotation': r, 'mirror': false}),
+            };
+            expect(turns.contains(keys[q.correctIndex]), isFalse, reason: 'run $i: mirrored answer is just a turn');
+            expect(keys.toSet().length, 4, reason: 'run $i (${q.type}) has duplicate options');
           } else {
             expect(keys.toSet().length, 4, reason: 'run $i (${q.type}) has duplicate options');
           }

@@ -1100,10 +1100,12 @@ class QuestionGenerator {
               }
             });
             // A shape with a mirror symmetry looks the same mirrored as one
-            // of its turns, so the odd one would be drawn exactly like a
-            // majority option - no answer. Draw again.
+            // of its turns - shown as a majority option, or the one turn not
+            // shown, which leaves four plain turns and nothing odd. Either
+            // way there is no answer: draw again.
             final oddKey = _optionKey(opts[cp]);
-            if (opts.where((o) => _optionKey(o) == oddKey).length > 1) continue;
+            final turnKeys = {for (int t = 0; t < 4; t++) _optionKey(_f(s, rot: t, filled: filled, mirror: false))};
+            if (turnKeys.contains(oddKey)) continue;
             break;
           }
         case 9: // Variant 9: Side count vs Dot count (Hard)
