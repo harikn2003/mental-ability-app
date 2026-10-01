@@ -234,8 +234,56 @@ class QuestionGenerator {
     return q;
   }
 
-  /// Medium (replaced by the per-topic recipes).
-  static ReasoningQuestion _generateMediumRaw(String category) => _generateRaw(category, isHardMode: false);
+  /// Medium: a true midpoint for every topic - the same kinds of questions
+  /// as Hard with the hardest trick taken out, or Easy plus one step. Old
+  /// and exam-style generators are mixed as at the other levels. Every
+  /// exam-style call may return null; each arm then falls back to a
+  /// Medium-level classic generator, never to an Easy or Hard route. The
+  /// Sandia matrices are Pattern-only here: their density knob is only read
+  /// for Pattern, and at full density they are Hard material.
+  static ReasoningQuestion _generateMediumRaw(String category) {
+    final p = _r.nextInt(100);
+    switch (category) {
+      case 'odd_man':
+        // Hard's classic variants; the exam mirror item at a lower share.
+        if (p < 20) {
+          final q = ExamStyleGenerator.oddManOut();
+          if (q != null) return q;
+        }
+        return _oddMan(isHardMode: true);
+      case 'figure_match':
+        return _figureMatch();
+      case 'pattern':
+        if (p < 35) return HardQuestionGenerator.generate('pattern', complexity: 2);
+        // One-rule matrices, plus the dual-rule one at low weight.
+        final pv = _pickWeighted([0, 0, 1, 1, 2, 2, 3]);
+        if (pv == 0) return _matrixShapeCycle();
+        if (pv == 1) return _matrixDotRotation();
+        if (pv == 2) return _matrixInnerShape();
+        return _matrixDualRule();
+      case 'figure_series':
+        // Classic series with one or two regular changes (no morph, no
+        // inner-shape cycling on top of the turn).
+        final classic = [_seriesRotFill, _seriesDotsRot, _seriesFillToggle, _seriesAltDual, _seriesRotation, _seriesDots, _seriesInner];
+        return classic[_r.nextInt(classic.length)]();
+      case 'analogy':
+        return _analogy(medium: true);
+      case 'geo_completion':
+        return _geoCompletion(isHardMode: true);
+      case 'mirror_shape':
+        return _mirrorShape();
+      case 'mirror_text':
+        return _mirrorText(medium: true);
+      case 'punch_hole':
+        return _punchHoleClassic();
+      case 'embedded':
+        return _embeddedHard();
+      case 'space_vis':
+        return SpaceVisGenerator.generate() ?? SpaceVisGenerator.generate()!;
+      default:
+        return _matrixShapeCycle();
+    }
+  }
 
   /// [classic]: serve the topic's original generator even in Hard Mode
   /// (skipping the exam-style items) - see [classicHardCategories].
@@ -1868,16 +1916,20 @@ class QuestionGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   // 5. ANALOGY
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion _analogy({bool isHardMode = false}) {
+  static ReasoningQuestion _analogy({bool isHardMode = false, bool medium = false}) {
     const allAsym = [2, 3, 7, 8];
 
     for (int attempt = 0; attempt < 40; attempt++) {
       // Easy (grades 2-3): only the rules that change ONE thing - half turn
       // (1, 7), fill (3), no change (5). The rules that change two or three
       // things at once (turn + fill + dots) are served in Hard.
-      final rule = isHardMode
-          ? _pickWeighted([8, 9, 4, 6, 2, 8, 0, 1])
-          : _pickWeighted([1, 3, 3, 5, 7]);
+      // Medium: rules that change one or two things, never three (8 and
+      // 4 change turn + fill + dots / inner shape).
+      final rule = medium
+          ? _pickWeighted([0, 0, 1, 2, 3, 6, 7, 9])
+          : isHardMode
+              ? _pickWeighted([8, 9, 4, 6, 2, 8, 0, 1])
+              : _pickWeighted([1, 3, 3, 5, 7]);
 
       final sh1 = allAsym[_r.nextInt(allAsym.length)];
       int sh2;
@@ -2453,7 +2505,7 @@ class QuestionGenerator {
     return _mirrorText();
   }
 
-  static ReasoningQuestion _mirrorText({bool isHardMode = false}) {
+  static ReasoningQuestion _mirrorText({bool isHardMode = false, bool medium = false}) {
     if (isHardMode && _r.nextInt(2) == 0) return _mirrorClockHard();
     String pickBaseContent(bool isDigit) {
       if (isDigit) {
@@ -2651,6 +2703,15 @@ class QuestionGenerator {
       return pool.take(3).join();
     }
 
+    // Medium: four characters of one kind - three whose mirror image
+    // clearly differs and one that looks the same in a mirror - so the
+    // solver must notice that not every glyph flips.
+    String pickMediumContent(bool isDigit) {
+      final asym = (isDigit ? '234579' : 'BCDEFGJKLNPRSZ').split('')..shuffle(_r);
+      final sym = (isDigit ? '08' : 'AHMOTUVWXY').split('')..shuffle(_r);
+      return ([...asym.take(3), sym.first]..shuffle(_r)).join();
+    }
+
     mirrorTextAttempt:
     for (int attempt = 0; attempt < 80; attempt++) {
       final isDigit = _r.nextBool();
@@ -2659,11 +2720,13 @@ class QuestionGenerator {
       // letter left unflipped, two letters swapped), which used to be Easy's
       // and is too fine a distinction for grades 2-3.
       final classicTraps = isHardMode && _r.nextBool();
-      final content = !isHardMode
-          ? pickEasyContent(isDigit)
-          : classicTraps
-              ? pickBaseContent(isDigit)
-              : pickHardContent();
+      final content = medium
+          ? pickMediumContent(isDigit)
+          : !isHardMode
+              ? pickEasyContent(isDigit)
+              : classicTraps
+                  ? pickBaseContent(isDigit)
+                  : pickHardContent();
       final sigKey = 'mirTextAdv:$content|${isDigit ? 'digit' : 'word'}${classicTraps ? '|traps' : ''}';
       if (_seen(sigKey)) continue;
 
@@ -2691,7 +2754,7 @@ class QuestionGenerator {
         _markSeen(sigKey);
         return ReasoningQuestion(
           category: 'mirror_text',
-          type: isHardMode ? 'mirror_text_hard' : 'mirror_text_easy',
+          type: medium ? 'mirror_text_medium' : isHardMode ? 'mirror_text_hard' : 'mirror_text_easy',
           puzzle: {'type': 'mirror_text', 'is_clock': false, 'content': content, 'mirror_h': false, 'mirror_v': false},
           options: packed.opts,
           correctIndex: packed.idx,
