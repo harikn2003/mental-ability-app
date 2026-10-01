@@ -2485,7 +2485,7 @@ class QuestionGenerator {
   /// - and every option is drawn as a plain clock. Wrong answers are the
   /// usual mistakes: the original time, the clock turned upside down
   /// (h + 6), the mirror time off by an hour, only the minute hand mirrored.
-  static ReasoningQuestion _mirrorClockHard() {
+  static ReasoningQuestion _mirrorClockHard({bool medium = false}) {
     Map<String, dynamic> clock(int h, int m) => {
           'type': 'mirror_text',
           'is_clock': true,
@@ -2502,13 +2502,16 @@ class QuestionGenerator {
 
     for (int attempt = 0; attempt < 60; attempt++) {
       final h = _r.nextInt(12) + 1;
-      // Not :00 or :30 - the minute hand would sit on the mirror line and
-      // the original and its mirror image could coincide.
-      final m = const [5, 10, 15, 20, 25, 35, 40, 45, 50, 55][_r.nextInt(10)];
+      // Medium: on the hour or half past - the easiest times to mirror (the
+      // keys check below drops 6:00 and 12:00, which mirror to themselves).
+      // Hard: not :00 or :30 - the minute hand would sit on the mirror line
+      // and the original and its mirror image could coincide.
+      final m = medium ? (_r.nextBool() ? 0 : 30) : const [5, 10, 15, 20, 25, 35, 40, 45, 50, 55][_r.nextInt(10)];
       final sigKey = 'mirClock:$h:$m';
       if (_seen(sigKey)) continue;
 
-      final mh = 11 - h, mm = 60 - m; // mirror time
+      // Mirror time (11 - h):(60 - m); on the hour that is (12 - h):00.
+      final mh = m == 0 ? 12 - h : 11 - h, mm = m == 0 ? 0 : 60 - m;
       final correct = clock(mh, mm);
       // Balanced answer set: {mirror time, original time} x {as read, one
       // hour off} - the same hour shift in both, so no option is central.
@@ -2527,11 +2530,12 @@ class QuestionGenerator {
         correctIndex: packed.idx,
       );
     }
-    return _mirrorText();
+    return _mirrorText(medium: medium);
   }
 
   static ReasoningQuestion _mirrorText({bool isHardMode = false, bool medium = false}) {
     if (isHardMode && _r.nextInt(2) == 0) return _mirrorClockHard();
+    if (medium && _r.nextInt(100) < 30) return _mirrorClockHard(medium: true);
     String pickBaseContent(bool isDigit) {
       if (isDigit) {
         final List<int> digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]..shuffle(_r);

@@ -131,4 +131,19 @@ void main() {
     }
     expect({for (final q in medium('mirror_shape')) q.type}, contains('mirror_line_fig'));
   });
+
+  test('Medium mirror clocks: on the hour or half past, mirror time correct', () {
+    final clocks = medium('mirror_text', n: 300).where((q) => q.puzzle['is_clock'] == true).toList();
+    expect(clocks, isNotEmpty, reason: 'Medium serves some clocks');
+    for (final q in clocks) {
+      final h = q.puzzle['clock_hour'] as int, m = q.puzzle['clock_minute'] as int;
+      expect(m, anyOf(0, 30));
+      final a = q.options[q.correctIndex];
+      // Mirror: both hands reflected about the 12-6 line.
+      final hourAngle = ((h % 12) * 30 + m / 2) % 360;
+      final ah = (((a['clock_hour'] as int) % 12) * 30 + (a['clock_minute'] as int) / 2) % 360;
+      expect(ah, closeTo((360 - hourAngle) % 360, 0.01));
+      expect(((a['clock_minute'] as int) * 6) % 360, (360 - m * 6) % 360);
+    }
+  });
 }
