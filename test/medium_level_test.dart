@@ -59,6 +59,19 @@ void main() {
     expect(types.contains('series_morph'), isFalse);
   });
 
+  test('Medium Pattern serves mirror quarters, never turn quarters', () {
+    final quarters = medium('pattern').where((q) => q.type == 'pattern_quarter').toList();
+    expect(quarters, isNotEmpty);
+    for (final q in quarters) {
+      expect(q.puzzle['symmetry'], 'mirror');
+    }
+  });
+
+  test('Medium Figure Match mixes the lite exam item with the classic one', () {
+    final types = {for (final q in medium('figure_match')) q.type};
+    expect(types, contains('figure_match_exam'));
+  });
+
   test('Medium Mirror Text words are 4 characters', () {
     for (final q in medium('mirror_text')) {
       if (q.puzzle['is_clock'] == true) continue;

@@ -252,9 +252,17 @@ class QuestionGenerator {
         }
         return _oddMan(isHardMode: true);
       case 'figure_match':
+        if (p < 60) {
+          final q = ExamStyleGenerator.figureMatch(lite: true);
+          if (q != null) return q;
+        }
         return _figureMatch();
       case 'pattern':
-        if (p < 35) return HardQuestionGenerator.generate('pattern', complexity: 2);
+        if (p < 50) {
+          final q = ExamStyleGenerator.patternQuarter(mirrorOnly: true);
+          if (q != null) return q;
+        }
+        if (p < 70) return HardQuestionGenerator.generate('pattern', complexity: 2);
         // One-rule matrices, plus the dual-rule one at low weight.
         final pv = _pickWeighted([0, 0, 1, 1, 2, 2, 3]);
         if (pv == 0) return _matrixShapeCycle();

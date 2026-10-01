@@ -197,4 +197,21 @@ void main() {
     }
     expect(_centralShare(qs), lessThan(0.35));
   });
+
+  test('Medium pattern quarters use mirror symmetry and stay balanced', () {
+    final qs = _make(() => ExamStyleGenerator.patternQuarter(mirrorOnly: true));
+    for (final q in qs) {
+      expect(q.puzzle['symmetry'], 'mirror');
+    }
+    expect(_centralShare(qs), lessThan(0.35));
+  });
+
+  test('Medium figure match: a less busy figure, still balanced', () {
+    final qs = _make(() => ExamStyleGenerator.figureMatch(lite: true));
+    for (final q in qs) {
+      expect(_fig(q.puzzle['target']).segs.length, lessThanOrEqualTo(6));
+      expect(q.options.map((o) => _fig(o).key).toSet().length, 4);
+    }
+    expect(_centralShare(qs), lessThan(0.35));
+  });
 }

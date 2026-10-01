@@ -213,13 +213,14 @@ class ExamStyleGenerator {
   // detail changed}. Options deliberately never equal a visible quarter -
   // otherwise "the one option not shown in the puzzle" gives it away.
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion? patternQuarter() {
+  static ReasoningQuestion? patternQuarter({bool mirrorOnly = false}) {
     for (int attempt = 0; attempt < 200; attempt++) {
       final tri = _r.nextBool() ? {(_r.nextInt(2), _r.nextInt(2), _r.nextInt(4))} : <(int, int, int)>{};
       final t = LineFig(2, 2, segs: _strokes(2, 2, 3 + _r.nextInt(3)), tris: tri, dots: _r.nextBool() ? {(_r.nextInt(2), _r.nextInt(2))} : {});
       if (!_fullyAsymmetric(t)) continue;
 
-      final mirrorDesign = _r.nextBool();
+      // Medium: mirror designs only - turn symmetry is the harder kind.
+      final mirrorDesign = mirrorOnly || _r.nextBool();
       // Quarters in reading order TL, TR, BL, BR.
       final tiles = mirrorDesign
           ? [t, t.mirrorX(), t.mirrorY(), t.mirrorX().mirrorY()]
@@ -243,6 +244,7 @@ class ExamStyleGenerator {
         'type': 'quad_pattern',
         'tiles': [for (int i = 0; i < 4; i++) i == missing ? null : tiles[i].toMap()],
         'missing': missing,
+        'symmetry': mirrorDesign ? 'mirror' : 'turn',
       }, correct.toMap(), [for (final o in opts.skip(1)) o.toMap()]);
     }
     return null;
@@ -293,14 +295,16 @@ class ExamStyleGenerator {
   // Part 2 / JNV 2013-2019). Answer set: {as is, change A} x {as is, change B}
   // where A and B touch different details, so no option is central.
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion? figureMatch() {
+  static ReasoningQuestion? figureMatch({bool lite = false}) {
     for (int attempt = 0; attempt < 200; attempt++) {
-      final segs = _strokes(4, 4, 7 + _r.nextInt(3));
+      // Medium (lite): a less busy figure - 5-6 strokes, one black corner
+      // and one dot - so each changed detail is easier to spot.
+      final segs = lite ? _strokes(4, 4, 5 + _r.nextInt(2)) : _strokes(4, 4, 7 + _r.nextInt(3));
       final f = LineFig(4, 4,
           frame: _r.nextBool(),
           segs: segs,
-          tris: {for (int i = 0; i < 1 + _r.nextInt(2); i++) (_r.nextInt(4), _r.nextInt(4), _r.nextInt(4))},
-          dots: {for (int i = 0; i < 1 + _r.nextInt(2); i++) (_r.nextInt(4), _r.nextInt(4))});
+          tris: {for (int i = 0; i < (lite ? 1 : 1 + _r.nextInt(2)); i++) (_r.nextInt(4), _r.nextInt(4), _r.nextInt(4))},
+          dots: {for (int i = 0; i < (lite ? 1 : 1 + _r.nextInt(2)); i++) (_r.nextInt(4), _r.nextInt(4))});
       final kinds = ['dot', 'tri', 'seg']..shuffle(_r);
       final a = _changeOneDetail(f, kinds: {kinds[0]});
       if (a == null) continue;
