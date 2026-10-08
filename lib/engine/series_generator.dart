@@ -34,9 +34,6 @@ class SeriesGenerator {
   /// wrong option is the mirror image, too hard at that age.
   static const easyFamilies = ['arrow', 'symbols', 'spokes'];
 
-  /// Medium families: all four, each at a setting between Easy and Hard.
-  static const mediumFamilies = families;
-
   /// [level] wins over [hard] when given.
   static ReasoningQuestion? generate({bool hard = false, Difficulty? level, String? family}) {
     final lv = level ?? (hard ? Difficulty.hard : Difficulty.easy);
@@ -44,8 +41,7 @@ class SeriesGenerator {
       final f = family ??
           _pick(switch (lv) {
             Difficulty.easy => easyFamilies,
-            Difficulty.medium => mediumFamilies,
-            Difficulty.hard => families,
+            Difficulty.medium || Difficulty.hard => families,
           });
       final built = switch (f) {
         'arrow' => _arrowSeries(lv),

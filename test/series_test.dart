@@ -295,7 +295,7 @@ void main() {
     expect(types, containsAll(['hard_series_sandia_3layer', 'series_rot_fill', 'series_morph', 'series_fill_toggle']));
   });
 
-  for (final family in SeriesGenerator.mediumFamilies) {
+  for (final family in SeriesGenerator.families) {
     test('medium $family: the rule read from the figures picks exactly one option', () {
       SeriesGenerator.seed(23);
       var central = 0;

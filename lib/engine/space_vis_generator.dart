@@ -114,7 +114,7 @@ class SpaceVisGenerator {
   /// A random cutting of [base] into [count] pieces: the cuts made, in order
   /// (which piece, which line), and the resulting pieces.
   static (List<(int, (int, int, int))>, List<Set<Quarter>>)? randomCutting(
-      Set<Quarter> base, int count, bool diagonals, int minSize, {int maxDiagonals = 1 << 30}) {
+      Set<Quarter> base, int count, bool diagonals, int minSize, {int? maxDiagonals}) {
     for (int attempt = 0; attempt < 60; attempt++) {
       var pieces = [base];
       final cuts = <(int, (int, int, int))>[];
@@ -123,7 +123,7 @@ class SpaceVisGenerator {
         final order = [for (int i = 0; i < pieces.length; i++) i]..sort((x, y) => pieces[y].length - pieces[x].length);
         final i = order[_r.nextInt(min(2, order.length))];
         final line = _randomLine(diagonals);
-        if (isDiagonal(line) && cuts.where((c) => isDiagonal(c.$2)).length >= maxDiagonals) continue;
+        if (maxDiagonals != null && isDiagonal(line) && cuts.where((c) => isDiagonal(c.$2)).length >= maxDiagonals) continue;
         final next = cut(pieces, i, line, minSize);
         if (next == null) continue;
         pieces = next;
@@ -207,7 +207,7 @@ class SpaceVisGenerator {
       // Medium: three pieces, at most one 45° cut.
       final count = hard ? 3 + _r.nextInt(2) : medium ? 3 : 2 + _r.nextInt(2);
       final minSize = hard ? 4 : medium ? 6 : 8;
-      final made = randomCutting(base, count, hard || medium, minSize, maxDiagonals: medium ? 1 : 1 << 30);
+      final made = randomCutting(base, count, hard || medium, minSize, maxDiagonals: medium ? 1 : null);
       if (made == null) continue;
       final (cuts, pieces) = made;
       final given = _multiset(pieces, flipKey).join('|');
