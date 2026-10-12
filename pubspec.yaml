@@ -51,6 +51,11 @@ dependencies:
   shared_preferences: ^2.3.2
   hive: ^2.2.3
   hive_flutter: ^1.1.0
+  pdf: ^3.12.0
+  printing: ^5.14.3
+  # Used by pdf. image 4.11 calls an archive API that the archive version
+  # this Dart SDK resolves (4.0.9) lacks; lift once the SDK moves on.
+  image: ">=4.5.0 <4.11.0"
 
 dev_dependencies:
   flutter_test:
@@ -62,7 +67,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-  qr: ^4.0.0
+  qr: ^3.0.2
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

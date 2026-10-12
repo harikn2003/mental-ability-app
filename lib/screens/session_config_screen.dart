@@ -6,6 +6,7 @@ import '../data/hive_service.dart';
 
 import '../widgets/version_badge.dart';
 import 'quiz_screen.dart';
+import 'print_paper_screen.dart';
 import 'session_history_screen.dart';
 
 class SessionConfigScreen extends StatefulWidget {
@@ -384,6 +385,24 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
               ),
               Row(
                 children: [
+                  // Printed test paper (coordinators)
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PrintPaperScreen()),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      ),
+                      child: Icon(Icons.print_rounded, color: primary, size: 18,
+                          semanticLabel: AppLocale.get(currentLang, 'paper_print')),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   // History button
                   GestureDetector(
                     onTap: () =>
