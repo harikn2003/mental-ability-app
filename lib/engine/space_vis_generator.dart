@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'difficulty.dart';
 import 'line_figure.dart';
 import 'reasoning_question.dart';
 
@@ -50,6 +51,9 @@ class SpaceVisGenerator {
 
   static const easyOutlines = ['square', 'rectangle', 'triangle', 'house'];
 
+  /// Medium: Easy's outlines plus two with slanted sides.
+  static const mediumOutlines = ['square', 'rectangle', 'triangle', 'house', 'diamond', 'chamfer'];
+
   static Set<Quarter> outline(String name) {
     final test = outlines[name]!;
     return {
@@ -65,6 +69,8 @@ class SpaceVisGenerator {
   /// A straight cut: a·x + b·y = c on the unit lattice.
   static const axisDirs = [(1, 0), (0, 1)];
   static const diagDirs = [(1, 1), (1, -1)];
+
+  static bool isDiagonal((int, int, int) line) => line.$1 != 0 && line.$2 != 0;
 
   static int _side(Quarter a, (int, int, int) line) {
     final (x, y) = _c6(a);
@@ -108,7 +114,7 @@ class SpaceVisGenerator {
   /// A random cutting of [base] into [count] pieces: the cuts made, in order
   /// (which piece, which line), and the resulting pieces.
   static (List<(int, (int, int, int))>, List<Set<Quarter>>)? randomCutting(
-      Set<Quarter> base, int count, bool diagonals, int minSize) {
+      Set<Quarter> base, int count, bool diagonals, int minSize, {int? maxDiagonals}) {
     for (int attempt = 0; attempt < 60; attempt++) {
       var pieces = [base];
       final cuts = <(int, (int, int, int))>[];
@@ -117,6 +123,7 @@ class SpaceVisGenerator {
         final order = [for (int i = 0; i < pieces.length; i++) i]..sort((x, y) => pieces[y].length - pieces[x].length);
         final i = order[_r.nextInt(min(2, order.length))];
         final line = _randomLine(diagonals);
+        if (maxDiagonals != null && isDiagonal(line) && cuts.where((c) => isDiagonal(c.$2)).length >= maxDiagonals) continue;
         final next = cut(pieces, i, line, minSize);
         if (next == null) continue;
         pieces = next;
@@ -185,13 +192,22 @@ class SpaceVisGenerator {
 
   // ── the question ──────────────────────────────────────────────────────────
 
-  static ReasoningQuestion? generate({bool hard = false}) {
+  /// [level] wins over [hard] when given.
+  static ReasoningQuestion? generate({bool hard = false, Difficulty? level}) {
+    final lv = level ?? (hard ? Difficulty.hard : Difficulty.easy);
+    hard = lv == Difficulty.hard;
+    final medium = lv == Difficulty.medium;
     for (int attempt = 0; attempt < 200; attempt++) {
-      final outlineName = hard ? outlines.keys.elementAt(_r.nextInt(outlines.length)) : easyOutlines[_r.nextInt(easyOutlines.length)];
+      final outlineName = hard
+          ? outlines.keys.elementAt(_r.nextInt(outlines.length))
+          : medium
+              ? mediumOutlines[_r.nextInt(mediumOutlines.length)]
+              : easyOutlines[_r.nextInt(easyOutlines.length)];
       final base = outline(outlineName);
-      final count = hard ? 3 + _r.nextInt(2) : 2 + _r.nextInt(2);
-      final minSize = hard ? 4 : 8;
-      final made = randomCutting(base, count, hard, minSize);
+      // Medium: three pieces, at most one 45° cut.
+      final count = hard ? 3 + _r.nextInt(2) : medium ? 3 : 2 + _r.nextInt(2);
+      final minSize = hard ? 4 : medium ? 6 : 8;
+      final made = randomCutting(base, count, hard || medium, minSize, maxDiagonals: medium ? 1 : null);
       if (made == null) continue;
       final (cuts, pieces) = made;
       final given = _multiset(pieces, flipKey).join('|');
@@ -213,7 +229,9 @@ class SpaceVisGenerator {
         return [...cs.sublist(0, k), (i, (a, b, c + d)), ...cs.sublist(k + 1)];
       }
 
-      if (hard) {
+      // Medium uses the balanced near-miss set too: moving a cut keeps its
+      // direction, so no wrong option gains a second diagonal.
+      if (hard || medium) {
         // Balanced set: {as is, cut j moved} x {as is, cut k moved}. Two
         // one-step misses alone would make the answer the option closest to
         // all the others (Yang et al. 2021) - measured 58% in the tests.
@@ -275,6 +293,7 @@ class SpaceVisGenerator {
         puzzle: {
           'type': 'space_vis',
           'outline': outlineName,
+          'diagonal_cuts': cuts.where((c) => isDiagonal(c.$2)).length,
           // The options' lattice size, so pieces can be drawn at their scale.
           'figure_extent': max(assembled(pieces).w, assembled(pieces).h),
           'pieces': [

@@ -64,7 +64,7 @@ class ExamStyleGenerator {
   // piece has to be turned mentally to fit. Pieces can't be flipped over.
   // Answer set: {piece, mirror-image piece} x {as is, one cell moved}.
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion? geoCompletion() {
+  static ReasoningQuestion? geoCompletion({bool halfTurnsOnly = false}) {
     const n = 4;
     final all = {for (int x = 0; x < n; x++) for (int y = 0; y < n; y++) (x, y)};
     List<(int, int)> nbrs((int, int) c) => [(c.$1 + 1, c.$2), (c.$1 - 1, c.$2), (c.$1, c.$2 + 1), (c.$1, c.$2 - 1)];
@@ -140,15 +140,19 @@ class ExamStyleGenerator {
 
       // Show every piece turned by a random amount (the real papers do), all
       // on the square's own 4x4 scale so sizes can be compared.
+      // Medium: answer pieces shown as cut or upside down, never a quarter
+      // turn; Hard: any turn.
+      final turns = [for (int i = 0; i < 4; i++) halfTurnsOnly ? 2 * _r.nextInt(2) : _r.nextInt(4)];
       final shown = [
-        for (final o in options)
+        for (int i = 0; i < 4; i++)
           () {
-            final g = o.rot(_r.nextInt(4)).normalized();
+            final g = options[i].rot(turns[i]).normalized();
             return {...g.shift(0, 0, n, n).toMap(), 'center': true};
           }(),
       ];
       final question = LineFig(n, n, cells: rest, segs: LineFig.cellBoundary(rest));
-      return _question('geo_completion', 'geo_grid_cut', {'type': 'geo_completion', 'piece': question.toMap()},
+      return _question('geo_completion', 'geo_grid_cut',
+          {'type': 'geo_completion', 'piece': question.toMap(), 'answer_turn': turns[0]},
           shown[0], shown.sublist(1));
     }
     return null;
@@ -161,7 +165,7 @@ class ExamStyleGenerator {
   // only one hides it as shown - the others hide it flipped and/or turned.
   // Answer set: {as shown, mirrored} x {as shown, turned 90°}.
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion? embeddedFigure() {
+  static ReasoningQuestion? embeddedFigure({bool lite = false}) {
     const n = 4;
     final structures = <Set<(int, int, int, int)>>[
       {...LineFig.line(0, 0, 4, 0), ...LineFig.line(4, 0, 4, 4), ...LineFig.line(4, 4, 0, 4), ...LineFig.line(0, 4, 0, 0)}, // frame
@@ -178,15 +182,17 @@ class ExamStyleGenerator {
       if (!t.segs.any((s) => s.$1 != s.$3 && s.$2 != s.$4) || t.segs.every((s) => s.$1 != s.$3 && s.$2 != s.$4)) {
         continue; // mix of straight and diagonal strokes
       }
-      final variants = [t, t.mirrorX(), t.rot90(), t.mirrorX().rot90()];
+      // Medium (lite): the near-misses are flips and a half turn - no
+      // quarter turns - hidden in a lighter drawing.
+      final variants = lite ? [t, t.mirrorX(), t.mirrorY(), t.rot(2)] : [t, t.mirrorX(), t.rot90(), t.mirrorX().rot90()];
 
       LineFig? host(LineFig v, bool mustEmbed) {
         for (int k = 0; k < 40; k++) {
           final vn = v.normalized();
           final dx = _r.nextInt(n - vn.w + 1), dy = _r.nextInt(n - vn.h + 1);
           final placed = vn.shift(dx, dy, n, n).segs;
-          final base = (List.of(structures)..shuffle(_r)).take(2).expand((s) => s).toSet();
-          final f = LineFig(n, n, segs: {...base, ...placed, ..._strokes(n, n, 2 + _r.nextInt(3))});
+          final base = (List.of(structures)..shuffle(_r)).take(lite ? 1 : 2).expand((s) => s).toSet();
+          final f = LineFig(n, n, segs: {...base, ...placed, ..._strokes(n, n, lite ? 1 + _r.nextInt(2) : 2 + _r.nextInt(3))});
           // The hidden figure must not be a trivial copy of the structure
           // (at least one of its strokes is not part of the base lines)...
           if (placed.every(base.contains)) continue;
@@ -213,13 +219,14 @@ class ExamStyleGenerator {
   // detail changed}. Options deliberately never equal a visible quarter -
   // otherwise "the one option not shown in the puzzle" gives it away.
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion? patternQuarter() {
+  static ReasoningQuestion? patternQuarter({bool mirrorOnly = false}) {
     for (int attempt = 0; attempt < 200; attempt++) {
       final tri = _r.nextBool() ? {(_r.nextInt(2), _r.nextInt(2), _r.nextInt(4))} : <(int, int, int)>{};
       final t = LineFig(2, 2, segs: _strokes(2, 2, 3 + _r.nextInt(3)), tris: tri, dots: _r.nextBool() ? {(_r.nextInt(2), _r.nextInt(2))} : {});
       if (!_fullyAsymmetric(t)) continue;
 
-      final mirrorDesign = _r.nextBool();
+      // Medium: mirror designs only - turn symmetry is the harder kind.
+      final mirrorDesign = mirrorOnly || _r.nextBool();
       // Quarters in reading order TL, TR, BL, BR.
       final tiles = mirrorDesign
           ? [t, t.mirrorX(), t.mirrorY(), t.mirrorX().mirrorY()]
@@ -243,6 +250,7 @@ class ExamStyleGenerator {
         'type': 'quad_pattern',
         'tiles': [for (int i = 0; i < 4; i++) i == missing ? null : tiles[i].toMap()],
         'missing': missing,
+        'symmetry': mirrorDesign ? 'mirror' : 'turn',
       }, correct.toMap(), [for (final o in opts.skip(1)) o.toMap()]);
     }
     return null;
@@ -293,14 +301,16 @@ class ExamStyleGenerator {
   // Part 2 / JNV 2013-2019). Answer set: {as is, change A} x {as is, change B}
   // where A and B touch different details, so no option is central.
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion? figureMatch() {
+  static ReasoningQuestion? figureMatch({bool lite = false}) {
     for (int attempt = 0; attempt < 200; attempt++) {
-      final segs = _strokes(4, 4, 7 + _r.nextInt(3));
+      // Medium (lite): a less busy figure - 5-6 strokes, one black corner
+      // and one dot - so each changed detail is easier to spot.
+      final segs = lite ? _strokes(4, 4, 5 + _r.nextInt(2)) : _strokes(4, 4, 7 + _r.nextInt(3));
       final f = LineFig(4, 4,
           frame: _r.nextBool(),
           segs: segs,
-          tris: {for (int i = 0; i < 1 + _r.nextInt(2); i++) (_r.nextInt(4), _r.nextInt(4), _r.nextInt(4))},
-          dots: {for (int i = 0; i < 1 + _r.nextInt(2); i++) (_r.nextInt(4), _r.nextInt(4))});
+          tris: {for (int i = 0; i < (lite ? 1 : 1 + _r.nextInt(2)); i++) (_r.nextInt(4), _r.nextInt(4), _r.nextInt(4))},
+          dots: {for (int i = 0; i < (lite ? 1 : 1 + _r.nextInt(2)); i++) (_r.nextInt(4), _r.nextInt(4))});
       final kinds = ['dot', 'tri', 'seg']..shuffle(_r);
       final a = _changeOneDetail(f, kinds: {kinds[0]});
       if (a == null) continue;
@@ -442,12 +452,14 @@ class ExamStyleGenerator {
       ]..sort())
           .join(';');
 
-  static ReasoningQuestion? punchHole() {
+  static ReasoningQuestion? punchHole({bool singleFold = false}) {
     const sequences = [['v', 'h'], ['h', 'v'], ['d'], ['a'], ['d', 'a'], ['a', 'd']];
+    // Medium: one fold (straight or diagonal), two punches.
+    const single = [['v'], ['h'], ['d'], ['a']];
     for (int attempt = 0; attempt < 300; attempt++) {
-      final folds = _pick(sequences);
+      final folds = _pick(singleFold ? single : sequences);
       final shape = _pick(const ['tri', 'tri', 'circle', 'square']);
-      final punches = 1 + _r.nextInt(2);
+      final punches = singleFold ? 2 : 1 + _r.nextInt(2);
       final holes = <Map<String, dynamic>>[];
       for (int k = 0; k < 60 && holes.length < punches; k++) {
         final x = 0.08 + _r.nextInt(21) * 0.04, y = 0.08 + _r.nextInt(21) * 0.04;
@@ -462,7 +474,7 @@ class ExamStyleGenerator {
 
       // Change A: one fold forgotten, or for a single fold, the other diagonal.
       final skip = folds.length > 1 ? _r.nextInt(folds.length) : null;
-      final aFolds = folds.length > 1 ? folds : [folds.single == 'd' ? 'a' : 'd'];
+      final aFolds = folds.length > 1 ? folds : [const {'d': 'a', 'a': 'd', 'v': 'h', 'h': 'v'}[folds.single]!];
       List<Map<String, dynamic>> unfold({required bool changeA, required bool flip}) =>
           _unfold(holes, changeA ? aFolds : folds, skip: changeA ? skip : null, flipShapes: flip);
       // Change B: triangles copied without flipping; for round/square holes,
@@ -505,7 +517,7 @@ class ExamStyleGenerator {
   // Answer set: {mirror image, water image} x {all flipped, one decoration
   // left where it was}.
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion? mirrorLineFigure() {
+  static ReasoningQuestion? mirrorLineFigure({bool noDetailTrap = false}) {
     for (int attempt = 0; attempt < 200; attempt++) {
       final segs = _strokes(4, 4, 5 + _r.nextInt(4));
       final ends = {for (final s in segs) ...[(s.$1, s.$2), (s.$3, s.$4)]}.toList()..shuffle(_r);
@@ -519,7 +531,9 @@ class ExamStyleGenerator {
       final mirror = f.mirrorX(), water = f.mirrorY();
       // "Forgot to flip the dot": the flipped figure with the dot left put.
       LineFig dotStays(LineFig g) => g.copyWith(dots: f.dots);
-      final opts = [mirror, water, dotStays(mirror), dotStays(water)];
+      // Medium: {mirror, water image, not mirrored, upside down} - four
+      // clearly different flips, no "one decoration left in place" trap.
+      final opts = noDetailTrap ? [mirror, water, f, f.rot(2)] : [mirror, water, dotStays(mirror), dotStays(water)];
       if (opts.map((o) => o.key).toSet().length != 4) continue;
       return _question('mirror_shape', 'mirror_line_fig', {'type': 'mirror_shape', 'target': f.toMap()}, mirror.toMap(),
           [for (final o in opts.skip(1)) o.toMap()]);

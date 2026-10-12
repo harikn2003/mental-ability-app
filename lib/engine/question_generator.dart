@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import 'difficulty.dart';
 import 'exam_style_generator.dart';
 import 'hard_question_generator.dart';
 import 'analogy_generator.dart';
@@ -139,8 +140,18 @@ class QuestionGenerator {
   /// the classic single-shape generator (see [generate]).
   static const classicHardCategories = {'figure_series', 'analogy'};
 
-  /// Main generator entry point.
-  static ReasoningQuestion generate(String category, {bool isHardMode = false}) {
+  /// Test hook: told the category and difficulty of every [generate] call.
+  @visibleForTesting
+  static void Function(String category, Difficulty d)? onGenerate;
+
+  /// Main generator entry point. [difficulty] wins over [isHardMode] when
+  /// given. Medium has its own router ([_generateMediumRaw]); the Easy and
+  /// Hard paths below are unchanged.
+  static ReasoningQuestion generate(String category, {bool isHardMode = false, Difficulty? difficulty}) {
+    final d = difficulty ?? (isHardMode ? Difficulty.hard : Difficulty.easy);
+    onGenerate?.call(category, d);
+    if (d == Difficulty.medium) return _dedup(() => _generateMediumRaw(category));
+    isHardMode = d == Difficulty.hard;
     // BUGFIX: every Hard Mode request used to go to HardQuestionGenerator,
     // which only knows the 5 Sandia categories and fell back to Odd Man Out
     // for anything else - so Hard + Mirror Shape (or Punch Hole, Embedded,
@@ -209,6 +220,102 @@ class QuestionGenerator {
     final fallback = _generateRaw(category, isHardMode: isHardMode, classic: classicHard);
     _markQuestionIfNew(fallback);
     return fallback;
+  }
+
+  /// Up to 80 tries for a question not seen this session, as [generate]
+  /// does for Easy and Hard.
+  static ReasoningQuestion _dedup(ReasoningQuestion Function() make) {
+    for (int attempt = 0; attempt < 80; attempt++) {
+      final q = make();
+      if (_markQuestionIfNew(q)) return q;
+    }
+    final q = make();
+    _markQuestionIfNew(q);
+    return q;
+  }
+
+  /// Medium: a true midpoint for every topic - the same kinds of questions
+  /// as Hard with the hardest trick taken out, or Easy plus one step. Old
+  /// and exam-style generators are mixed as at the other levels. Every
+  /// exam-style call may return null; each arm then falls back to a
+  /// Medium-level classic generator, never to an Easy or Hard route. The
+  /// Sandia matrices are Pattern-only here: their density knob is only read
+  /// for Pattern, and at full density they are Hard material.
+  static ReasoningQuestion _generateMediumRaw(String category) {
+    final p = _r.nextInt(100);
+    switch (category) {
+      case 'odd_man':
+        // Hard's classic variants; the exam mirror item at a lower share.
+        if (p < 20) {
+          final q = ExamStyleGenerator.oddManOut();
+          if (q != null) return q;
+        }
+        return _oddMan(isHardMode: true);
+      case 'figure_match':
+        if (p < 60) {
+          final q = ExamStyleGenerator.figureMatch(lite: true);
+          if (q != null) return q;
+        }
+        return _figureMatch();
+      case 'pattern':
+        if (p < 50) {
+          final q = ExamStyleGenerator.patternQuarter(mirrorOnly: true);
+          if (q != null) return q;
+        }
+        if (p < 70) return HardQuestionGenerator.generate('pattern', complexity: 2);
+        // One-rule matrices, plus the dual-rule one at low weight.
+        final pv = _pickWeighted([0, 0, 1, 1, 2, 2, 3]);
+        if (pv == 0) return _matrixShapeCycle();
+        if (pv == 1) return _matrixDotRotation();
+        if (pv == 2) return _matrixInnerShape();
+        return _matrixDualRule();
+      case 'figure_series':
+        if (p < 60) {
+          final q = SeriesGenerator.generate(level: Difficulty.medium);
+          if (q != null) return q;
+        }
+        // Classic series with one or two regular changes (no morph, no
+        // inner-shape cycling on top of the turn).
+        final classic = [_seriesRotFill, _seriesDotsRot, _seriesFillToggle, _seriesAltDual, _seriesRotation, _seriesDots, _seriesInner];
+        return classic[_r.nextInt(classic.length)]();
+      case 'analogy':
+        if (p < 60) {
+          final q = AnalogyGenerator.generate(level: Difficulty.medium);
+          if (q != null) return q;
+        }
+        return _analogy(medium: true);
+      case 'geo_completion':
+        if (p < 75) {
+          final q = ExamStyleGenerator.geoCompletion(halfTurnsOnly: true);
+          if (q != null) return q;
+        }
+        return _geoCompletion(isHardMode: true);
+      case 'mirror_shape':
+        if (p < 50) {
+          final q = ExamStyleGenerator.mirrorLineFigure(noDetailTrap: true);
+          if (q != null) return q;
+        }
+        return _mirrorShape();
+      case 'mirror_text':
+        return _mirrorText(medium: true);
+      case 'punch_hole':
+        if (p < 60) {
+          final q = ExamStyleGenerator.punchHole(singleFold: true);
+          if (q != null) return q;
+        }
+        return _punchHoleClassic();
+      case 'embedded':
+        if (p < 60) {
+          final q = ExamStyleGenerator.embeddedFigure(lite: true);
+          if (q != null) return q;
+        }
+        return _embeddedHard();
+      case 'space_vis':
+        // Easy is only the never-null last resort, as in the Easy/Hard route.
+        return SpaceVisGenerator.generate(level: Difficulty.medium) ?? SpaceVisGenerator.generate()!;
+      default:
+        return _matrixShapeCycle();
+    }
   }
 
   /// [classic]: serve the topic's original generator even in Hard Mode
@@ -992,6 +1099,13 @@ class QuestionGenerator {
                     rot: (baseRot + i) % 4, filled: filled, mirror: false);
               }
             });
+            // A shape with a mirror symmetry looks the same mirrored as one
+            // of its turns - shown as a majority option, or the one turn not
+            // shown, which leaves four plain turns and nothing odd. Either
+            // way there is no answer: draw again.
+            final oddKey = _optionKey(opts[cp]);
+            final turnKeys = {for (int t = 0; t < 4; t++) _optionKey(_f(s, rot: t, filled: filled, mirror: false))};
+            if (turnKeys.contains(oddKey)) continue;
             break;
           }
         case 9: // Variant 9: Side count vs Dot count (Hard)
@@ -1842,16 +1956,20 @@ class QuestionGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   // 5. ANALOGY
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion _analogy({bool isHardMode = false}) {
+  static ReasoningQuestion _analogy({bool isHardMode = false, bool medium = false}) {
     const allAsym = [2, 3, 7, 8];
 
     for (int attempt = 0; attempt < 40; attempt++) {
       // Easy (grades 2-3): only the rules that change ONE thing - half turn
       // (1, 7), fill (3), no change (5). The rules that change two or three
       // things at once (turn + fill + dots) are served in Hard.
-      final rule = isHardMode
-          ? _pickWeighted([8, 9, 4, 6, 2, 8, 0, 1])
-          : _pickWeighted([1, 3, 3, 5, 7]);
+      // Medium: rules that change one or two things, never three (8 and
+      // 4 change turn + fill + dots / inner shape).
+      final rule = medium
+          ? _pickWeighted([0, 0, 1, 2, 3, 6, 7, 9])
+          : isHardMode
+              ? _pickWeighted([8, 9, 4, 6, 2, 8, 0, 1])
+              : _pickWeighted([1, 3, 3, 5, 7]);
 
       final sh1 = allAsym[_r.nextInt(allAsym.length)];
       int sh2;
@@ -2382,7 +2500,7 @@ class QuestionGenerator {
   /// - and every option is drawn as a plain clock. Wrong answers are the
   /// usual mistakes: the original time, the clock turned upside down
   /// (h + 6), the mirror time off by an hour, only the minute hand mirrored.
-  static ReasoningQuestion _mirrorClockHard() {
+  static ReasoningQuestion _mirrorClockHard({bool medium = false}) {
     Map<String, dynamic> clock(int h, int m) => {
           'type': 'mirror_text',
           'is_clock': true,
@@ -2399,13 +2517,16 @@ class QuestionGenerator {
 
     for (int attempt = 0; attempt < 60; attempt++) {
       final h = _r.nextInt(12) + 1;
-      // Not :00 or :30 - the minute hand would sit on the mirror line and
-      // the original and its mirror image could coincide.
-      final m = const [5, 10, 15, 20, 25, 35, 40, 45, 50, 55][_r.nextInt(10)];
+      // Medium: on the hour or half past - the easiest times to mirror (the
+      // keys check below drops 6:00 and 12:00, which mirror to themselves).
+      // Hard: not :00 or :30 - the minute hand would sit on the mirror line
+      // and the original and its mirror image could coincide.
+      final m = medium ? (_r.nextBool() ? 0 : 30) : const [5, 10, 15, 20, 25, 35, 40, 45, 50, 55][_r.nextInt(10)];
       final sigKey = 'mirClock:$h:$m';
       if (_seen(sigKey)) continue;
 
-      final mh = 11 - h, mm = 60 - m; // mirror time
+      // Mirror time (11 - h):(60 - m); on the hour that is (12 - h):00.
+      final mh = m == 0 ? 12 - h : 11 - h, mm = m == 0 ? 0 : 60 - m;
       final correct = clock(mh, mm);
       // Balanced answer set: {mirror time, original time} x {as read, one
       // hour off} - the same hour shift in both, so no option is central.
@@ -2424,11 +2545,12 @@ class QuestionGenerator {
         correctIndex: packed.idx,
       );
     }
-    return _mirrorText();
+    return _mirrorText(medium: medium);
   }
 
-  static ReasoningQuestion _mirrorText({bool isHardMode = false}) {
+  static ReasoningQuestion _mirrorText({bool isHardMode = false, bool medium = false}) {
     if (isHardMode && _r.nextInt(2) == 0) return _mirrorClockHard();
+    if (medium && _r.nextInt(100) < 30) return _mirrorClockHard(medium: true);
     String pickBaseContent(bool isDigit) {
       if (isDigit) {
         final List<int> digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]..shuffle(_r);
@@ -2625,6 +2747,15 @@ class QuestionGenerator {
       return pool.take(3).join();
     }
 
+    // Medium: four characters of one kind - three whose mirror image
+    // clearly differs and one that looks the same in a mirror - so the
+    // solver must notice that not every glyph flips.
+    String pickMediumContent(bool isDigit) {
+      final asym = (isDigit ? '234579' : 'BCDEFGJKLNPRSZ').split('')..shuffle(_r);
+      final sym = (isDigit ? '08' : 'AHMOTUVWXY').split('')..shuffle(_r);
+      return ([...asym.take(3), sym.first]..shuffle(_r)).join();
+    }
+
     mirrorTextAttempt:
     for (int attempt = 0; attempt < 80; attempt++) {
       final isDigit = _r.nextBool();
@@ -2633,11 +2764,13 @@ class QuestionGenerator {
       // letter left unflipped, two letters swapped), which used to be Easy's
       // and is too fine a distinction for grades 2-3.
       final classicTraps = isHardMode && _r.nextBool();
-      final content = !isHardMode
-          ? pickEasyContent(isDigit)
-          : classicTraps
-              ? pickBaseContent(isDigit)
-              : pickHardContent();
+      final content = medium
+          ? pickMediumContent(isDigit)
+          : !isHardMode
+              ? pickEasyContent(isDigit)
+              : classicTraps
+                  ? pickBaseContent(isDigit)
+                  : pickHardContent();
       final sigKey = 'mirTextAdv:$content|${isDigit ? 'digit' : 'word'}${classicTraps ? '|traps' : ''}';
       if (_seen(sigKey)) continue;
 
@@ -2665,7 +2798,7 @@ class QuestionGenerator {
         _markSeen(sigKey);
         return ReasoningQuestion(
           category: 'mirror_text',
-          type: isHardMode ? 'mirror_text_hard' : 'mirror_text_easy',
+          type: medium ? 'mirror_text_medium' : isHardMode ? 'mirror_text_hard' : 'mirror_text_easy',
           puzzle: {'type': 'mirror_text', 'is_clock': false, 'content': content, 'mirror_h': false, 'mirror_v': false},
           options: packed.opts,
           correctIndex: packed.idx,

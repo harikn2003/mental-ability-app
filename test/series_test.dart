@@ -5,6 +5,7 @@
 // Only the family name is taken from the puzzle - never the rule's numbers.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mental_ability_app/engine/difficulty.dart';
 import 'package:mental_ability_app/engine/line_figure.dart';
 import 'package:mental_ability_app/engine/question_generator.dart';
 import 'package:mental_ability_app/engine/reasoning_question.dart';
@@ -293,4 +294,21 @@ void main() {
     }
     expect(types, containsAll(['hard_series_sandia_3layer', 'series_rot_fill', 'series_morph', 'series_fill_toggle']));
   });
+
+  for (final family in SeriesGenerator.families) {
+    test('medium $family: the rule read from the figures picks exactly one option', () {
+      SeriesGenerator.seed(23);
+      var central = 0;
+      for (int i = 0; i < runs; i++) {
+        final q = SeriesGenerator.generate(level: Difficulty.medium, family: family);
+        expect(q, isNotNull, reason: 'generator gave up on run $i');
+        check(q!);
+        final opts = q.options.map(fig).toList();
+        final totals = [for (final a in opts) opts.fold<int>(0, (s, b) => s + distance(a, b))];
+        final best = totals.reduce((a, b) => a < b ? a : b);
+        if (totals[q.correctIndex] == best && totals.where((t) => t == best).length == 1) central++;
+      }
+      expect(central / runs, lessThan(0.25));
+    });
+  }
 }

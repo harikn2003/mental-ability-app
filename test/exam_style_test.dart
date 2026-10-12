@@ -197,4 +197,63 @@ void main() {
     }
     expect(_centralShare(qs), lessThan(0.35));
   });
+
+  test('Medium pattern quarters use mirror symmetry and stay balanced', () {
+    final qs = _make(() => ExamStyleGenerator.patternQuarter(mirrorOnly: true));
+    for (final q in qs) {
+      expect(q.puzzle['symmetry'], 'mirror');
+    }
+    expect(_centralShare(qs), lessThan(0.35));
+  });
+
+  test('Medium figure match: a less busy figure, still balanced', () {
+    final qs = _make(() => ExamStyleGenerator.figureMatch(lite: true));
+    for (final q in qs) {
+      expect(_fig(q.puzzle['target']).segs.length, lessThanOrEqualTo(6));
+      expect(q.options.map((o) => _fig(o).key).toSet().length, 4);
+    }
+    expect(_centralShare(qs), lessThan(0.35));
+  });
+
+  test('Medium geo completion: answer pieces unturned or half-turned', () {
+    final qs = _make(() => ExamStyleGenerator.geoCompletion(halfTurnsOnly: true));
+    for (final q in qs) {
+      expect(q.puzzle['answer_turn'], anyOf(0, 2));
+    }
+  });
+
+  test('Medium mirror line figure: no option keeps a decoration unflipped', () {
+    final qs = _make(() => ExamStyleGenerator.mirrorLineFigure(noDetailTrap: true));
+    for (final q in qs) {
+      final target = _fig(q.puzzle['target']);
+      final expected = {target.mirrorX().key, target.mirrorY().key, target.key, target.rot(2).key};
+      expect({for (final o in q.options) _fig(o).key}, expected);
+      expect(_fig(q.options[q.correctIndex]).key, target.mirrorX().key);
+    }
+    expect(_centralShare(qs), lessThan(0.35));
+  });
+
+  test('Medium punch hole: one fold, two punches', () {
+    final qs = _make(() => ExamStyleGenerator.punchHole(singleFold: true));
+    for (final q in qs) {
+      expect((q.puzzle['folds'] as List).length, 1);
+      expect((q.puzzle['holes'] as List).length, 2);
+      expect(q.options.map((o) => o.toString()).toSet().length, 4);
+    }
+  });
+
+  test('Medium embedded: lighter drawings, near-misses flipped not quarter-turned', () {
+    final qs = _make(() => ExamStyleGenerator.embeddedFigure(lite: true));
+    final counts = <int>[];
+    for (final q in qs) {
+      final t = _fig(q.puzzle['target']);
+      expect(_where(q, (o) => o.embeds(t)), [q.correctIndex]);
+      for (final o in q.options) {
+        counts.add(_fig(o).segs.length);
+      }
+    }
+    // Hard's drawings (measured, seed 7): 17-32 strokes, median 22.
+    expect(counts.every((c) => c <= 22), isTrue, reason: 'max ${counts.reduce((a, b) => a > b ? a : b)}');
+    expect(counts.reduce((a, b) => a + b) / counts.length, lessThan(17));
+  });
 }

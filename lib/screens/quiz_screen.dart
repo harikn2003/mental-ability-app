@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/hive_service.dart';
 import '../data/session_record.dart';
+import '../engine/difficulty.dart';
 import '../engine/question_attempt.dart';
 import '../engine/question_generator.dart';
 import '../engine/reasoning_question.dart';
@@ -22,13 +23,8 @@ class QuizScreen extends StatefulWidget {
   final bool biasEnabled;
   final bool isHardMode;
 
-  /// Medium: each question comes from the Easy or the Hard pool at random,
-  /// so the session sits between the two (overrides [isHardMode]).
+  /// Medium difficulty (overrides [isHardMode]).
   final bool isMediumMode;
-
-  /// Child mode: the child can't leave (a teacher holds Leave Quiz), and the
-  /// result screen's Try Again restarts this same session.
-  final bool childMode;
   final Map<String, int> initialWeights; // persisted from previous session
   final List<ReasoningQuestion> retryQuestions;
 
@@ -44,7 +40,6 @@ class QuizScreen extends StatefulWidget {
     this.biasEnabled = true,
     this.isHardMode = false,
     this.isMediumMode = false,
-    this.childMode = false,
     this.initialWeights = const {},
     this.retryQuestions = const [],
     this.topics = const [],
@@ -230,8 +225,12 @@ class _QuizScreenState extends State<QuizScreen>
     int attempts = 0;
     do {
       final category = _pickCategory();
-      final hard = widget.isMediumMode ? Random().nextBool() : widget.isHardMode;
-      q = QuestionGenerator.generate(category, isHardMode: hard);
+      final difficulty = widget.isMediumMode
+          ? Difficulty.medium
+          : widget.isHardMode
+              ? Difficulty.hard
+              : Difficulty.easy;
+      q = QuestionGenerator.generate(category, difficulty: difficulty);
       attempts++;
     } while (_seenSignatures.contains(_questionSignature(q)) && attempts < 40);
     _seenSignatures.add(_questionSignature(q));
@@ -418,19 +417,6 @@ class _QuizScreenState extends State<QuizScreen>
             categoryStats: categoryPerformance,
             attempts: List.unmodifiable(_attempts),
             timeSetting: widget.timePerQuestion,
-            childMode: widget.childMode,
-            // Try Again in child mode: the same session again.
-            restart: () => QuizScreen(
-              mode: widget.mode,
-              totalQuestions: widget.totalQuestions,
-              timePerQuestion: widget.timePerQuestion,
-              biasEnabled: widget.biasEnabled,
-              isHardMode: widget.isHardMode,
-              isMediumMode: widget.isMediumMode,
-              initialWeights: widget.initialWeights,
-              topics: widget.topics,
-              childMode: widget.childMode,
-            ),
           ),
         ),
       );
@@ -548,10 +534,6 @@ class _QuizScreenState extends State<QuizScreen>
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        if (widget.childMode) {
-          _showChildLockedHint();
-          return;
-        }
         final shouldExit = await _showExitConfirmation();
         if (shouldExit && context.mounted) {
           Navigator.pop(context);
@@ -978,21 +960,13 @@ class _QuizScreenState extends State<QuizScreen>
     );
   }
 
-  void _showChildLockedHint() => ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(AppLocale.get(currentLang, 'child_locked_hint'))));
-
-  Future<void> _leave() async {
-    final shouldExit = await _showExitConfirmation();
-    if (shouldExit && mounted) {
-      Navigator.pop(context);
-    }
-  }
-
-  // Child mode: a tap only shows "Ask your teacher"; a teacher holds it.
   Widget _leaveHeaderButton() => GestureDetector(
-        onTap: widget.childMode ? _showChildLockedHint : _leave,
-        onLongPress: widget.childMode ? _leave : null,
+        onTap: () async {
+          final shouldExit = await _showExitConfirmation();
+          if (shouldExit && mounted) {
+            Navigator.pop(context);
+          }
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(

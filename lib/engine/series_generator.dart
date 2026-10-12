@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'difficulty.dart';
 import 'line_figure.dart';
 import 'reasoning_question.dart';
 
@@ -33,14 +34,20 @@ class SeriesGenerator {
   /// wrong option is the mirror image, too hard at that age.
   static const easyFamilies = ['arrow', 'symbols', 'spokes'];
 
-  static ReasoningQuestion? generate({bool hard = false, String? family}) {
+  /// [level] wins over [hard] when given.
+  static ReasoningQuestion? generate({bool hard = false, Difficulty? level, String? family}) {
+    final lv = level ?? (hard ? Difficulty.hard : Difficulty.easy);
     for (int attempt = 0; attempt < 60; attempt++) {
-      final f = family ?? _pick(hard ? families : easyFamilies);
+      final f = family ??
+          _pick(switch (lv) {
+            Difficulty.easy => easyFamilies,
+            Difficulty.medium || Difficulty.hard => families,
+          });
       final built = switch (f) {
-        'arrow' => _arrowSeries(hard),
-        'symbols' => _symbolSeries(hard),
-        'spokes' => _spokeSeries(hard),
-        _ => _turningSeries(hard),
+        'arrow' => _arrowSeries(lv),
+        'symbols' => _symbolSeries(lv),
+        'spokes' => _spokeSeries(lv),
+        _ => _turningSeries(lv),
       };
       if (built == null) continue;
       final (frames, correct, a, b, ab) = built;
@@ -86,9 +93,11 @@ class SeriesGenerator {
     return LineFig(6, 6, frame: true, segs: segs, arrows: {(hx - vx, hy - vy, hx, hy)}, rings: {(tx, ty)});
   }
 
-  static (List<LineFig>, LineFig, LineFig, LineFig, LineFig)? _arrowSeries(bool hard) {
-    if (!hard) return _easyArrow();
-    final turn = _pick([1, -1, 3, -3]);
+  static (List<LineFig>, LineFig, LineFig, LineFig, LineFig)? _arrowSeries(Difficulty lv) {
+    if (lv == Difficulty.easy) return _easyArrow();
+    // Medium: a quarter turn (2 of the 8 directions) each step while the
+    // bars count up or down; Hard: 45° or 135° steps.
+    final turn = lv == Difficulty.medium ? _pick([2, -2]) : _pick([1, -1, 3, -3]);
     final d0 = _r.nextInt(8);
     final up = _r.nextBool();
     final bars = up ? [0, 1, 2, 3] : [3, 2, 1, 0];
@@ -158,7 +167,8 @@ class SeriesGenerator {
           : {},
       glyphs: {for (final e in cells.entries) (e.key.$1, e.key.$2, e.value)});
 
-  static (List<LineFig>, LineFig, LineFig, LineFig, LineFig)? _symbolSeries(bool hard) {
+  static (List<LineFig>, LineFig, LineFig, LineFig, LineFig)? _symbolSeries(Difficulty lv) {
+    final hard = lv == Difficulty.hard;
     // Easy: 2x2 with dividing lines, every cell filled, one step (Q15).
     // Hard: 3x2 or 3x3 border (Q16-like), four symbols among empty cells,
     // one or two steps; a 3x3 grid may hold a centre symbol that stays put.
@@ -169,8 +179,9 @@ class SeriesGenerator {
     final step = (hard && n == 8 ? _pick([1, 2]) : 1) * (_r.nextBool() ? 1 : -1);
     final symbols = [...symbolPool]..shuffle(_r);
     final slots = [for (int i = 0; i < n; i++) i]..shuffle(_r);
-    // Easy: just two symbols to follow; hard: four.
-    final count = hard ? 4 : 2;
+    // Easy: two symbols to follow; Medium: four on the 2x2 grid; Hard: four
+    // on a bigger grid.
+    final count = lv == Difficulty.easy ? 2 : 4;
     final start = <int, String>{for (int i = 0; i < count; i++) slots[i]: symbols[i]};
     final centre = w == 3 && h == 3 && _r.nextBool() ? symbols[4] : null;
 
@@ -229,7 +240,9 @@ class SeriesGenerator {
       segs: {for (final s in spokes) ...LineFig.line(2, 2, spokeEnds[s].$1, spokeEnds[s].$2)},
       dots: {dotCells[dot]});
 
-  static (List<LineFig>, LineFig, LineFig, LineFig, LineFig)? _spokeSeries(bool hard) {
+  static (List<LineFig>, LineFig, LineFig, LineFig, LineFig)? _spokeSeries(Difficulty lv) {
+    final hard = lv == Difficulty.hard;
+    final medium = lv == Difficulty.medium;
     final remove = hard && _r.nextBool();
     final s = (hard ? _pick([1, 2, 3]) : 1) * (_r.nextBool() ? 1 : -1);
     final a0 = _r.nextInt(8);
@@ -242,7 +255,12 @@ class SeriesGenerator {
     Set<int> at(int k) => remove ? base.difference(changed.take(k).toSet()) : {...base, ...changed.take(k)};
 
     // Easy: the dot stays put - the spokes are the one thing changing.
-    final dStep = hard ? _pick([1, 2]) * (_r.nextBool() ? 1 : -1) : 0;
+    // Medium: it moves one place a step; Hard: one or two places.
+    final dStep = hard
+        ? _pick([1, 2]) * (_r.nextBool() ? 1 : -1)
+        : medium
+            ? (_r.nextBool() ? 1 : -1)
+            : 0;
     final d0 = _r.nextInt(4);
     int dot(int k) => ((d0 + dStep * k) % 4 + 4) % 4;
 
@@ -257,7 +275,7 @@ class SeriesGenerator {
     if (wrongs.isEmpty) return null;
     final wrongSpokes = _pick(wrongs);
     // Wrong dot: didn't move, or moved one step too far.
-    final wrongDot = hard
+    final wrongDot = hard || medium
         ? _pick([dot(2), ((dot(3) + dStep) % 4 + 4) % 4].where((d) => d != dot(3)).toList())
         : (dot(3) + 1) % 4; // easy: the dot moved when it shouldn't have
 
@@ -302,7 +320,9 @@ class SeriesGenerator {
   static LineFig _turning(LineFig fig, int corner) =>
       fig.copyWith(frame: true, dots: {cornerCells[corner]});
 
-  static (List<LineFig>, LineFig, LineFig, LineFig, LineFig)? _turningSeries(bool hard) {
+  static (List<LineFig>, LineFig, LineFig, LineFig, LineFig)? _turningSeries(Difficulty lv) {
+    // Medium uses Easy's dot direction (the same way as the figure).
+    final hard = lv == Difficulty.hard;
     final f = _innerFigure();
     if (f == null) return null;
     final turn = _pick([1, 3]);

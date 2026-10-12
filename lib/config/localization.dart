@@ -46,12 +46,7 @@ class AppLocale {
       'easy_desc': 'Standard puzzles to build confidence',
       'hard_desc': 'Denser figures and trickier options',
       'medium': 'Medium',
-      'medium_desc': 'A mix of standard and exam-level puzzles',
-      'child_mode': 'Child mode',
-      'child_mode_sub': 'Children cannot leave a session',
-      'child_mode_info': 'When on, children cannot leave a quiz or reach this setup screen. Try Again starts the same session again, and the full report stays in History. To leave, a teacher holds Leave Quiz, or the exit link on the result screen, for about a second.',
-      'child_locked_hint': 'Ask your teacher to leave',
-      'teacher_hold_exit': 'Teacher: hold to exit',
+      'medium_desc': 'Between Easy and Hard in every topic',
 
       // ── Quiz Screen ──────────────────────────────────────────────────────
       'find_the': 'FIND THE',
@@ -270,12 +265,7 @@ class AppLocale {
       'easy_desc': 'आत्मविश्वास वाढवण्यासाठी नेहमीची कोडी',
       'hard_desc': 'गुंतागुंतीच्या आकृत्या आणि फसवे पर्याय',
       'medium': 'मध्यम',
-      'medium_desc': 'नेहमीची आणि परीक्षा-स्तरावरील कोडी एकत्र',
-      'child_mode': 'मुलांसाठी लॉक',
-      'child_mode_sub': 'मुले सत्र सोडू शकत नाहीत',
-      'child_mode_info': 'चालू असताना मुले प्रश्नमंजुषा सोडू शकत नाहीत किंवा ही सेटअप स्क्रीन उघडू शकत नाहीत. पुन्हा प्रयत्न केल्यास तेच सत्र पुन्हा सुरू होते आणि पूर्ण अहवाल इतिहासात राहतो. बाहेर पडण्यासाठी शिक्षकांनी सोडा बटण किंवा निकाल स्क्रीनवरील बाहेर पडण्याची लिंक सुमारे एक सेकंद दाबून ठेवावी.',
-      'child_locked_hint': 'बाहेर पडण्यासाठी शिक्षकांना विचारा',
-      'teacher_hold_exit': 'शिक्षक: बाहेर पडण्यासाठी दाबून ठेवा',
+      'medium_desc': 'प्रत्येक विषयात सोपे आणि कठीण यांच्या मधले',
 
       // ── Quiz Screen ──────────────────────────────────────────────────────
       'find_the': 'खालीलपैकी ओळखा',
@@ -491,12 +481,7 @@ class AppLocale {
       'easy_desc': 'आत्मविश्वास बढ़ाने के लिए सामान्य पहेलियाँ',
       'hard_desc': 'जटिल आकृतियाँ और पेचीदा विकल्प',
       'medium': 'मध्यम',
-      'medium_desc': 'सामान्य और परीक्षा-स्तर की पहेलियाँ मिलाकर',
-      'child_mode': 'बच्चों के लिए लॉक',
-      'child_mode_sub': 'बच्चे सत्र नहीं छोड़ सकते',
-      'child_mode_info': 'चालू होने पर बच्चे क्विज़ नहीं छोड़ सकते और यह सेटअप स्क्रीन नहीं खोल सकते। दोबारा कोशिश करने पर वही सत्र फिर शुरू होता है और पूरी रिपोर्ट इतिहास में रहती है। बाहर निकलने के लिए शिक्षक छोड़ें बटन या परिणाम स्क्रीन पर बाहर निकलने का लिंक लगभग एक सेकंड दबाकर रखें।',
-      'child_locked_hint': 'बाहर निकलने के लिए शिक्षक से कहें',
-      'teacher_hold_exit': 'शिक्षक: बाहर निकलने के लिए दबाकर रखें',
+      'medium_desc': 'हर विषय में आसान और कठिन के बीच का स्तर',
 
       // ── Quiz Screen ──────────────────────────────────────────────────────
       'find_the': 'ढूँढिए',
