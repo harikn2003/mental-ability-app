@@ -21,6 +21,14 @@ class QuizScreen extends StatefulWidget {
   final String timePerQuestion;
   final bool biasEnabled;
   final bool isHardMode;
+
+  /// Medium: each question comes from the Easy or the Hard pool at random,
+  /// so the session sits between the two (overrides [isHardMode]).
+  final bool isMediumMode;
+
+  /// Child mode: the child can't leave (a teacher holds Leave Quiz), and the
+  /// result screen's Try Again restarts this same session.
+  final bool childMode;
   final Map<String, int> initialWeights; // persisted from previous session
   final List<ReasoningQuestion> retryQuestions;
 
@@ -35,6 +43,8 @@ class QuizScreen extends StatefulWidget {
     required this.timePerQuestion,
     this.biasEnabled = true,
     this.isHardMode = false,
+    this.isMediumMode = false,
+    this.childMode = false,
     this.initialWeights = const {},
     this.retryQuestions = const [],
     this.topics = const [],
@@ -220,7 +230,8 @@ class _QuizScreenState extends State<QuizScreen>
     int attempts = 0;
     do {
       final category = _pickCategory();
-      q = QuestionGenerator.generate(category, isHardMode: widget.isHardMode);
+      final hard = widget.isMediumMode ? Random().nextBool() : widget.isHardMode;
+      q = QuestionGenerator.generate(category, isHardMode: hard);
       attempts++;
     } while (_seenSignatures.contains(_questionSignature(q)) && attempts < 40);
     _seenSignatures.add(_questionSignature(q));
@@ -407,6 +418,19 @@ class _QuizScreenState extends State<QuizScreen>
             categoryStats: categoryPerformance,
             attempts: List.unmodifiable(_attempts),
             timeSetting: widget.timePerQuestion,
+            childMode: widget.childMode,
+            // Try Again in child mode: the same session again.
+            restart: () => QuizScreen(
+              mode: widget.mode,
+              totalQuestions: widget.totalQuestions,
+              timePerQuestion: widget.timePerQuestion,
+              biasEnabled: widget.biasEnabled,
+              isHardMode: widget.isHardMode,
+              isMediumMode: widget.isMediumMode,
+              initialWeights: widget.initialWeights,
+              topics: widget.topics,
+              childMode: widget.childMode,
+            ),
           ),
         ),
       );
@@ -524,6 +548,10 @@ class _QuizScreenState extends State<QuizScreen>
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
+        if (widget.childMode) {
+          _showChildLockedHint();
+          return;
+        }
         final shouldExit = await _showExitConfirmation();
         if (shouldExit && context.mounted) {
           Navigator.pop(context);
@@ -626,10 +654,9 @@ class _QuizScreenState extends State<QuizScreen>
                         ),
                       ),
                     ),
-                    if (widget.biasEnabled) ...[
-                      const SizedBox(width: 6),
-                      _buildBiasIndicator(category),
-                    ],
+                    // (A "Reviewing" / "Weak area" tag used to show here: that's
+                    // coordinator information, on the New Session screen's
+                    // weak-areas card, not something the child needs mid-quiz.)
                   ],
                 ),
               ),
@@ -657,44 +684,6 @@ class _QuizScreenState extends State<QuizScreen>
           ),
           const SizedBox(height: 8),
           Container(height: 1, color: Colors.grey.shade200),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBiasIndicator(String category) {
-    final weight = _weights[category] ?? 1;
-    if (weight <= 1) return const SizedBox.shrink();
-
-    Color dotColor;
-    String tooltip;
-    if (weight <= 3) {
-      dotColor = warning;
-      tooltip = AppLocale.get(currentLang, 'reviewing');
-    } else {
-      dotColor = error;
-      tooltip = AppLocale.get(currentLang, 'weak_area');
-    }
-
-    return Tooltip(
-      message: tooltip,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 3),
-          Text(
-            tooltip,
-            style: TextStyle(
-              fontSize: 9,
-              color: dotColor,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
         ],
       ),
     );
@@ -770,6 +759,9 @@ class _QuizScreenState extends State<QuizScreen>
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // A tick makes "3/5" read as "3 correct out of 5".
+            const Icon(Icons.check_circle_rounded, color: success, size: 16),
+            const SizedBox(width: 6),
             Text(
               '$score/$attempted',
               style: const TextStyle(
@@ -986,13 +978,21 @@ class _QuizScreenState extends State<QuizScreen>
     );
   }
 
+  void _showChildLockedHint() => ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(AppLocale.get(currentLang, 'child_locked_hint'))));
+
+  Future<void> _leave() async {
+    final shouldExit = await _showExitConfirmation();
+    if (shouldExit && mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  // Child mode: a tap only shows "Ask your teacher"; a teacher holds it.
   Widget _leaveHeaderButton() => GestureDetector(
-        onTap: () async {
-          final shouldExit = await _showExitConfirmation();
-          if (shouldExit && mounted) {
-            Navigator.pop(context);
-          }
-        },
+        onTap: widget.childMode ? _showChildLockedHint : _leave,
+        onLongPress: widget.childMode ? _leave : null,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
