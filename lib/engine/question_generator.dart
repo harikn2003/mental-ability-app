@@ -304,7 +304,7 @@ class QuestionGenerator {
           final q = ExamStyleGenerator.punchHole(singleFold: true);
           if (q != null) return q;
         }
-        return _punchHoleClassic();
+        return _punchHoleTwo() ?? _punchHoleClassic();
       case 'embedded':
         if (p < 60) {
           final q = ExamStyleGenerator.embeddedFigure(lite: true);
@@ -784,6 +784,12 @@ class QuestionGenerator {
     return null;
   }
 
+  /// [_balanced] over [changes] in random order, else [_pack] with
+  /// [fallback] (the generator's original wrong options).
+  static ({List<Map<String, dynamic>> opts, int idx}) _balancedOr(Map<String, dynamic> answer,
+          List<(String, Map<String, dynamic> Function(Map<String, dynamic>))> changes, List<Map<String, dynamic>> fallback) =>
+      _balanced(answer, const [], [...changes]..shuffle(_r)) ?? _pack(answer, fallback);
+
   /// A dot count for a wrong option: [preferred] if it's a new count in
   /// 0..4, else any count not shown yet.
   static int? _unseenDots(Iterable<int> shown, int answer, int preferred) {
@@ -957,10 +963,12 @@ class QuestionGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   // 1. ODD MAN OUT
   // ═══════════════════════════════════════════════════════════════════════════
-  /// Medium variants: Easy's without the fill-only give-aways (0, 4, 7) and
-  /// Hard's without its two hardest tricks (8 mirror-vs-turn, 9 counting
-  /// sides against dots).
-  static const _oddManMedium = [1, 2, 3, 5, 6, 10, 11];
+  /// Medium variants: the ones where the odd figure differs by one detail
+  /// - a quarter turn (3), the inner shape (5), the missing corner (10),
+  /// the inner shape against the outer (11). Not Easy's give-aways (a
+  /// different fill, shape or dot count stands out at a glance) nor Hard's
+  /// two hardest tricks (8 mirror-vs-turn, 9 counting sides against dots).
+  static const _oddManMedium = [3, 5, 10, 11];
 
   static ReasoningQuestion _oddMan({bool isHardMode = false, bool medium = false}) {
     for (int attempt = 0; attempt < 30; attempt++) {
@@ -1223,7 +1231,15 @@ class QuestionGenerator {
         ];
       }
 
-      final res = _pack(target, wrongs);
+      // Easy: two of {turn, fill, shape} changed in a balanced set, so the
+      // answer is not the option most like the others (it was, every time).
+      final res = medium
+          ? _pack(target, wrongs)
+          : _balancedOr(target, [
+              _set('rotation', (rot + rotStep) % 4),
+              _flipFill,
+              _set('shape', lookalike[s] ?? ((s % 4) + 1)),
+            ], wrongs);
       _markSeen(sigKey);
       return ReasoningQuestion(
         category: 'figure_match',
@@ -1251,30 +1267,21 @@ class QuestionGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   // 3a. PATTERN — shape cycle
   // ═══════════════════════════════════════════════════════════════════════════
+  /// Each row's shape turns a quarter per column, so only shapes whose
+  /// quarter turns are plain to see: no square (its turns all look the
+  /// same) and no pentagon (its turns barely differ).
   static const _matShapeSets = [
-    [1, 2, 3],
-    [2, 7, 8],
-    [3, 7, 2],
-    [1, 8, 3],
-    [5, 2, 7],
-    [8, 1, 7],
-  ];
-
-  /// Easy: shapes whose quarter turns are plain to see (no square, whose
-  /// turns all look the same, and no pentagon, whose turns barely differ),
-  /// and every cell outlined - the turn is the one rule.
-  static const _matShapeSetsEasy = [
     [2, 7, 8],
     [3, 7, 2],
     [7, 8, 3],
     [8, 2, 3],
   ];
 
+  /// [easy]: every cell outlined - the turn is the one rule.
   static ReasoningQuestion _matrixShapeCycle({bool easy = false}) {
-    final sets = easy ? _matShapeSetsEasy : _matShapeSets;
     for (int attempt = 0; attempt < 40; attempt++) {
-      final setIdx = _r.nextInt(sets.length);
-      final shapes = sets[setIdx];
+      final setIdx = _r.nextInt(_matShapeSets.length);
+      final shapes = _matShapeSets[setIdx];
       final baseRot = _r.nextInt(4);
       final step = _r.nextBool() ? 1 : -1;
       final missing = _r.nextInt(8) + 1;
@@ -1302,7 +1309,11 @@ class QuestionGenerator {
       final ansRot = ans['rotation'] as int;
       final ansFill = ans['filled'] as bool;
 
-      final res = _pack(ans, [
+      final res = _balancedOr(ans, [
+        _set('rotation', (ansRot + 1) % 4),
+        _flipFill,
+        _set('shape', shapes[(misRow + 1) % 3]),
+      ], [
         _f(ansShape, rot: (ansRot + 1) % 4, filled: ansFill),
         _f(ansShape, rot: ansRot, filled: !ansFill),
         _f(shapes[(misRow + 1) % 3], rot: ansRot, filled: ansFill),
@@ -1357,7 +1368,11 @@ class QuestionGenerator {
       final ansRot = ans['rotation'] as int;
       final ansD = ans['dots'] as int;
 
-      final res = _pack(ans, [
+      final res = _balancedOr(ans, [
+        _set('rotation', (ansRot + 1) % 4),
+        _flipFill,
+        _set('dots', ansD == 0 ? 1 : ansD - 1),
+      ], [
         _f(shape, rot: (ansRot + 1) % 4, filled: filled, dots: ansD),
         _f(shape, rot: ansRot, filled: !filled, dots: ansD),
         _f(shape, rot: ansRot, filled: filled, dots: (ansD - 1).clamp(0, 3)),
@@ -1434,7 +1449,11 @@ class QuestionGenerator {
       final ansOuter = outerShapes[mRow % outerShapes.length];
       final ansInner = inners[mCol];
 
-      final res = _pack(ans, [
+      final res = _balancedOr(ans, [
+        _set('inner', inners[(mCol + 1) % 3]),
+        _flipFill,
+        _set('shape', outerShapes[(mRow + 1) % outerShapes.length]),
+      ], [
         _f(ansOuter, filled: false, inner: inners[(mCol + 1) % 3]),
         _f(ansOuter, filled: true, inner: ansInner),
         _f(
@@ -1649,7 +1668,9 @@ class QuestionGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion _seriesFillToggle() {
     for (int attempt = 0; attempt < 30; attempt++) {
-      final shape = [2, 3, 5, 7, 8][_r.nextInt(5)];
+      // No pentagon: it turns here, and its quarter turns barely differ,
+      // so the wrong-turn option looked like the answer.
+      final shape = [2, 3, 7, 8][_r.nextInt(4)];
       final startFill = _r.nextBool();
       final startRot = _r.nextInt(4);
       final dots = _r.nextInt(3);
@@ -3104,6 +3125,43 @@ class QuestionGenerator {
     return null;
   }
 
+  /// Medium: Easy's one fold with two holes, both kept well away from the
+  /// fold and from each other. Wrong cards: mirrored across the other fold,
+  /// only one of the two holes unfolded, or never unfolded.
+  static ReasoningQuestion? _punchHoleTwo() {
+    for (int attempt = 0; attempt < 60; attempt++) {
+      final axis = _r.nextInt(2); // 0: fold down the middle, 1: across
+      double away() => 0.15 + _r.nextDouble() * 0.2; // 0.15-0.35 from the edge, clear of the fold
+      double along() => 0.15 + _r.nextDouble() * 0.7;
+      final p1 = axis == 0 ? (away(), along()) : (along(), away());
+      final p2 = axis == 0 ? (away(), along()) : (along(), away());
+      Map<String, dynamic> h(double x, double y) => {'x': x, 'y': y};
+      Map<String, dynamic> m(double x, double y, int ax) => ax == 0 ? h(1 - x, y) : h(x, 1 - y);
+      final punched = [h(p1.$1, p1.$2), h(p2.$1, p2.$2)];
+      final sigKey = 'punchTwo:ax$axis,${punched.map((q) => '${(q['x'] as double).toStringAsFixed(2)},${(q['y'] as double).toStringAsFixed(2)}').join(';')}';
+      if (_seen(sigKey) && attempt < 40) continue;
+
+      Map<String, dynamic> card(List<Map<String, dynamic>> holes, int ax) =>
+          {'type': 'punch_hole', 'unfolded': true, 'fold_axis': ax, 'holes': holes};
+      final correct = [...punched, m(p1.$1, p1.$2, axis), m(p2.$1, p2.$2, axis)];
+      final otherFold = [...punched, m(p1.$1, p1.$2, 1 - axis), m(p2.$1, p2.$2, 1 - axis)];
+      final oneOnly = [...punched, m(p1.$1, p1.$2, axis)];
+      final all = [correct, otherFold, oneOnly, punched];
+      if (!all.every(_holesSeparated)) continue;
+      if (all.map(_holesKey).toSet().length != 4) continue;
+      final packed = _packExact(card(correct, axis), [card(otherFold, 1 - axis), card(oneOnly, axis), card(punched, axis)]);
+      _markSeen(sigKey);
+      return ReasoningQuestion(
+        category: 'punch_hole',
+        type: 'punch_hole_two',
+        puzzle: {'type': 'punch_hole', 'unfolded': false, 'fold_axis': axis, 'holes': punched},
+        options: packed.opts,
+        correctIndex: packed.idx,
+      );
+    }
+    return null;
+  }
+
   /// The original one-fold item (one or two holes); served in Hard.
   static ReasoningQuestion _punchHoleClassic() {
     for (int attempt = 0; attempt < 50; attempt++) {
@@ -3122,8 +3180,10 @@ class QuestionGenerator {
         foldedHoles.add({'x': hx + 0.15, 'y': hy + 0.15});
       }
 
-      final sigKey = 'punch6:ax$axis,hx${hx.toStringAsFixed(2)},v$variant';
-      if (_seen(sigKey)) continue;
+      // hy is part of the layout too; past 40 tries a repeat beats the
+      // fixed one-hole fallback below.
+      final sigKey = 'punch6:ax$axis,hx${hx.toStringAsFixed(2)},hy${hy.toStringAsFixed(2)},v$variant';
+      if (_seen(sigKey) && attempt < 40) continue;
 
       List<Map<String, dynamic>> unfold(List<Map<String, dynamic>> fHoles, int ax) {
         final out = <Map<String, dynamic>>[];
