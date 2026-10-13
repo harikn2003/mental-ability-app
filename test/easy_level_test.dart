@@ -1,9 +1,12 @@
-// Easy mode is used by grades 2-3 (age ~7-8): these pin down the Easy
-// versions of Mirror Text and Punch Hole, and check Hard still serves the
-// harder items those topics used to show in Easy.
+// Easy mode is used by grades 2-3 (age ~7-8): ONE thing changes per
+// question and no option is a near-twin of the answer. These pin down the
+// Easy versions of each topic that once let Medium/Hard material or an
+// ambiguous item into Easy, and check Hard still serves the harder items.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mental_ability_app/engine/difficulty.dart';
 import 'package:mental_ability_app/engine/question_generator.dart';
+import 'package:mental_ability_app/engine/reasoning_question.dart';
 
 const runs = 400;
 
@@ -22,6 +25,14 @@ bool separated(List<Map<String, dynamic>> holes) {
 
 String holesKey(List<Map<String, dynamic>> holes) =>
     ([for (final h in holes) '${((h['x'] as num) * 100).round()},${((h['y'] as num) * 100).round()}']..sort()).join(';');
+
+List<ReasoningQuestion> easy(String topic, {int n = 200, int seed = 3}) {
+  QuestionGenerator.seed(seed);
+  QuestionGenerator.resetSession();
+  return [for (int i = 0; i < n; i++) QuestionGenerator.generate(topic, difficulty: Difficulty.easy)];
+}
+
+List<Map> cells(ReasoningQuestion q) => [for (final c in q.puzzle['cells'] as List) if ((c as Map)['empty'] != true) c];
 
 void main() {
   test('easy mirror text: three clearly-flipping characters, whole-word mistakes only', () {
@@ -91,5 +102,42 @@ void main() {
       types.add(QuestionGenerator.generate('punch_hole', isHardMode: true).type);
     }
     expect(types, containsAll(['punch_hole_exam', 'punch_hole_double_fold', 'punch_hole']));
+  });
+
+  test('easy pattern turning grids: no square or pentagon, nothing filled', () {
+    final grids = easy('pattern').where((q) => q.type == 'matrix_shape_cycle').toList();
+    expect(grids, isNotEmpty);
+    for (final q in grids) {
+      for (final c in cells(q)) {
+        expect([1, 5], isNot(contains(c['shape'])), reason: 'turn of shape ${c['shape']} is hard to see');
+        expect(c['filled'], isFalse, reason: 'a filled row is a second rule');
+      }
+    }
+  });
+
+  test('easy pattern dot grids: only the dots change', () {
+    final grids = easy('pattern').where((q) => q.type == 'matrix_dot_rotation').toList();
+    expect(grids, isNotEmpty);
+    for (final q in grids) {
+      expect({for (final c in cells(q)) c['rotation']}, hasLength(1));
+    }
+  });
+
+  test('easy inner-shape series alternates A, B, A and the answer is B', () {
+    final qs = easy('figure_series', n: 400).where((q) => q.type.startsWith('series_inner')).toList();
+    expect(qs, isNotEmpty);
+    for (final q in qs) {
+      expect(q.type, 'series_inner_easy', reason: 'Easy served the open-ended inner series');
+      final inner = [for (final f in q.puzzle['sequence'] as List) (f as Map)['inner']];
+      expect(inner[0], inner[2]);
+      expect(q.options[q.correctIndex]['inner'], inner[1]);
+      expect({for (final o in q.options) o['inner']}, hasLength(4));
+    }
+  });
+
+  test('easy geo completion: no triangle to complete', () {
+    final pieces = [for (final q in easy('geo_completion')) q.puzzle['piece'] as Map];
+    expect(pieces, everyElement(containsPair('type', 'geo_piece')));
+    expect(pieces.where((p) => p['shape'] == 1), isEmpty, reason: 'triangle halves are near-twins');
   });
 }
