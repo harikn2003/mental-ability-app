@@ -211,9 +211,10 @@ void main() {
   });
 
   test('series_inner follows a consistent next-step answer', () {
+    // Hard only since Easy's inner-shape series alternates (easy_level_test).
     QuestionGenerator.resetSession();
-    for (int i = 0; i < 120; i++) {
-      final q = QuestionGenerator.generate('figure_series');
+    for (int i = 0; i < 300; i++) {
+      final q = QuestionGenerator.generate('figure_series', isHardMode: true);
       if (q.type != 'series_inner') continue;
 
       final seq = (q.puzzle['sequence'] as List)

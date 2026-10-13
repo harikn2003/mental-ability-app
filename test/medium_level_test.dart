@@ -50,6 +50,17 @@ void main() {
     expect(types, contains('figure_match_exam'));
   });
 
+  test('Medium classic Figure Match: same shape and fill in every option', () {
+    final classic = medium('figure_match').where((q) => q.type == 'figure_match').toList();
+    expect(classic, isNotEmpty);
+    for (final q in classic) {
+      final target = q.puzzle['target'] as Map;
+      for (final o in q.options) {
+        expect((o['shape'], o['filled']), (target['shape'], target['filled']), reason: 'give-away option $o');
+      }
+    }
+  });
+
   test('Medium Mirror Text words are 4 characters', () {
     for (final q in medium('mirror_text')) {
       if (q.puzzle['is_clock'] == true) continue;
@@ -129,6 +140,24 @@ void main() {
         expect(folds.length, 1);
       } else {
         expect(q.puzzle['fold_axis'], anyOf(0, 1), reason: 'classic single fold');
+      }
+    }
+  });
+
+  test('Medium Odd Man Out: no fill-only give-aways, no mirror or counting tricks', () {
+    final types = {for (final q in medium('odd_man', n: 300)) q.type};
+    expect(types.intersection({'odd_v0', 'odd_v4', 'odd_v7', 'odd_v8', 'odd_v9'}), isEmpty);
+    expect(types, containsAll(['odd_v1', 'odd_v10', 'odd_man_mirror']));
+  });
+
+  test('Medium classic Embedded: near-misses are never mirror images', () {
+    final qs = medium('embedded').where((q) => q.type == 'embedded_medium').toList();
+    expect(qs, isNotEmpty);
+    for (final q in qs) {
+      for (final o in q.options) {
+        for (final f in o['shapes'] as List) {
+          expect((f as Map)['mirror'], isNot(true));
+        }
       }
     }
   });

@@ -245,18 +245,19 @@ class QuestionGenerator {
     final p = _r.nextInt(100);
     switch (category) {
       case 'odd_man':
-        // Hard's classic variants; the exam mirror item at a lower share.
+        // Classic variants between Easy's and Hard's (see _oddManMedium);
+        // the exam mirror item at a lower share than Hard's.
         if (p < 20) {
           final q = ExamStyleGenerator.oddManOut();
           if (q != null) return q;
         }
-        return _oddMan(isHardMode: true);
+        return _oddMan(medium: true);
       case 'figure_match':
         if (p < 60) {
           final q = ExamStyleGenerator.figureMatch(lite: true);
           if (q != null) return q;
         }
-        return _figureMatch();
+        return _figureMatch(medium: true);
       case 'pattern':
         if (p < 50) {
           final q = ExamStyleGenerator.patternQuarter(mirrorOnly: true);
@@ -285,7 +286,7 @@ class QuestionGenerator {
         }
         return _analogy(medium: true);
       case 'geo_completion':
-        if (p < 75) {
+        if (p < 90) {
           final q = ExamStyleGenerator.geoCompletion(halfTurnsOnly: true);
           if (q != null) return q;
         }
@@ -309,7 +310,7 @@ class QuestionGenerator {
           final q = ExamStyleGenerator.embeddedFigure(lite: true);
           if (q != null) return q;
         }
-        return _embeddedHard();
+        return _embeddedHard(medium: true);
       case 'space_vis':
         // Easy is only the never-null last resort, as in the Easy/Hard route.
         return SpaceVisGenerator.generate(level: Difficulty.medium) ?? SpaceVisGenerator.generate()!;
@@ -351,11 +352,12 @@ class QuestionGenerator {
         return _figureMatch();
       case 'pattern':
         {
+          // Easy (grades 2-3): one rule per grid - see the easy settings.
           final pv = isHardMode
               ? _pickWeighted([3, 2, 3, 1, 3, 2, 0])
               : _r.nextInt(3);
-          if (pv == 0) return _matrixShapeCycle();
-          if (pv == 1) return _matrixDotRotation();
+          if (pv == 0) return _matrixShapeCycle(easy: !isHardMode);
+          if (pv == 1) return _matrixDotRotation(easy: !isHardMode);
           if (pv == 2) return _matrixInnerShape();
           return _matrixDualRule();
         }
@@ -380,7 +382,7 @@ class QuestionGenerator {
                 _seriesDots,
                 () => _seriesRotation(hard: true),
               ]
-            : [_seriesRotation, _seriesDots, _seriesInner];
+            : [_seriesRotation, _seriesDots, () => _seriesInner(easy: true)];
         return classicSeries[_r.nextInt(classicSeries.length)]();
       case 'analogy':
         // Easy: exam-style analogy (AnalogyGenerator) for a share, the
@@ -955,9 +957,18 @@ class QuestionGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   // 1. ODD MAN OUT
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion _oddMan({bool isHardMode = false}) {
+  /// Medium variants: Easy's without the fill-only give-aways (0, 4, 7) and
+  /// Hard's without its two hardest tricks (8 mirror-vs-turn, 9 counting
+  /// sides against dots).
+  static const _oddManMedium = [1, 2, 3, 5, 6, 10, 11];
+
+  static ReasoningQuestion _oddMan({bool isHardMode = false, bool medium = false}) {
     for (int attempt = 0; attempt < 30; attempt++) {
-      final v = isHardMode ? _r.nextInt(12) : _r.nextInt(8);
+      final v = medium
+          ? _oddManMedium[_r.nextInt(_oddManMedium.length)]
+          : isHardMode
+              ? _r.nextInt(12)
+              : _r.nextInt(8);
       final cp = _r.nextInt(4);
       List<Map<String, dynamic>> opts;
       String sigKey;
@@ -1180,7 +1191,11 @@ class QuestionGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   // 2. FIGURE MATCH
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion _figureMatch() {
+  /// [medium]: every option is the same shape and fill; they differ only in
+  /// the turn and the dots, as {turn right, wrong} x {dots right, wrong}, so
+  /// no option is a give-away (Easy keeps the fill-swapped and
+  /// other-shape options).
+  static ReasoningQuestion _figureMatch({bool medium = false}) {
     const asymShapes = [2, 3, 7, 8];
     const lookalike = {2: 3, 3: 2, 7: 8, 8: 7};
 
@@ -1188,23 +1203,27 @@ class QuestionGenerator {
       final s = asymShapes[_r.nextInt(asymShapes.length)];
       final rot = _r.nextInt(4);
       final filled = _r.nextBool();
-      final dots = _r.nextInt(3);
+      final dots = medium ? 1 + _r.nextInt(2) : _r.nextInt(3);
 
       final rotStep = _r.nextBool() ? 1 : 3;
-      final sigKey = 'figMatch:s$s,r$rot,f$filled,d$dots,rs$rotStep';
+      final sigKey = 'figMatch:s$s,r$rot,f$filled,d$dots,rs$rotStep,m$medium';
       if (_seen(sigKey)) continue;
 
       final target = _f(s, rot: rot, filled: filled, dots: dots);
       final dRot = _f(s, rot: (rot + rotStep) % 4, filled: filled, dots: dots);
-      final dFill = _f(s, rot: rot, filled: !filled, dots: dots);
-      final dShape = _f(
-        lookalike[s] ?? ((s % 4) + 1),
-        rot: rot,
-        filled: filled,
-        dots: dots,
-      );
+      final List<Map<String, dynamic>> wrongs;
+      if (medium) {
+        final wd = dots + (_r.nextBool() ? 1 : -1);
+        wrongs = [dRot, _f(s, rot: rot, filled: filled, dots: wd), _f(s, rot: (rot + rotStep) % 4, filled: filled, dots: wd)];
+      } else {
+        wrongs = [
+          dRot,
+          _f(s, rot: rot, filled: !filled, dots: dots),
+          _f(lookalike[s] ?? ((s % 4) + 1), rot: rot, filled: filled, dots: dots),
+        ];
+      }
 
-      final res = _pack(target, [dRot, dFill, dShape]);
+      final res = _pack(target, wrongs);
       _markSeen(sigKey);
       return ReasoningQuestion(
         category: 'figure_match',
@@ -1241,10 +1260,21 @@ class QuestionGenerator {
     [8, 1, 7],
   ];
 
-  static ReasoningQuestion _matrixShapeCycle() {
+  /// Easy: shapes whose quarter turns are plain to see (no square, whose
+  /// turns all look the same, and no pentagon, whose turns barely differ),
+  /// and every cell outlined - the turn is the one rule.
+  static const _matShapeSetsEasy = [
+    [2, 7, 8],
+    [3, 7, 2],
+    [7, 8, 3],
+    [8, 2, 3],
+  ];
+
+  static ReasoningQuestion _matrixShapeCycle({bool easy = false}) {
+    final sets = easy ? _matShapeSetsEasy : _matShapeSets;
     for (int attempt = 0; attempt < 40; attempt++) {
-      final setIdx = _r.nextInt(_matShapeSets.length);
-      final shapes = _matShapeSets[setIdx];
+      final setIdx = _r.nextInt(sets.length);
+      final shapes = sets[setIdx];
       final baseRot = _r.nextInt(4);
       final step = _r.nextBool() ? 1 : -1;
       final missing = _r.nextInt(8) + 1;
@@ -1252,13 +1282,13 @@ class QuestionGenerator {
       final misCol = missing % 3;
 
       final sigKey =
-          'matSC:set$setIdx,br$baseRot,st${step > 0 ? 1 : 0},m$missing';
+          'matSC:set$setIdx,br$baseRot,st${step > 0 ? 1 : 0},m$missing,e$easy';
       if (_seen(sigKey)) continue;
 
       Map<String, dynamic> cell(int row, int col) => _f(
         shapes[row],
         rot: ((baseRot + col * step) % 4 + 4) % 4,
-        filled: row == 1,
+        filled: !easy && row == 1,
       );
 
       final cells = <Map<String, dynamic>>[];
@@ -1289,17 +1319,18 @@ class QuestionGenerator {
         correctIndex: res.idx,
       );
     }
-    return _matrixDotRotation();
+    return _matrixDotRotation(easy: easy);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 3b. PATTERN — dot & rotation
   // ═══════════════════════════════════════════════════════════════════════════
-  static ReasoningQuestion _matrixDotRotation() {
+  /// [easy]: only the dots change along a row; the turn stays put.
+  static ReasoningQuestion _matrixDotRotation({bool easy = false}) {
     for (int attempt = 0; attempt < 30; attempt++) {
       final shape = _rotateable[_r.nextInt(_rotateable.length)];
       final filled = _r.nextBool();
-      final subV = _r.nextInt(2);
+      final subV = easy ? 0 : _r.nextInt(2);
       final startD = _r.nextInt(2);
       final startR = _r.nextInt(4);
       final missing = _r.nextInt(6) + 3;
@@ -1786,8 +1817,34 @@ class QuestionGenerator {
   }
 
   // ── 4e. SERIES — inner shape changes each step ────────────────────────────
-  static ReasoningQuestion _seriesInner() {
+  /// [easy]: the inner shape alternates A, B, A, so the answer is B - a
+  /// rule a grade 2-3 child can see. The wrong options are A and two inner
+  /// shapes not in the series.
+  static ReasoningQuestion _seriesInner({bool easy = false}) {
     const outers = [3, 5, 7, 8];
+    if (easy) {
+      const inners = [1, 2, 3, 4, 7, 8];
+      for (int attempt = 0; attempt < 30; attempt++) {
+        final outer = outers[_r.nextInt(outers.length)];
+        final pick = [...inners]..shuffle(_r);
+        final (a, b) = (pick[0], pick[1]);
+        final filled = _r.nextBool();
+        final sigKey = 'serInnerEasy:o$outer,a$a,b$b,f$filled';
+        if (_seen(sigKey)) continue;
+        final figures = [for (final i in [a, b, a]) _f(outer, filled: filled, inner: i)];
+        if (!_hasVisibleVariation(figures)) continue;
+        final r = _packExact(_f(outer, filled: filled, inner: b),
+            [for (final i in [a, pick[2], pick[3]]) _f(outer, filled: filled, inner: i)]);
+        _markSeen(sigKey);
+        return ReasoningQuestion(
+          category: 'figure_series',
+          type: 'series_inner_easy',
+          puzzle: {'type': 'series', 'sequence': figures},
+          options: r.opts,
+          correctIndex: r.idx,
+        );
+      }
+    }
     const innerSeqs = [
       [2, 7, 8, 3],
       [7, 2, 5, 8],
@@ -2242,9 +2299,11 @@ class QuestionGenerator {
 
   static ReasoningQuestion _geoCompletion({bool isHardMode = false}) {
     for (int attempt = 0; attempt < 40; attempt++) {
+      // Easy: square and circle only. A triangle's halves are the same
+      // triangle turned or mirrored, so its options were near-twins.
       final shape = isHardMode
           ? [0, 0, 0, 0, 1, 2][_r.nextInt(6)]
-          : _r.nextInt(3);
+          : [0, 2][_r.nextInt(2)];
       final maxCut = _geoMaxCut(shape);
       final cut = (shape == 0 && isHardMode)
           ? [4, 5, 6, 7, 4, 5, 6, 7, 2, 3, 0, 1][_r.nextInt(12)]
@@ -3230,7 +3289,10 @@ class QuestionGenerator {
   /// Only one holds it exactly as shown; the others hold a near-miss - the
   /// target flipped, turned, or with the opposite fill - among two other
   /// figures, so the solver has to check orientation and fill, not just type.
-  static ReasoningQuestion _embeddedHard() {
+  ///
+  /// [medium]: the near-misses are only turned or opposite-fill copies,
+  /// never mirror images - the easier half of Hard's set.
+  static ReasoningQuestion _embeddedHard({bool medium = false}) {
     // Target shapes whose turns (and, for L/triangle, flips) are visible.
     const targetShapes = [8, 7, 2, 5];
     const fillerShapes = [1, 3, 6, 4, 0];
@@ -3239,7 +3301,7 @@ class QuestionGenerator {
       final shape = targetShapes[_r.nextInt(targetShapes.length)];
       final filled = _r.nextBool();
       final rot = _r.nextInt(4);
-      final sigKey = 'embedHard:s$shape,f$filled,r$rot';
+      final sigKey = 'embedHard:s$shape,f$filled,r$rot,m$medium';
       // Only 32 targets exist; once all are used, allow repeats (fillers,
       // near-misses and layout are re-drawn) rather than dropping to Easy.
       if (_seen(sigKey) && attempt < 60) continue;
@@ -3252,11 +3314,11 @@ class QuestionGenerator {
       final nearMisses = <Map<String, dynamic>>[];
       final seen = <String>{targetKey};
       final flipsAndTurns = [
-        _f(shape, filled: filled, rot: rot, mirror: true),
+        if (!medium) _f(shape, filled: filled, rot: rot, mirror: true),
         _f(shape, filled: filled, rot: (rot + 1) % 4),
         _f(shape, filled: filled, rot: (rot + 2) % 4),
         _f(shape, filled: filled, rot: (rot + 3) % 4),
-        _f(shape, filled: filled, rot: (rot + 1) % 4, mirror: true),
+        if (!medium) _f(shape, filled: filled, rot: (rot + 1) % 4, mirror: true),
       ]..shuffle(_r);
       for (final c in [...flipsAndTurns, _f(shape, filled: !filled, rot: rot)]) {
         if (nearMisses.length < 3 && seen.add(_figureKey(c))) nearMisses.add(c);
@@ -3281,7 +3343,7 @@ class QuestionGenerator {
       _markSeen(sigKey);
       return ReasoningQuestion(
         category: 'embedded',
-        type: 'embedded_hard',
+        type: medium ? 'embedded_medium' : 'embedded_hard',
         puzzle: {'type': 'embedded', 'target': target},
         options: packed.opts,
         correctIndex: packed.idx,
