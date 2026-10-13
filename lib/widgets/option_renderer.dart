@@ -269,14 +269,17 @@ class EnhancedFigurePainter extends CustomPainter {
           ..close(), paint);
         break;
       case 8:
-        final sw = r * 0.52;
+        // Upright arm 1.7r, foot 1.1r: clearly unequal, so the L mirrored
+        // never passes for the L turned (equal-ish arms, 1.7r and 1.5r,
+        // made the two near-identical options).
+        final sw = r * 0.5;
         canvas.drawPath(Path()
-          ..moveTo(cx - r * 0.75, cy - r * 0.85)
-          ..lineTo(cx - r * 0.75 + sw, cy - r * 0.85)..lineTo(
-              cx - r * 0.75 + sw, cy + r * 0.85 - sw)..lineTo(
-              cx + r * 0.75, cy + r * 0.85 - sw)..lineTo(
-              cx + r * 0.75, cy + r * 0.85)..lineTo(
-              cx - r * 0.75, cy + r * 0.85)
+          ..moveTo(cx - r * 0.55, cy - r * 0.85)
+          ..lineTo(cx - r * 0.55 + sw, cy - r * 0.85)..lineTo(
+              cx - r * 0.55 + sw, cy + r * 0.85 - sw)..lineTo(
+              cx + r * 0.55, cy + r * 0.85 - sw)..lineTo(
+              cx + r * 0.55, cy + r * 0.85)..lineTo(
+              cx - r * 0.55, cy + r * 0.85)
           ..close(), paint);
         break;
       default:

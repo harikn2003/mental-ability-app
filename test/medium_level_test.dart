@@ -133,6 +133,37 @@ void main() {
     }
   });
 
+  test('No turning grid or turning series uses a square or pentagon', () {
+    for (final d in Difficulty.values) {
+      QuestionGenerator.seed(9);
+      QuestionGenerator.resetSession();
+      for (int i = 0; i < 300; i++) {
+        final q = QuestionGenerator.generate('pattern', difficulty: d);
+        if (q.type != 'matrix_shape_cycle' && q.type != 'matrix_dual_rule') continue;
+        for (final c in q.puzzle['cells'] as List) {
+          expect([1, 5], isNot(contains((c as Map)['shape'])), reason: '${d.name} ${q.type}');
+        }
+      }
+      for (int i = 0; i < 300; i++) {
+        final q = QuestionGenerator.generate('figure_series', difficulty: d);
+        if (q.type != 'series_fill_toggle') continue;
+        expect((q.puzzle['sequence'] as List).first['shape'], isNot(5), reason: d.name);
+      }
+    }
+  });
+
+  test('Medium Punch Hole: two holes on one fold, never the one-hole Easy item', () {
+    final qs = medium('punch_hole', n: 300);
+    expect(qs.where((q) => q.type == 'punch_hole'), isEmpty, reason: 'classic fallback served');
+    final two = qs.where((q) => q.type == 'punch_hole_two').toList();
+    expect(two, isNotEmpty);
+    for (final q in two) {
+      expect(q.puzzle['holes'] as List, hasLength(2));
+      final right = q.options[q.correctIndex]['holes'] as List;
+      expect(right, hasLength(4));
+    }
+  });
+
   test('Medium Punch Hole never folds twice', () {
     for (final q in medium('punch_hole')) {
       final folds = q.puzzle['folds'] as List?;
@@ -144,10 +175,9 @@ void main() {
     }
   });
 
-  test('Medium Odd Man Out: no fill-only give-aways, no mirror or counting tricks', () {
+  test('Medium Odd Man Out: one-detail variants, no give-aways, no mirror or counting tricks', () {
     final types = {for (final q in medium('odd_man', n: 300)) q.type};
-    expect(types.intersection({'odd_v0', 'odd_v4', 'odd_v7', 'odd_v8', 'odd_v9'}), isEmpty);
-    expect(types, containsAll(['odd_v1', 'odd_v10', 'odd_man_mirror']));
+    expect(types, {'odd_v3', 'odd_v5', 'odd_v10', 'odd_v11', 'odd_man_mirror'});
   });
 
   test('Medium classic Embedded: near-misses are never mirror images', () {

@@ -325,4 +325,20 @@ void main() {
     }
     print('=== end Sandia palette VISUAL validation ===');
   });
+
+  // The L's two arms used to be nearly equal (1.7r and 1.5r). The L
+  // mirrored at turn r is then the L turned to 3 - r reflected about its
+  // diagonal - same corner, arms swapped - and read as the same figure, so
+  // Mirror Shape showed two options that looked alike (9.1% of pixels
+  // apart; 1.7r and 1.1r arms: 15.8%).
+  testWidgets('the L shape mirrored never looks like the L turned', (tester) async {
+    Widget l(int rot, bool mirror) => OptionRenderer(
+        data: {'shape': 8, 'filled': true, 'rotation': rot, 'mirror': mirror, 'dots': 0, 'inner': 0, 'lines': 0, 'missingCorner': 0},
+        size: renderSize);
+    final turns = await _renderAndCapture(tester, [for (int r = 0; r < 4; r++) l(r, false)]);
+    final mirrored = await _renderAndCapture(tester, [for (int r = 0; r < 4; r++) l(r, true)]);
+    for (int r = 0; r < 4; r++) {
+      expect(_comparePixels(mirrored[r], turns[3 - r]).significantPixelFraction, greaterThan(0.13), reason: 'mirror at turn $r');
+    }
+  });
 }
