@@ -2803,16 +2803,18 @@ class QuestionGenerator {
       return current;
     }
 
-    // Hard Mode: 5 distinct characters mixing letters and digits, with some
-    // that look the same in a mirror (A, H, M, 0, 8...) among ones that
-    // don't - the solver can't just flip every glyph, they have to know
-    // which ones change.
+    // Character counts per level (tracker: "Simple - 1 alphanumeric,
+    // Medium - 2-3, Hard - 4"; younger children struggle with 4).
+    //
+    // Hard: 4 distinct characters mixing letters and digits, one that looks
+    // the same in a mirror (A, H, M, 0, 8...) among ones that don't - the
+    // solver can't just flip every glyph, they have to know which change.
     String pickHardContent() {
       final sym = 'AHMOTUVWXY08'.split('')..shuffle(_r);
       final asym = 'BCDEFGJKLNPRSZ234579'.split('')..shuffle(_r);
       final hasDigit = RegExp(r'\d');
       for (;;) {
-        final chars = [...sym.take(2), ...asym.take(3)]..shuffle(_r);
+        final chars = [...sym.take(1), ...asym.take(3)]..shuffle(_r);
         final s = chars.join();
         if (hasDigit.hasMatch(s) && RegExp(r'[A-Z]').hasMatch(s)) return s;
         sym.shuffle(_r);
@@ -2820,26 +2822,29 @@ class QuestionGenerator {
       }
     }
 
-    // Easy (grades 2-3): three characters whose mirror image clearly
-    // differs, so every flip is visible.
-    String pickEasyContent(bool isDigit) {
-      final pool = (isDigit ? '234579' : 'BCDEFGJKLNPRSZ').split('')..shuffle(_r);
-      return pool.take(3).join();
+    // Easy (grades 2-3): one character that looks different flipped
+    // sideways, upside down and both ways (no B, C, D, E, K, c, k: upside
+    // down they look unchanged; no N, S, Z, n, s, u, z: turned over they
+    // look the same; no b, d, p, q: they flip into each other; no 9: turned
+    // over it reads 6). Lowercase too, for enough variety: 18 characters.
+    String pickEasyContent() {
+      const pool = 'FGJLPQRaefghjr2457';
+      return pool[_r.nextInt(pool.length)];
     }
 
-    // Medium: four characters of one kind - three whose mirror image
-    // clearly differs and one that looks the same in a mirror - so the
-    // solver must notice that not every glyph flips.
+    // Medium: two characters whose mirror image clearly differs, or three
+    // with one that looks the same in a mirror - so the solver must notice
+    // that not every glyph flips.
     String pickMediumContent(bool isDigit) {
       final asym = (isDigit ? '234579' : 'BCDEFGJKLNPRSZ').split('')..shuffle(_r);
       final sym = (isDigit ? '08' : 'AHMOTUVWXY').split('')..shuffle(_r);
-      return ([...asym.take(3), sym.first]..shuffle(_r)).join();
+      return ([...asym.take(2), if (_r.nextBool()) sym.first]..shuffle(_r)).join();
     }
 
     mirrorTextAttempt:
     for (int attempt = 0; attempt < 80; attempt++) {
       final isDigit = _r.nextBool();
-      // Hard: half the questions are the balanced 5-character set; the other
+      // Hard: half the questions are the balanced 4-character set; the other
       // half are the original 4-character set with single-letter traps (one
       // letter left unflipped, two letters swapped), which used to be Easy's
       // and is too fine a distinction for grades 2-3.
@@ -2847,14 +2852,32 @@ class QuestionGenerator {
       final content = medium
           ? pickMediumContent(isDigit)
           : !isHardMode
-              ? pickEasyContent(isDigit)
+              ? pickEasyContent()
               : classicTraps
                   ? pickBaseContent(isDigit)
                   : pickHardContent();
       final sigKey = 'mirTextAdv:$content|${isDigit ? 'digit' : 'word'}${classicTraps ? '|traps' : ''}';
-      if (_seen(sigKey)) continue;
+      // Easy has only 18 characters: past 60 tries a repeat beats the
+      // 4-digit fallback at the end.
+      if (_seen(sigKey) && attempt < 60) continue;
 
-      // Balanced whole-word set (Hard 5 characters, Easy 3).
+      // Easy, one character: {flipped sideways, not} x {upside down, not}
+      // - order can't be reversed, so the word set below has no meaning.
+      if (!isHardMode && !medium) {
+        Map<String, dynamic> glyph(bool h, bool v) =>
+            {'type': 'mirror_text', 'is_clock': false, 'content': content, 'mirror_h': h, 'mirror_v': v};
+        final packed = _packExact(glyph(true, false), [glyph(false, false), glyph(false, true), glyph(true, true)]);
+        _markSeen(sigKey);
+        return ReasoningQuestion(
+          category: 'mirror_text',
+          type: 'mirror_text_easy',
+          puzzle: glyph(false, false),
+          options: packed.opts,
+          correctIndex: packed.idx,
+        );
+      }
+
+      // Balanced whole-word set (Hard 4 characters, Medium 2-3).
       if (!classicTraps) {
         // Balanced answer set: {letter order reversed, not} x {each letter
         // flipped, not} - the mistakes a mirror image invites (JNV 2018-2019

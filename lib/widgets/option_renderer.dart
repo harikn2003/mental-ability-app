@@ -382,7 +382,7 @@ class EnhancedMirrorTextPainter extends CustomPainter {
   }
 
   void _drawText(Canvas canvas, Size size, bool dense, bool selectiveMirrorTrap) {
-    final content = (data['content'] as String? ?? 'A').toUpperCase();
+    final content = data['content'] as String? ?? 'A'; // as given: Easy uses lowercase too
 
     final double fontSize;
     if (content.length == 1) {

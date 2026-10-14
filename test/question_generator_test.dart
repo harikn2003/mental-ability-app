@@ -469,6 +469,10 @@ void main() {
               'topic:$category#$i',
               allowDuplicateOptions: category == 'odd_man',
             );
+            // Easy Mirror Text is one character (tracker request), and only
+            // 18 characters look different in all four flips - it can't
+            // go 30 questions without a repeat.
+            if (category == 'mirror_text' && i >= 18) continue;
             expect(
               seen.add(_modeQuestionSignature(q)),
               isTrue,

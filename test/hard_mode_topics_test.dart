@@ -74,7 +74,7 @@ void main() {
     }
   });
 
-  test('mirror_text: clocks show the mirror time, strings are 5 mixed characters', () {
+  test('mirror_text: clocks show the mirror time, strings are 4 characters', () {
     var clocks = 0, strings = 0;
     for (final q in _hard('mirror_text')) {
       if (q.type == 'mirror_clock') {
@@ -93,10 +93,10 @@ void main() {
       } else {
         strings++;
         final content = q.puzzle['content'] as String;
-        // 5 mixed characters, or the original 4-character set with
+        // 4 mixed characters, or the original 4-character set with
         // single-letter traps (moved here from Easy).
         if (q.type == 'mirror_text_hard') {
-          expect(content.length, 5);
+          expect(content.length, 4);
           expect(RegExp(r'\d').hasMatch(content) && RegExp(r'[A-Z]').hasMatch(content), isTrue, reason: content);
         } else {
           expect(q.type, anyOf('mirror_text_word', 'mirror_text_num'));

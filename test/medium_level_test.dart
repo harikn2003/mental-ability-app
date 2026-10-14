@@ -61,11 +61,13 @@ void main() {
     }
   });
 
-  test('Medium Mirror Text words are 4 characters', () {
+  test('Medium Mirror Text words are 2 or 3 characters', () {
+    final lengths = <int>{};
     for (final q in medium('mirror_text')) {
       if (q.puzzle['is_clock'] == true) continue;
-      expect((q.puzzle['content'] as String).length, 4, reason: q.type);
+      lengths.add((q.puzzle['content'] as String).length);
     }
+    expect(lengths, {2, 3});
   });
 
   LineFig fig(dynamic m) => LineFig.fromMap(Map<String, dynamic>.from(m as Map));

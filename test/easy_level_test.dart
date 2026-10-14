@@ -35,24 +35,27 @@ List<ReasoningQuestion> easy(String topic, {int n = 200, int seed = 3}) {
 List<Map> cells(ReasoningQuestion q) => [for (final c in q.puzzle['cells'] as List) if ((c as Map)['empty'] != true) c];
 
 void main() {
-  test('easy mirror text: three clearly-flipping characters, whole-word mistakes only', () {
+  test('easy mirror text: one character, flipped sideways / upside down / both / not', () {
     QuestionGenerator.seed(1);
     for (int i = 0; i < runs; i++) {
-      if (i % 10 == 0) QuestionGenerator.resetSession();
+      // 25-question sessions: more than the 18 characters, so repeats are
+      // allowed but the 4-digit fallback never shows.
+      if (i % 25 == 0) QuestionGenerator.resetSession();
       final q = QuestionGenerator.generate('mirror_text');
       final content = q.puzzle['content'] as String;
-      expect(content.length, 3);
-      expect(content.split('').every('BCDEFGJKLNPRSZ234579'.contains), isTrue, reason: content);
-      // No single-letter traps; the right card is the whole word mirrored.
+      expect(content.length, 1);
+      expect('FGJLPQRaefghjr2457'.contains(content), isTrue, reason: content);
+      expect(q.type, 'mirror_text_easy');
       for (final o in q.options) {
-        expect(o['selective_mirror_trap'] == true && o['trap_char_index'] != -99, isFalse, reason: 'single-letter trap in easy');
+        expect(o['content'], content);
       }
+      expect({for (final o in q.options) (o['mirror_h'], o['mirror_v'])}, {(true, false), (false, false), (false, true), (true, true)});
       final right = q.options[q.correctIndex];
-      expect((right['content'], right['mirror_h']), (content, true));
+      expect((right['mirror_h'], right['mirror_v']), (true, false));
     }
   });
 
-  test('hard mirror text still serves the 5-character set, the single-letter traps and clocks', () {
+  test('hard mirror text still serves the 4-character set, the single-letter traps and clocks', () {
     QuestionGenerator.seed(2);
     final types = <String>{};
     for (int i = 0; i < runs; i++) {
