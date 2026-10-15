@@ -17,6 +17,9 @@ class PunchPainter extends CustomPainter {
   PunchPainter(this.data);
 
   static const Color _paper = Color(0xFFFAFAF0);
+
+  /// 'print': a printed paper is plain line art - the sheet is white.
+  Color get _paperColor => data['print'] == true ? const Color(0xFFFFFFFF) : _paper;
   static const Color _border = Color(0xFF334155);
   static const Color _fold = Color(0xFFCBD5E1);
   static const Color _hole = Color(0xFF0F172A);
@@ -59,7 +62,7 @@ class PunchPainter extends CustomPainter {
       return;
     }
 
-    final paperPaint = Paint()..color = _paper;
+    final paperPaint = Paint()..color = _paperColor;
     final borderPaint = Paint()
       ..color = _border
       ..strokeWidth = 2
@@ -154,7 +157,7 @@ class PunchPainter extends CustomPainter {
     for (int i = 0; i < step && i < folds.length; i++) {
       paper = Path.combine(PathOperation.intersect, paper, _poly(rect, _kept[folds[i]]!));
     }
-    canvas.drawPath(paper, Paint()..color = _paper);
+    canvas.drawPath(paper, Paint()..color = _paperColor);
     if (step < folds.length) {
       final flap = Path.combine(PathOperation.intersect, paper, _poly(rect, _flap[folds[step]]!));
       canvas.drawPath(flap, Paint()..color = _fold);

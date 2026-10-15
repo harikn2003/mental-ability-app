@@ -69,7 +69,8 @@ class LineFigurePainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     // Filled cells first, so every line sits on top of them.
-    final cellPaint = Paint()..color = _cellFill;
+    // 'print': a printed paper is plain line art - filled cells white.
+    final cellPaint = Paint()..color = data['print'] == true ? const Color(0xFFFFFFFF) : _cellFill;
     for (final c in list('cells')) {
       // Slight overlap hides hairline seams between neighbouring cells.
       canvas.drawRect(Rect.fromPoints(p(c[0], c[1]), p(c[0] + 1, c[1] + 1)).inflate(0.4), cellPaint);

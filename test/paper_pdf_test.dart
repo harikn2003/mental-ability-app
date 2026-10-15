@@ -1,5 +1,6 @@
 // Printed test paper: every page lays out on A4 without overflow in all
-// three languages, and the PDF holds two sides per student plus the key.
+// three languages with 10 questions a side, and the PDF holds four sides
+// per student plus the key.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,21 +21,24 @@ void main() {
       for (final page in paperPrintout(sets)) {
         await tester.pumpWidget(Directionality(textDirection: TextDirection.ltr, child: Align(alignment: Alignment.topLeft, child: page)));
         expect(tester.takeException(), isNull);
+        if (page is PaperPage) expect(find.byType(PaperQuestion), findsNWidgets(questionsPerSide));
       }
     });
   }
 
-  testWidgets('the PDF has two sides per student and an answer key', (tester) async {
+  testWidgets('the PDF has four sides per student and an answer key, as grey images', (tester) async {
     final sets = TestPaper.generate(seed: 12).sets(3, seed: 2);
     final done = <int>[];
     final bytes = await tester.runAsync(() => buildPaperPdf(sets, tester.view, onProgress: (d, _) => done.add(d)));
-    expect(done, [1, 2, 3, 4, 5, 6, 7]);
+    expect(done, [for (int p = 1; p <= 13; p++) p]);
     expect(String.fromCharCodes(bytes!.take(5)), '%PDF-');
+    final text = String.fromCharCodes(bytes);
+    expect('/DeviceGray'.allMatches(text).length, 13);
   });
 
   test('the answer key moves to more pages for a big class', () {
     final sets = TestPaper.generate(seed: 13).sets(AnswerKeyPage.setsPerPage + 1, seed: 3);
     final pages = paperPrintout(sets);
-    expect(pages.length, 2 * sets.length + 2);
+    expect(pages.length, sidesPerSet * sets.length + 2);
   });
 }
