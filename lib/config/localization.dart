@@ -210,6 +210,7 @@ class AppLocale {
       'instr_match': 'Find the exact match',
       'instr_pattern': 'Find the missing figure to complete the pattern',
       'instr_series': 'What comes next in the series?',
+      'instr_paper_fold': 'The sheet is folded along the dotted line, the right half over the left. Which figure do you see?',
       'instr_geo': 'Which piece completes this shape?',
       'instr_mirror': 'Find the mirror image',
       'instr_embedded':
@@ -453,6 +454,7 @@ class AppLocale {
       'instr_match': 'अचूक जुळणारी आकृती शोधा',
       'instr_pattern': 'आकृती पूर्ण करण्यासाठी चुकलेली आकृती शोधा',
       'instr_series': 'मालिकेत पुढे काय येते?',
+      'instr_paper_fold': 'कागद ठिपक्यांच्या रेषेवर दुमडला आहे, उजवा भाग डाव्या भागावर. कोणती आकृती दिसेल?',
       'instr_geo': 'कोणता तुकडा ही आकृती पूर्ण करतो?',
       'instr_mirror': 'आरसा प्रतिमा शोधा',
       'instr_embedded': 'या आकृतीला आतमध्ये लपवणारा पर्याय शोधा',
@@ -695,6 +697,7 @@ class AppLocale {
       'instr_match': 'सटीक समान आकृति ढूँढिए',
       'instr_pattern': 'पैटर्न पूरा करने के लिए लापता आकृति ढूँढिए',
       'instr_series': 'श्रृंखला में अगला क्या है?',
+      'instr_paper_fold': 'कागज़ को बिंदीदार रेखा पर मोड़ा गया है, दायाँ भाग बाएँ भाग के ऊपर। कौन-सी आकृति दिखेगी?',
       'instr_geo': 'कौन-सा भाग यह आकृति पूरी करता है?',
       'instr_mirror': 'दर्पण आकृति ढूँढिए',
       'instr_embedded': 'ऐसा विकल्प ढूँढिए जिसमें यह आकृति छिपी हो',

@@ -140,6 +140,36 @@ class LineFigurePainter extends CustomPainter {
     if (data['frame'] == true) {
       canvas.drawRect(Rect.fromPoints(p(0, 0), p(w, h)), stroke);
     }
+    // 'fold': a paper-folding sheet's fold line [x1, y1, x2, y2], dashed,
+    // with an arrow over the top bending the right half onto the left.
+    final fold = (data['fold'] as List?)?.cast<int>();
+    if (fold != null) {
+      final from = p(fold[0], fold[1]), to = p(fold[2], fold[3]);
+      final len = (to - from).distance, u = (to - from) / len;
+      final thin = Paint()
+        ..color = _ink
+        ..strokeWidth = stroke.strokeWidth * 0.7
+        ..style = PaintingStyle.stroke;
+      final dash = unit * 0.22;
+      for (double t = 0; t < len; t += 2 * dash) {
+        canvas.drawLine(from + u * t, from + u * min(t + dash, len), thin);
+      }
+      final y = oy - pad * 0.25, mid = from.dx;
+      final start = Offset(mid + unit * 0.9, y), end = Offset(mid - unit * 0.9, y);
+      canvas.drawPath(
+          Path()
+            ..moveTo(start.dx, start.dy)
+            ..quadraticBezierTo(mid, y - pad * 0.6, end.dx, end.dy),
+          thin);
+      final head = pad * 0.35;
+      canvas.drawPath(
+          Path()
+            ..moveTo(end.dx, end.dy)
+            ..lineTo(end.dx + head * 0.2, end.dy - head)
+            ..lineTo(end.dx + head, end.dy - head * 0.2)
+            ..close(),
+          ink);
+    }
     for (final s in list('segs')) {
       canvas.drawLine(p(s[0], s[1]), p(s[2], s[3]), stroke);
     }

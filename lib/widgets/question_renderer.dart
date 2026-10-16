@@ -44,6 +44,8 @@ class QuestionRenderer extends StatelessWidget {
         return _mirrorTextQ();
       case 'punch_hole':
         return _punchHole();
+      case 'paper_fold':
+        return _paperFold();
       case 'embedded':
         return _embedded();
       case 'space_vis':
@@ -100,6 +102,16 @@ class QuestionRenderer extends StatelessWidget {
       borderRadius: BorderRadius.circular(2),
     ),
   );
+
+  // ── Paper folding (Punch Hole topic) ──────────────────────────────────────
+  Widget _paperFold() => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _label(AppLocale.s('instr_paper_fold')),
+          const SizedBox(height: 12),
+          _fig(Map<String, dynamic>.from(puzzle['sheet'] as Map), size: 120),
+        ],
+      );
 
   // ── 1. Odd Man Out ─────────────────────────────────────────────────────────
   Widget _oddMan() => Padding(

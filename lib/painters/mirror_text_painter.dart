@@ -86,6 +86,9 @@ class MirrorTextPainter extends CustomPainter {
       text: TextSpan(
         text: content,
         style: TextStyle(
+          // Android's own font, named so print samples made off the phone
+          // draw the same letters.
+          fontFamily: 'Roboto',
           fontSize: fontSize,
           fontWeight: FontWeight.bold,
           color: const Color(0xFF0F172A),

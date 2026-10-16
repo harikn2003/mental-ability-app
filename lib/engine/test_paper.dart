@@ -47,7 +47,8 @@ class TestPaper {
     'embedded': ['embedded', 'embedded', 'embedded', 'embedded'],
   };
 
-  static const partLevels = [Difficulty.easy, Difficulty.medium, Difficulty.medium, Difficulty.hard];
+  /// A baseline mock test: two Easy then two Medium questions a part.
+  static const partLevels = [Difficulty.easy, Difficulty.easy, Difficulty.medium, Difficulty.medium];
 
   static TestPaper generate({int? seed}) {
     if (seed != null) QuestionGenerator.seed(seed);

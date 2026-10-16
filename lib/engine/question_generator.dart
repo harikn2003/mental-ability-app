@@ -7,6 +7,7 @@ import 'difficulty.dart';
 import 'exam_style_generator.dart';
 import 'hard_question_generator.dart';
 import 'analogy_generator.dart';
+import 'book_generator.dart';
 import 'line_figure.dart';
 import 'series_generator.dart';
 import 'space_vis_generator.dart';
@@ -56,6 +57,7 @@ class QuestionGenerator {
     SpaceVisGenerator.seed(s);
     SeriesGenerator.seed(s);
     AnalogyGenerator.seed(s);
+    BookGenerator.seed(s);
   }
 
   static bool _seen(String sig) => _history.contains(sig);
@@ -251,6 +253,11 @@ class QuestionGenerator {
           final q = ExamStyleGenerator.oddManOut();
           if (q != null) return q;
         }
+        // The guide book's letter words and symbol counting.
+        if (p < 50) {
+          final q = p < 35 ? BookGenerator.oddManLetters(medium: true) : BookGenerator.oddManCount();
+          if (q != null) return q;
+        }
         return _oddMan(medium: true);
       case 'figure_match':
         if (p < 60) {
@@ -273,6 +280,11 @@ class QuestionGenerator {
       case 'figure_series':
         if (p < 60) {
           final q = SeriesGenerator.generate(level: Difficulty.medium);
+          if (q != null) return q;
+        }
+        // The guide book's shifting letters and symbols stepping round a box.
+        if (p >= 80) {
+          final q = p < 90 ? BookGenerator.seriesLetters(medium: true) : BookGenerator.seriesRound(medium: true);
           if (q != null) return q;
         }
         // Classic series with one or two regular changes (no morph, no
@@ -302,6 +314,11 @@ class QuestionGenerator {
       case 'punch_hole':
         if (p < 60) {
           final q = ExamStyleGenerator.punchHole(singleFold: true);
+          if (q != null) return q;
+        }
+        // The guide book's paper folding: a see-through sheet folded once.
+        if (p < 80) {
+          final q = BookGenerator.paperFold();
           if (q != null) return q;
         }
         return _punchHoleTwo() ?? _punchHoleClassic();
@@ -344,6 +361,18 @@ class QuestionGenerator {
         _ => null,
       };
       if (exam != null) return exam;
+    }
+    // Easy: the guide book's letter words, shifting letters and a symbol
+    // stepping round a box, added to the classic mix (see BookGenerator).
+    if (!isHardMode) {
+      final b = _r.nextInt(100);
+      final book = switch (category) {
+        'odd_man' when b < 20 => BookGenerator.oddManLetters(),
+        'figure_series' when b < 10 => BookGenerator.seriesLetters(),
+        'figure_series' when b < 20 => BookGenerator.seriesRound(),
+        _ => null,
+      };
+      if (book != null) return book;
     }
     switch (category) {
       case 'odd_man':
