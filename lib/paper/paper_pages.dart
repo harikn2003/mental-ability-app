@@ -198,7 +198,7 @@ class _Sheet extends StatelessWidget {
               ]),
               if (full) ...[
                 const SizedBox(height: 8),
-                Text('${blank('paper_name', 34)}   ${blank('paper_roll', 12)}   ${blank('paper_date', 12)}'),
+                Text('${blank('paper_name', 48)}   ${blank('paper_date', 14)}'),
                 const SizedBox(height: 4),
                 Text(AppLocale.s('paper_circle'), style: const TextStyle(fontSize: 7.5, fontStyle: FontStyle.italic)),
               ],
