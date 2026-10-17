@@ -87,6 +87,10 @@ class ExamStyleGenerator {
 
     LineFig piece(Set<(int, int)> cells) => LineFig(n, n, cells: cells, segs: LineFig.cellBoundary(cells)).normalized();
 
+    // A cut-out piece can be turned over as well as round, so pieces are
+    // told apart up to turning AND flipping: a flipped answer would fit too.
+    String flipClass(LineFig f) => ([for (final g in f.dihedral()) g.shapeKey]..sort()).first;
+
     /// Move one cell of [p] somewhere else along its edge, keeping it one piece.
     Set<(int, int)>? moveOneCell(Set<(int, int)> p, Set<String> avoid) {
       final removable = p.toList()..shuffle(_r);
@@ -97,7 +101,7 @@ class ExamStyleGenerator {
         for (final a in adds) {
           final cand = {...rest, a};
           if (isRect(cand) || !connected(all.difference(cand))) continue;
-          if (!avoid.contains(piece(cand).rotationClassKey)) return cand;
+          if (!avoid.contains(flipClass(piece(cand)))) return cand;
         }
       }
       return null;
@@ -115,28 +119,22 @@ class ExamStyleGenerator {
       if (isRect(p) || !connected(rest)) continue;
 
       final correct = piece(p);
-      final seen = {correct.rotationClassKey};
-      final mirrored = correct.mirrorX();
-      final chiral = seen.add(mirrored.rotationClassKey);
+      final seen = {flipClass(correct)};
 
-      // Second change: mirror image if the piece has one, else another move.
+      // Wrong pieces: one cell moved, another cell moved, and both - never
+      // the answer flipped over.
       final moved = moveOneCell(p, seen);
       if (moved == null) continue;
-      seen.add(piece(moved).rotationClassKey);
-      late final LineFig b, ab;
-      if (chiral) {
-        b = mirrored;
-        ab = piece(moved).mirrorX();
-      } else {
-        final moved2 = moveOneCell(p, seen);
-        if (moved2 == null) continue;
-        b = piece(moved2);
-        final both = moveOneCell(moved2, {...seen, b.rotationClassKey});
-        if (both == null) continue;
-        ab = piece(both);
-      }
+      seen.add(flipClass(piece(moved)));
+      final moved2 = moveOneCell(p, seen);
+      if (moved2 == null) continue;
+      final b = piece(moved2);
+      seen.add(flipClass(b));
+      final both = moveOneCell(moved2, seen);
+      if (both == null) continue;
+      final ab = piece(both);
       final options = [correct, b, piece(moved), ab];
-      if (options.map((o) => o.rotationClassKey).toSet().length != 4) continue;
+      if (options.map(flipClass).toSet().length != 4) continue;
 
       // Show every piece turned by a random amount (the real papers do), all
       // on the square's own 4x4 scale so sizes can be compared.

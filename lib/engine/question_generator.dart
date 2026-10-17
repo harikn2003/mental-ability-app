@@ -2026,13 +2026,15 @@ class QuestionGenerator {
         return _f(shape, rot: rot, dots: (dots + 1).clamp(0, 4), filled: !fill);
       }
 
+      // Three figures and the question mark, like every other series (a
+      // fifth figure confused the mentors): turn, then dots and fill, then
+      // the answer turns again.
       final s0 = _f(shape, rot: startRot, dots: startDots, filled: startFill);
       final s1 = step(s0, 1);
       final s2 = step(s1, 2);
-      final s3 = step(s2, 3);
-      final ans = step(s3, 4);
+      final ans = step(s2, 3);
 
-      final seq = [s0, s1, s2, s3];
+      final seq = [s0, s1, s2];
       if (!_hasVisibleVariation(seq)) continue;
       final ansRot = ans['rotation'] as int;
       final ansDots = ans['dots'] as int;
