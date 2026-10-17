@@ -274,7 +274,9 @@ Widget _figure(Map data, double box) {
   final d = _print(data);
   return d['type'] == 'geo_piece'
       ? CustomPaint(size: Size.square(box), painter: _PlainGeoPainter(d))
-      : _atAppSize(box, OptionRenderer(data: d, size: _appSize));
+      // The classic shapes put their dots near the bottom edge (the app
+      // shows them inside a padded card): a margin keeps the dots off the box.
+      : _atAppSize(box, OptionRenderer(data: d, size: _appSize), margin: d['type'] == null ? 0.12 : 0);
 }
 
 /// The size the app draws a figure at. Painters use fixed line widths
@@ -283,8 +285,11 @@ Widget _figure(Map data, double box) {
 /// scaling down keeps the app's proportions on paper.
 const _appSize = 80.0;
 
-Widget _atAppSize(double box, Widget figure) =>
-    SizedBox.square(dimension: box, child: FittedBox(child: SizedBox.square(dimension: _appSize, child: figure)));
+Widget _atAppSize(double box, Widget figure, {double margin = 0}) => SizedBox.square(
+    dimension: box,
+    child: FittedBox(
+        child: SizedBox.square(
+            dimension: _appSize * (1 + margin), child: Center(child: SizedBox.square(dimension: _appSize, child: figure)))));
 
 Widget _paintAtAppSize(double box, CustomPainter p) => _atAppSize(box, CustomPaint(size: const Size.square(_appSize), painter: p));
 

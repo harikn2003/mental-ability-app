@@ -71,9 +71,15 @@ class SandiaPainter extends CustomPainter {
 
   SandiaPainter(this.data);
 
+  /// Set once a black or near-black shape is drawn in this cell: outlines
+  /// drawn after it get a white edge, or a dark outline on the dark fill
+  /// (a white diamond inside a black rectangle) can't be seen.
+  bool _darkBelow = false;
+
   @override
   void paint(Canvas canvas, Size size) {
     if (data['empty'] == true) return;
+    _darkBelow = false;
 
     // Optional outer cell frame (authentic-schema cells). Not in print: the
     // paper frames every figure already, and a second frame inside it made
@@ -170,20 +176,29 @@ class SandiaPainter extends CustomPainter {
     if (mirror) canvas.scale(-1.0, 1.0);
     canvas.rotate(rot * pi / 180.0);
 
+    Paint halo(Paint p) => Paint()
+      ..color = Colors.white
+      ..strokeWidth = p.strokeWidth + 2.0
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
     if (shape == 'line') {
       final linePaint = Paint()
         ..color = const Color(0xFF0F172A)
         ..strokeWidth = 3.0
         ..strokeCap = StrokeCap.round
         ..style = PaintingStyle.stroke;
+      if (_darkBelow) canvas.drawLine(Offset(-w / 2, 0), Offset(w / 2, 0), halo(linePaint));
       canvas.drawLine(Offset(-w / 2, 0), Offset(w / 2, 0), linePaint);
     } else {
       final path = _buildShapePath(shape, w, h);
+      if (_darkBelow) canvas.drawPath(path, halo(strokePaint));
       canvas.drawPath(path, fillPaint);
       canvas.drawPath(path, strokePaint);
     }
 
     canvas.restore();
+    if (fillKey == 'black' || fillKey == 'grey10') _darkBelow = true;
   }
 
   /// Builds a Path centered at the local origin, matching the point math of

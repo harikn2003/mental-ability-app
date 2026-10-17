@@ -276,9 +276,24 @@ class LineFig {
   // ── comparison ─────────────────────────────────────────────────────────────
 
   /// Exact visual key: same key <=> the painter draws the same picture.
+  /// The edges of the black half-cells, as unit segments: a stroke along
+  /// one is drawn over by the black and can't be seen.
+  Set<(int, int, int, int)> get _triEdges {
+    const corners = [(0, 0), (1, 0), (1, 1), (0, 1)];
+    return {
+      for (final (cx, cy, k) in tris)
+        for (final (a, b) in [(k, (k + 1) % 4), (k, (k + 3) % 4), ((k + 1) % 4, (k + 3) % 4)])
+          _normSeg((cx + corners[a].$1, cy + corners[a].$2, cx + corners[b].$1, cy + corners[b].$2)),
+    };
+  }
+
+  /// Equal for figures that look alike: strokes hidden along a black
+  /// half-cell's edges count as that edge, not as a difference.
   String get key {
     List<String> s(Iterable<Object> xs) => xs.map((e) => '$e').toList()..sort();
-    return 'w$w,h$h,f$frame|${s(segs).join()}|${s(cells).join()}|${s(tris).join()}|${s(dots).join()}|${s(rings).join()}'
+    final edges = _triEdges;
+    final visible = segs.where((g) => !edges.contains(g));
+    return 'w$w,h$h,f$frame|${s(visible).join()}|${s(cells).join()}|${s(tris).join()}|${s(dots).join()}|${s(rings).join()}'
         '|${s(arrows).join()}|${s(hatch).join()}|${s(arcs).join()}|${s(glyphs).join()}';
   }
 
