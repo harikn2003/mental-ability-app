@@ -54,7 +54,7 @@ void main() {
     final paper = TestPaper.generate(seed: 6);
     for (final s in paper.sets(5, seed: 2)) {
       for (final p in s.parts) {
-        expect(p.levels, TestPaper.partLevels, reason: 'set ${s.number} ${p.id}');
+        expect(p.levels, TestPaper.partLevels[p.id], reason: 'set ${s.number} ${p.id}');
       }
     }
   });

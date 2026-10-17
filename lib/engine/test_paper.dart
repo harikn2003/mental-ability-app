@@ -47,8 +47,24 @@ class TestPaper {
     'embedded': ['embedded', 'embedded', 'embedded', 'embedded'],
   };
 
-  /// A baseline mock test: two Easy then two Medium questions a part.
-  static const partLevels = [Difficulty.easy, Difficulty.easy, Difficulty.medium, Difficulty.medium];
+  static const _e = Difficulty.easy, _m = Difficulty.medium, _h = Difficulty.hard;
+
+  /// Each part's levels, easy to hard. A mock test that also checks the
+  /// facilitators: mostly 1 Easy, 2 Medium, 1 Hard; no Easy where the
+  /// mentors found even Medium too simple (Odd Man, Figure Match, Geo) or
+  /// the Easy one too simple (Analogy).
+  static const partLevels = {
+    'odd_man': [_m, _m, _h, _h],
+    'figure_match': [_m, _m, _h, _h],
+    'pattern': [_e, _m, _m, _h],
+    'figure_series': [_e, _m, _m, _h],
+    'analogy': [_m, _m, _m, _h],
+    'geo_completion': [_m, _m, _h, _h],
+    'mirror': [_e, _m, _m, _h],
+    'punch_hole': [_e, _m, _m, _h],
+    'space_vis': [_e, _m, _m, _h],
+    'embedded': [_e, _m, _m, _h],
+  };
 
   static TestPaper generate({int? seed}) {
     if (seed != null) QuestionGenerator.seed(seed);
@@ -56,8 +72,8 @@ class TestPaper {
     return TestPaper([
       for (final id in partIds)
         PaperPart(id, [
-          for (int i = 0; i < 4; i++) QuestionGenerator.generate(partTopics[id]![i], difficulty: partLevels[i]),
-        ], partLevels),
+          for (int i = 0; i < 4; i++) QuestionGenerator.generate(partTopics[id]![i], difficulty: partLevels[id]![i]),
+        ], partLevels[id]!),
     ]);
   }
 
