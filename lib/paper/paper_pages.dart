@@ -274,8 +274,19 @@ Widget _figure(Map data, double box) {
   final d = _print(data);
   return d['type'] == 'geo_piece'
       ? CustomPaint(size: Size.square(box), painter: _PlainGeoPainter(d))
-      : OptionRenderer(data: d, size: box);
+      : _atAppSize(box, OptionRenderer(data: d, size: _appSize));
 }
+
+/// The size the app draws a figure at. Painters use fixed line widths
+/// (2-3 px) and frames tuned for it; drawn straight into a 13 mm box, or a
+/// 5 mm grid cell, those lines swamp the figure. Drawing at this size and
+/// scaling down keeps the app's proportions on paper.
+const _appSize = 80.0;
+
+Widget _atAppSize(double box, Widget figure) =>
+    SizedBox.square(dimension: box, child: FittedBox(child: SizedBox.square(dimension: _appSize, child: figure)));
+
+Widget _paintAtAppSize(double box, CustomPainter p) => _atAppSize(box, CustomPaint(size: const Size.square(_appSize), painter: p));
 
 /// A problem-figure slot: [w] and [h] are its width and height in box widths.
 typedef _Slot = ({double w, double h, Widget Function(double box) build});
@@ -303,7 +314,7 @@ class PaperQuestion extends StatelessWidget {
       );
 
   static _Slot _fig(Map data, {double w = 1}) => (w: w, h: w, build: (b) => _framed(b * w, _figure(data, b * w)));
-  static _Slot _paint(CustomPainter p) => (w: 1, h: 1, build: (b) => _framed(b, CustomPaint(size: Size.square(b), painter: p)));
+  static _Slot _paint(CustomPainter p) => (w: 1, h: 1, build: (b) => _framed(b, _paintAtAppSize(b, p)));
   static Widget _askMark(double b) => Center(child: Text('?', style: TextStyle(fontSize: b * 0.45, fontWeight: FontWeight.bold)));
   static final _Slot _ask = (w: 1, h: 1, build: (b) => _framed(b, _askMark(b)));
   static _Slot _sep(String s) => (
@@ -401,12 +412,12 @@ class PaperQuestion extends StatelessWidget {
         return [
           for (final piece in pieces)
             (w: scale, h: scale, build: (b) => SizedBox.square(dimension: b * scale,
-                child: CustomPaint(painter: LineFigurePainter(_print(piece as Map))))),
+                child: _paintAtAppSize(b * scale, LineFigurePainter(_print(piece as Map))))),
         ];
       case 'quad_pattern':
         return [
           _grid(2, p['tiles'] as List, p['missing'] as int? ?? 3,
-              (t, s) => CustomPaint(size: Size.square(s), painter: LineFigurePainter(_print(t)))),
+              (t, s) => _paintAtAppSize(s, LineFigurePainter(_print(t)))),
         ];
       case 'matrix':
         final cells = p['cells'] as List;

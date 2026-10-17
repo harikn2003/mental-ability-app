@@ -75,8 +75,11 @@ class SandiaPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (data['empty'] == true) return;
 
-    // Optional outer cell frame (authentic-schema cells)
-    if (data['grid_box'] == true) {
+    // Optional outer cell frame (authentic-schema cells). Not in print: the
+    // paper frames every figure already, and a second frame inside it made
+    // small printed cells read as dark blocks.
+    final framed = data['print'] != true;
+    if (framed && data['grid_box'] == true) {
       _drawFrame(canvas, size);
     }
 
@@ -117,7 +120,7 @@ class SandiaPainter extends CustomPainter {
 
   void _drawAuthenticLayer(
       Canvas canvas, Size size, Map<String, dynamic> layer) {
-    if (layer['grid_box'] == true) {
+    if (layer['grid_box'] == true && data['print'] != true) {
       _drawFrame(canvas, size);
     }
     final features = layer['features'] as List? ?? [];
@@ -271,7 +274,7 @@ class SandiaPainter extends CustomPainter {
     final int rotation = layerData['rotation'] as int? ?? 0;
     final bool mirrorH = layerData['mirror_h'] as bool? ?? false;
     final bool drawOutline = layerData['outline'] as bool? ?? true;
-    final bool drawGridBox = layerData['grid_box'] as bool? ?? false;
+    final bool drawGridBox = (layerData['grid_box'] as bool? ?? false) && data['print'] != true;
 
     final cx = size.width / 2;
     final cy = size.height / 2;
