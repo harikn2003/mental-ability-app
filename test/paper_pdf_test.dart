@@ -36,13 +36,27 @@ void main() {
     expect('/DeviceGray'.allMatches(text).length, 7);
   });
 
+  testWidgets('English + Marathi: every page fits on A4', (tester) async {
+    tester.view.physicalSize = paperPageSize;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final sets = TestPaper.generate(seed: 14).sets(2, seed: 1);
+    for (final page in paperPrintout(sets, langs: const ['EN', 'MR'])) {
+      await tester.pumpWidget(Directionality(textDirection: TextDirection.ltr, child: Align(alignment: Alignment.topLeft, child: page)));
+      expect(tester.takeException(), isNull);
+      if (page is PaperPage) expect(find.byType(PaperQuestion), findsNWidgets(questionsPerSide));
+    }
+  });
+
   test('every side fits 20 questions with figures at least 10 mm wide', () {
     for (int seed = 1; seed <= 40; seed++) {
       final set = TestPaper.generate(seed: seed).sets(1, seed: seed).single;
       for (int side = 0; side < sidesPerSet; side++) {
-        final size = PaperPage(set: set, side: side, pageNumber: 1, totalPages: 1).figureSize;
-        expect(size, isNotNull, reason: 'seed $seed side $side does not fit');
-        expect(size, greaterThanOrEqualTo(28.3), reason: 'seed $seed side $side: ${size! / 72 * 25.4} mm');
+        for (final langs in [const ['EN'], const ['EN', 'MR']]) {
+          final size = PaperPage(set: set, side: side, pageNumber: 1, totalPages: 1, langs: langs).figureSize;
+          expect(size, isNotNull, reason: 'seed $seed side $side $langs does not fit');
+          expect(size, greaterThanOrEqualTo(28.3), reason: 'seed $seed side $side $langs: ${size! / 72 * 25.4} mm');
+        }
       }
     }
   });

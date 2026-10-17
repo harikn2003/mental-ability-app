@@ -20,10 +20,18 @@ import '../widgets/question_renderer.dart';
 // both sides. Sizes are in points (1/72 in).
 
 const paperPageSize = Size(595, 842); // A4
-const _margin = 24.0, _headerH = 54.0, _compactHeaderH = 22.0, _footerH = 12.0, _dirH = 26.0;
+const _margin = 24.0, _headerH = 54.0, _compactHeaderH = 22.0, _footerH = 12.0;
 const _colGap = 14.0;
 const _ink = Color(0xFF111111);
 const _labelH = 9.0;
+
+/// [key] in each of the paper's [langs] (e.g. English and Marathi): one
+/// line each, or on one line split by ' / ' when [inline].
+String paperText(List<String> langs, String key, {bool inline = false}) =>
+    [for (final l in langs) AppLocale.get(l, key)].join(inline ? ' / ' : '\n');
+
+/// Height of a part's directions: up to three lines per language.
+double _dirHeight(List<String> langs) => langs.length > 1 ? 50.0 : 26.0;
 
 /// Questions on one side of A4.
 const questionsPerSide = 20;
@@ -32,15 +40,19 @@ const questionsPerSide = 20;
 const sidesPerSet = 2;
 
 /// The pages of one student's set: questions 1-20, 21-40.
-List<Widget> setPages(PaperSet set, int totalPages, int firstPage) => [
+List<Widget> setPages(PaperSet set, int totalPages, int firstPage, {List<String> langs = const ['EN']}) => [
       for (int side = 0; side < sidesPerSet; side++)
-        PaperPage(set: set, side: side, pageNumber: firstPage + side, totalPages: totalPages),
+        PaperPage(set: set, side: side, pageNumber: firstPage + side, totalPages: totalPages, langs: langs),
     ];
 
 class PaperPage extends StatelessWidget {
   final PaperSet set;
   final int side, pageNumber, totalPages;
-  const PaperPage({super.key, required this.set, required this.side, required this.pageNumber, required this.totalPages});
+
+  /// The paper's languages: one, or two printed one under the other.
+  final List<String> langs;
+  const PaperPage({super.key, required this.set, required this.side, required this.pageNumber, required this.totalPages,
+      this.langs = const ['EN']});
 
   static double get columnWidth => (paperPageSize.width - 2 * _margin - _colGap) / 2;
 
@@ -59,7 +71,7 @@ class PaperPage extends StatelessWidget {
   /// Flows directions and questions into two columns of [height] with
   /// figures [box] wide: the items of each column, or null if they don't fit.
   /// A part's directions never end a column without its first question.
-  static List<List<Object>>? flow(List<(PaperPart, ReasoningQuestion, int)> qs, double box, double height) {
+  static List<List<Object>>? flow(List<(PaperPart, ReasoningQuestion, int)> qs, double box, double height, {double dirH = 26}) {
     final cols = <List<Object>>[[]];
     var used = 0.0;
     PaperPart? current;
@@ -67,7 +79,7 @@ class PaperPage extends StatelessWidget {
       final dir = !identical(part, current);
       current = part;
       final h = PaperQuestion.heightFor(q, box, columnWidth);
-      final need = h + (dir ? _dirH : 0);
+      final need = h + (dir ? dirH : 0);
       if (used + need > height) {
         if (cols.length == 2) return null;
         cols.add([]);
@@ -89,7 +101,7 @@ class PaperPage extends StatelessWidget {
   double? get figureSize {
     final qs = _questions();
     for (var box = 40.0; box >= 14; box -= 0.5) {
-      if (flow(qs, box, _height) != null) return box;
+      if (flow(qs, box, _height, dirH: _dirHeight(langs)) != null) return box;
     }
     return null;
   }
@@ -99,10 +111,11 @@ class PaperPage extends StatelessWidget {
     final qs = _questions();
     final height = _height;
     final box = figureSize ?? 14.0;
-    final cols = flow(qs, box, height) ?? flow(qs, box, double.infinity)!;
+    final dirH = _dirHeight(langs);
+    final cols = flow(qs, box, height, dirH: dirH) ?? flow(qs, box, double.infinity, dirH: dirH)!;
 
     Widget column(List<Object> items) {
-      final used = items.fold<double>(0, (s, e) => s + (e is PaperPart ? _dirH : (e as (ReasoningQuestion, int, double)).$3));
+      final used = items.fold<double>(0, (s, e) => s + (e is PaperPart ? dirH : (e as (ReasoningQuestion, int, double)).$3));
       final count = items.whereType<(ReasoningQuestion, int, double)>().length;
       // Spread spare height between the questions, a little at most.
       final gap = count == 0 ? 0.0 : ((height - used) / count).clamp(0.0, 10.0);
@@ -117,7 +130,7 @@ class PaperPage extends StatelessWidget {
                 final (q, n, h) = e as (ReasoningQuestion, int, double);
                 return Padding(
                   padding: EdgeInsets.only(bottom: gap),
-                  child: PaperQuestion(number: n, q: q, width: columnWidth, box: box),
+                  child: PaperQuestion(number: n, q: q, width: columnWidth, box: box, langs: langs),
                 );
               }(),
         ]),
@@ -125,6 +138,7 @@ class PaperPage extends StatelessWidget {
     }
 
     return _Sheet(
+      langs: langs,
       setNumber: set.number,
       pageNumber: pageNumber,
       totalPages: totalPages,
@@ -140,16 +154,16 @@ class PaperPage extends StatelessWidget {
   Widget _directions(PaperPart part) {
     final a = set.parts.indexOf(part) * 4 + 1;
     return SizedBox(
-      height: _dirH,
+      height: _dirHeight(langs),
       child: Align(
         alignment: Alignment.bottomLeft,
         child: Padding(
           padding: const EdgeInsets.only(bottom: 3),
           child: Text(
-            AppLocale.s('paper_dir_${part.id}').replaceAll('{a}', '$a').replaceAll('{b}', '${a + 3}'),
-            maxLines: 3,
+            paperText(langs, 'paper_dir_${part.id}').replaceAll('{a}', '$a').replaceAll('{b}', '${a + 3}'),
+            maxLines: 3 * langs.length,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 6.6, height: 1.2, color: _ink),
+            style: TextStyle(fontSize: 6.6, height: langs.length > 1 ? 1.35 : 1.2, color: _ink),
           ),
         ),
       ),
@@ -159,19 +173,24 @@ class PaperPage extends StatelessWidget {
 
 enum _Header { full, compact, key }
 
+Widget _oneLine(Widget text) => FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: text);
+
 /// White A4 page with the paper's header and footer. The full header (name,
-/// roll number, date, instruction) is on a student's first side; later
+/// date, instruction) is on a student's first side; later
 /// sides carry only the title and set number.
 class _Sheet extends StatelessWidget {
   final int? setNumber;
   final int pageNumber, totalPages;
   final _Header header;
+  final List<String> langs;
   final Widget child;
-  const _Sheet({this.setNumber, required this.pageNumber, required this.totalPages, required this.header, required this.child});
+  const _Sheet({this.setNumber, required this.pageNumber, required this.totalPages, required this.header, required this.langs,
+      required this.child});
 
   @override
   Widget build(BuildContext context) {
-    String blank(String k, int w) => '${AppLocale.s(k)}: ${'_' * w}';
+    String t(String k) => paperText(langs, k, inline: true);
+    String blank(String k, int w) => '${t(k)}: ${'_' * w}';
     final full = header == _Header.full;
     return Container(
       width: paperPageSize.width,
@@ -185,29 +204,36 @@ class _Sheet extends StatelessWidget {
             height: full ? _headerH : _compactHeaderH,
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Row(children: [
-                Text(header == _Header.key ? AppLocale.s('paper_key') : AppLocale.s('paper_title'),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                const Spacer(),
+                // Header lines shrink rather than wrap when two languages
+                // make them long.
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _oneLine(Text(header == _Header.key ? t('paper_key') : t('paper_title'),
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 if (setNumber != null)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                     decoration: BoxDecoration(border: Border.all(color: _ink, width: 1)),
-                    child: Text(AppLocale.s('paper_set').replaceAll('{n}', '$setNumber'),
+                    child: Text(t('paper_set').replaceAll('{n}', '$setNumber'),
                         style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
               ]),
               if (full) ...[
                 const SizedBox(height: 8),
-                Text('${blank('paper_name', 48)}   ${blank('paper_date', 14)}'),
+                _oneLine(Text('${blank('paper_name', 48 - 10 * (langs.length - 1))}   ${blank('paper_date', 14)}')),
                 const SizedBox(height: 4),
-                Text(AppLocale.s('paper_circle'), style: const TextStyle(fontSize: 7.5, fontStyle: FontStyle.italic)),
+                _oneLine(Text(t('paper_circle'), style: const TextStyle(fontSize: 7.5, fontStyle: FontStyle.italic))),
               ],
             ]),
           ),
           Expanded(child: child),
           SizedBox(
             height: _footerH,
-            child: Text(AppLocale.s('paper_page').replaceAll('{p}', '$pageNumber').replaceAll('{n}', '$totalPages'),
+            child: Text(t('paper_page').replaceAll('{p}', '$pageNumber').replaceAll('{n}', '$totalPages'),
                 textAlign: TextAlign.center, style: const TextStyle(fontSize: 7)),
           ),
         ]),
@@ -258,7 +284,9 @@ class PaperQuestion extends StatelessWidget {
   final int number;
   final ReasoningQuestion q;
   final double width, box;
-  const PaperQuestion({super.key, required this.number, required this.q, required this.width, required this.box});
+  final List<String> langs;
+  const PaperQuestion({super.key, required this.number, required this.q, required this.width, required this.box,
+      this.langs = const ['EN']});
 
   static const _numW = 16.0, _divW = 9.0, _space = 3.0, _lineGap = 3.0, _rowPad = 4.0;
 
@@ -290,7 +318,11 @@ class PaperQuestion extends StatelessWidget {
         build: (b) => SizedBox(
               width: b * w,
               height: b,
-              child: Align(alignment: Alignment.centerLeft, child: Text(s, style: const TextStyle(fontSize: 6.6, height: 1.2))),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft,
+                    child: SizedBox(width: b * w, child: Text(s, style: const TextStyle(fontSize: 6.6, height: 1.2)))),
+              ),
             ),
       );
 
@@ -328,7 +360,7 @@ class PaperQuestion extends StatelessWidget {
         },
       );
 
-  static List<_Slot> _problem(ReasoningQuestion q) {
+  static List<_Slot> _problem(ReasoningQuestion q, [List<String> langs = const ['EN']]) {
     final p = q.puzzle;
     switch (p['type']) {
       case 'odd_man':
@@ -359,7 +391,7 @@ class PaperQuestion extends StatelessWidget {
       case 'paper_fold':
         // The part's directions are about punching, so the sheet says what
         // to do itself.
-        return [_fig(p['sheet'] as Map, w: 1.2), _caption(AppLocale.s('instr_paper_fold'), 3.2)];
+        return [_fig(p['sheet'] as Map, w: 1.2), _caption(paperText(langs, 'instr_paper_fold'), 3.2)];
       case 'embedded':
         return [_fig(p['target'] as Map)];
       case 'space_vis':
@@ -422,7 +454,7 @@ class PaperQuestion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final problem = _problem(q);
+    final problem = _problem(q, langs);
     final pb = _problemBox(problem, box, width);
     final two = _twoLines(problem);
     Widget answer(int i) => Padding(
@@ -460,7 +492,9 @@ class PaperQuestion extends StatelessWidget {
 class AnswerKeyPage extends StatelessWidget {
   final List<PaperSet> sets;
   final int pageNumber, totalPages;
-  const AnswerKeyPage({super.key, required this.sets, required this.pageNumber, required this.totalPages});
+  final List<String> langs;
+  const AnswerKeyPage({super.key, required this.sets, required this.pageNumber, required this.totalPages,
+      this.langs = const ['EN']});
 
   /// Sets that fit on one key page.
   static const setsPerPage = 48;
@@ -480,12 +514,13 @@ class AnswerKeyPage extends StatelessWidget {
           child: Text(s, style: TextStyle(fontSize: 6.8, fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
         );
     return _Sheet(
+      langs: langs,
       pageNumber: pageNumber,
       totalPages: totalPages,
       header: _Header.key,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          cell(AppLocale.s('paper_key_set'), setW, bold: true, shade: true),
+          cell(AppLocale.get(langs.last, 'paper_key_set'), setW, bold: true, shade: true),
           for (int k = 1; k <= 40; k++) cell('$k', cellW, bold: true, shade: true),
         ]),
         for (final s in sets)

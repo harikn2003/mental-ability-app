@@ -19,6 +19,10 @@ class _PrintPaperScreenState extends State<PrintPaperScreen> {
   static const _maxStudents = 60;
 
   int _students = 5;
+
+  /// The paper's language(s): English, Marathi, or both one under the other.
+  static const _langChoices = [['EN'], ['MR'], ['EN', 'MR']];
+  late List<String> _langs = AppLocale.current == 'MR' ? const ['MR'] : const ['EN'];
   (int, int)? _progress; // pages done, pages in all; null when idle
 
   Future<void> _make() async {
@@ -26,7 +30,7 @@ class _PrintPaperScreenState extends State<PrintPaperScreen> {
     final sets = TestPaper.generate().sets(_students);
     setState(() => _progress = (0, 0));
     try {
-      final pdf = await buildPaperPdf(sets, view, onProgress: (d, n) {
+      final pdf = await buildPaperPdf(sets, view, langs: _langs, onProgress: (d, n) {
         if (mounted) setState(() => _progress = (d, n));
       });
       await Printing.layoutPdf(onLayout: (_) async => pdf, name: 'test-paper-$_students.pdf');
@@ -62,6 +66,18 @@ class _PrintPaperScreenState extends State<PrintPaperScreen> {
               ),
               stepButton(Icons.add_rounded, 1),
             ]),
+            const SizedBox(height: 24),
+            Text(AppLocale.s('paper_lang'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 12),
+            SegmentedButton<int>(
+              segments: [
+                for (final (i, c) in _langChoices.indexed)
+                  ButtonSegment(value: i, label: Text(c.map((l) => AppLocale.get(l, 'lang_name')).join(' + '))),
+              ],
+              selected: {_langChoices.indexWhere((c) => c.join() == _langs.join())},
+              showSelectedIcon: false,
+              onSelectionChanged: busy ? null : (s) => setState(() => _langs = _langChoices[s.single]),
+            ),
             const SizedBox(height: 16),
             Text(AppLocale.s('paper_hint'), style: const TextStyle(fontSize: 14, color: Color(0xFF64748B), height: 1.4)),
             const Spacer(),

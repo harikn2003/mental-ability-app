@@ -15,19 +15,21 @@ import 'paper_pages.dart';
 /// Print resolution: 300 dpi keeps thin lines and small dots sharp.
 const _pixelRatio = 300 / 72;
 
-/// Every page of the printout, in order: four sides per student, then the
-/// teacher's answer key.
-List<Widget> paperPrintout(List<PaperSet> sets) {
+/// Every page of the printout, in order: two sides per student, then the
+/// teacher's answer key. [langs]: the paper's language, or two (English and
+/// Marathi) printed one under the other.
+List<Widget> paperPrintout(List<PaperSet> sets, {List<String> langs = const ['EN']}) {
   final keyPages = (sets.length / AnswerKeyPage.setsPerPage).ceil();
   final studentPages = sidesPerSet * sets.length;
   final total = studentPages + keyPages;
   return [
-    for (final s in sets) ...setPages(s, total, sidesPerSet * (s.number - 1) + 1),
+    for (final s in sets) ...setPages(s, total, sidesPerSet * (s.number - 1) + 1, langs: langs),
     for (int k = 0; k < keyPages; k++)
       AnswerKeyPage(
         sets: sets.sublist(k * AnswerKeyPage.setsPerPage, ((k + 1) * AnswerKeyPage.setsPerPage).clamp(0, sets.length)),
         pageNumber: studentPages + k + 1,
         totalPages: total,
+        langs: langs,
       ),
   ];
 }
@@ -35,8 +37,8 @@ List<Widget> paperPrintout(List<PaperSet> sets) {
 /// The printout as an A4 PDF. Pages are drawn by the app's own painters,
 /// off screen, at 300 dpi; [onProgress] is told each finished page.
 Future<Uint8List> buildPaperPdf(List<PaperSet> sets, ui.FlutterView view,
-    {void Function(int done, int total)? onProgress}) async {
-  final pages = paperPrintout(sets);
+    {List<String> langs = const ['EN'], void Function(int done, int total)? onProgress}) async {
+  final pages = paperPrintout(sets, langs: langs);
   final doc = pw.Document();
   for (int i = 0; i < pages.length; i++) {
     final image = await _grayPage(doc.document, await renderPage(pages[i], view));
