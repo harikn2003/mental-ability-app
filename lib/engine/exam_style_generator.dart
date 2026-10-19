@@ -243,6 +243,8 @@ class ExamStyleGenerator {
       final opts = [correct, wrong(correct), d, wrong(d)];
       if (opts.map((o) => o.key).toSet().length != 4) continue;
       if (opts.skip(1).any((o) => visible.contains(o.key))) continue;
+      // Every detail drawn must be seen (no dot under a black half-cell).
+      if ([...tiles, ...opts].any((o) => o.hasHiddenDetail)) continue;
 
       return _question('pattern', 'pattern_quarter', {
         'type': 'quad_pattern',
@@ -319,6 +321,8 @@ class ExamStyleGenerator {
       final ab = _combine(f, a, b);
       final opts = [f, a, b, ab];
       if (opts.map((o) => o.key).toSet().length != 4) continue;
+      // Every detail drawn must be seen (no dot under a black half-cell).
+      if (opts.any((o) => o.hasHiddenDetail)) continue;
       return _question('figure_match', 'figure_match_exam', {'type': 'figure_match', 'target': f.toMap()}, f.toMap(),
           [for (final o in opts.skip(1)) o.toMap()]);
     }
@@ -376,6 +380,8 @@ class ExamStyleGenerator {
       final odd = f.mirrorX().rot(turns[3]);
       final opts = [odd, ...majority];
       if (opts.map((o) => o.key).toSet().length != 4) continue;
+      // Every detail drawn must be seen (no dot under a black half-cell).
+      if (opts.any((o) => o.hasHiddenDetail)) continue;
       return _question('odd_man', 'odd_man_mirror', {'type': 'odd_man'}, odd.toMap(), [for (final m in majority) m.toMap()]);
     }
     return null;
@@ -533,6 +539,8 @@ class ExamStyleGenerator {
       // clearly different flips, no "one decoration left in place" trap.
       final opts = noDetailTrap ? [mirror, water, f, f.rot(2)] : [mirror, water, dotStays(mirror), dotStays(water)];
       if (opts.map((o) => o.key).toSet().length != 4) continue;
+      // Every detail drawn must be seen (no dot under a black half-cell).
+      if ([f, ...opts].any((o) => o.hasHiddenDetail)) continue;
       return _question('mirror_shape', 'mirror_line_fig', {'type': 'mirror_shape', 'target': f.toMap()}, mirror.toMap(),
           [for (final o in opts.skip(1)) o.toMap()]);
     }
