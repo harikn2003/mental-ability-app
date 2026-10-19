@@ -35,16 +35,18 @@ List<ReasoningQuestion> easy(String topic, {int n = 200, int seed = 3}) {
 List<Map> cells(ReasoningQuestion q) => [for (final c in q.puzzle['cells'] as List) if ((c as Map)['empty'] != true) c];
 
 void main() {
-  test('easy mirror text: one character, flipped sideways / upside down / both / not', () {
+  test('easy mirror text: one or two characters, flipped sideways / upside down / both / not', () {
     QuestionGenerator.seed(1);
+    final lengths = <int>{};
     for (int i = 0; i < runs; i++) {
       // 25-question sessions: more than the 18 characters, so repeats are
       // allowed but the 4-digit fallback never shows.
       if (i % 25 == 0) QuestionGenerator.resetSession();
       final q = QuestionGenerator.generate('mirror_text');
       final content = q.puzzle['content'] as String;
-      expect(content.length, 1);
-      expect('FGJLPQRaefghjr2457'.contains(content), isTrue, reason: content);
+      lengths.add(content.length);
+      expect(content.split('').every('FGJLPQRaefghjr2457'.contains), isTrue, reason: content);
+      expect(content.split('').toSet(), hasLength(content.length), reason: 'no repeated character');
       expect(q.type, 'mirror_text_easy');
       for (final o in q.options) {
         expect(o['content'], content);
@@ -53,6 +55,7 @@ void main() {
       final right = q.options[q.correctIndex];
       expect((right['mirror_h'], right['mirror_v']), (true, false));
     }
+    expect(lengths, {1, 2});
   });
 
   test('hard mirror text still serves the 4-character set, the single-letter traps and clocks', () {

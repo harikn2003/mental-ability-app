@@ -16,6 +16,32 @@ void main() {
     expect(plain.copyWith(segs: {...plain.segs, (0, 1, 1, 0)}).key, isNot(plain.key), reason: 'a visible stroke');
   });
 
+  test('a stroke on the frame does not change the key', () {
+    final f = LineFig(4, 4, frame: true, segs: {(1, 1, 2, 2)});
+    expect(f.copyWith(segs: {...f.segs, (0, 0, 1, 0)}).key, f.key, reason: 'top edge');
+    expect(f.copyWith(segs: {...f.segs, (4, 2, 4, 3)}).key, f.key, reason: 'right edge');
+    final open = LineFig(4, 4, segs: {(1, 1, 2, 2)});
+    expect(open.copyWith(segs: {...open.segs, (0, 0, 1, 0)}).key, isNot(open.key), reason: 'no frame: the stroke shows');
+  });
+
+  test('a dot on a diagonal or a black half-cell does not change the key', () {
+    final f = LineFig(4, 4, segs: {(1, 1, 2, 2)}, tris: {(3, 3, 0)});
+    expect(f.copyWith(dots: {(1, 1)}).key, f.key, reason: 'dot on a diagonal');
+    expect(f.copyWith(dots: {(3, 3)}).key, f.key, reason: 'dot on the black half-cell');
+    expect(f.copyWith(dots: {(0, 0)}).key, isNot(f.key), reason: 'a visible dot');
+  });
+
+  test('figure match options never look alike', () {
+    for (final lite in [true, false]) {
+      ExamStyleGenerator.seed(9);
+      for (int i = 0; i < 300; i++) {
+        final q = ExamStyleGenerator.figureMatch(lite: lite)!;
+        final keys = {for (final o in q.options) LineFig.fromMap(Map<String, dynamic>.from(o)).key};
+        expect(keys, hasLength(4), reason: '${q.options}');
+      }
+    }
+  });
+
   test('pattern quarter options never look alike', () {
     ExamStyleGenerator.seed(4);
     var n = 0;

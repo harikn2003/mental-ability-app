@@ -2858,9 +2858,13 @@ class QuestionGenerator {
     // down they look unchanged; no N, S, Z, n, s, u, z: turned over they
     // look the same; no b, d, p, q: they flip into each other; no 9: turned
     // over it reads 6). Lowercase too, for enough variety: 18 characters.
+    // Easy: one or two characters (tracker: "Mirror Image simple mode should
+    // show 1 or 2 alphanumerics"), each one whose mirror image looks
+    // different; two are both letters or both digits.
     String pickEasyContent() {
-      const pool = 'FGJLPQRaefghjr2457';
-      return pool[_r.nextInt(pool.length)];
+      const letters = 'FGJLPQRaefghjr', digits = '2457';
+      final pool = (_r.nextInt(18) < 4 ? digits : letters).split('')..shuffle(_r);
+      return pool.take(_r.nextBool() ? 1 : 2).join();
     }
 
     // Medium: two characters whose mirror image clearly differs, or three
@@ -2888,12 +2892,13 @@ class QuestionGenerator {
                   ? pickBaseContent(isDigit)
                   : pickHardContent();
       final sigKey = 'mirTextAdv:$content|${isDigit ? 'digit' : 'word'}${classicTraps ? '|traps' : ''}';
-      // Easy has only 18 characters: past 60 tries a repeat beats the
-      // 4-digit fallback at the end.
+      // Easy has few contents: past 60 tries a repeat beats the 4-digit
+      // fallback at the end.
       if (_seen(sigKey) && attempt < 60) continue;
 
-      // Easy, one character: {flipped sideways, not} x {upside down, not}
-      // - order can't be reversed, so the word set below has no meaning.
+      // Easy, one or two characters: {flipped sideways, not} x {upside
+      // down, not}. Flipped sideways is the whole mirror image (two
+      // characters swap places too).
       if (!isHardMode && !medium) {
         Map<String, dynamic> glyph(bool h, bool v) =>
             {'type': 'mirror_text', 'is_clock': false, 'content': content, 'mirror_h': h, 'mirror_v': v};

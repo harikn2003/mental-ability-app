@@ -287,13 +287,27 @@ class LineFig {
     };
   }
 
-  /// Equal for figures that look alike: strokes hidden along a black
-  /// half-cell's edges count as that edge, not as a difference.
+  /// Equal for figures that look alike. Hidden detail is not a difference:
+  /// a stroke along a black half-cell's edge or along the frame, and a dot
+  /// (drawn at its cell's centre) on a diagonal or a black half-cell.
   String get key {
     List<String> s(Iterable<Object> xs) => xs.map((e) => '$e').toList()..sort();
     final edges = _triEdges;
-    final visible = segs.where((g) => !edges.contains(g));
-    return 'w$w,h$h,f$frame|${s(visible).join()}|${s(cells).join()}|${s(tris).join()}|${s(dots).join()}|${s(rings).join()}'
+    bool onFrame((int, int, int, int) g) {
+      final (x1, y1, x2, y2) = g;
+      return frame && ((x1 == x2 && (x1 == 0 || x1 == w)) || (y1 == y2 && (y1 == 0 || y1 == h)));
+    }
+
+    final visible = segs.where((g) => !edges.contains(g) && !onFrame(g));
+    bool hidden((int, int) d) {
+      final (x, y) = d;
+      return tris.any((t) => t.$1 == x && t.$2 == y) ||
+          segs.contains(_normSeg((x, y, x + 1, y + 1))) ||
+          segs.contains(_normSeg((x, y + 1, x + 1, y)));
+    }
+
+    final seenDots = dots.where((d) => !hidden(d));
+    return 'w$w,h$h,f$frame|${s(visible).join()}|${s(cells).join()}|${s(tris).join()}|${s(seenDots).join()}|${s(rings).join()}'
         '|${s(arrows).join()}|${s(hatch).join()}|${s(arcs).join()}|${s(glyphs).join()}';
   }
 

@@ -73,16 +73,6 @@ class AppLocale {
       'exit': 'Exit',
 
       // ── Topic labels for quiz header ─────────────────────────────────────
-      'topic_pattern': 'PATTERN COMPLETION',
-      'topic_mirror': 'MIRROR IMAGE',
-      'topic_odd': 'ODD MAN OUT',
-      'topic_analogy': 'ANALOGY',
-      'topic_figmatch': 'FIGURE MATCH',
-      'topic_series': 'FIGURE SERIES',
-      'topic_geo': 'GEO COMPLETION',
-      'topic_punch': 'PUNCH HOLE',
-      'topic_embedded': 'EMBEDDED FIGURE',
-      'topic_space_vis': 'SPACE VISUALISATION',
 
       // ── Summary Screen ───────────────────────────────────────────────────
       'report_title': 'Session Summary',
@@ -320,16 +310,6 @@ class AppLocale {
       'exit': 'बाहेर पडा',
 
       // ── Topic labels ─────────────────────────────────────────────────────
-      'topic_pattern': 'आकृती पूर्णता',
-      'topic_mirror': 'आरसा प्रतिमा',
-      'topic_odd': 'वेगळे पद',
-      'topic_analogy': 'समसंबंध',
-      'topic_figmatch': 'समान आकृती',
-      'topic_series': 'आकृती मालिका',
-      'topic_geo': 'भौमितिक पूर्तता',
-      'topic_punch': 'छिद्र आकृती',
-      'topic_embedded': 'अंतर्भूत आकृती',
-      'topic_space_vis': 'अवकाश कल्पना',
 
       // ── Summary Screen ───────────────────────────────────────────────────
       'report_title': 'सत्र सारांश',
@@ -564,16 +544,6 @@ class AppLocale {
       'exit': 'बाहर निकलें',
 
       // ── Topic labels for quiz header ─────────────────────────────────────
-      'topic_pattern': 'आकृति पूर्णता',
-      'topic_mirror': 'दर्पण आकृति',
-      'topic_odd': 'अलग आकृति',
-      'topic_analogy': 'समानता',
-      'topic_figmatch': 'समान आकृति',
-      'topic_series': 'आकृति श्रृंखला',
-      'topic_geo': 'ज्यामितीय पूर्णता',
-      'topic_punch': 'छेद आकृति',
-      'topic_embedded': 'अंतर्निहित आकृति',
-      'topic_space_vis': 'स्थान दृश्यावलोकन',
 
       // ── Summary Screen ───────────────────────────────────────────────────
       'report_title': 'सत्र सारांश',
@@ -761,6 +731,23 @@ class AppLocale {
         '2m' => 120,
         _ => null,
       };
+
+  /// A topic's name, the same on the config screen and in a session
+  /// (tracker: the session showed both mirror topics as "Mirror image").
+  static String topicName(String lang, String category) => get(lang, switch (category) {
+        'odd_man' => 'cat_odd_man',
+        'figure_match' => 'cat_fig_match',
+        'pattern' => 'cat_pattern',
+        'figure_series' => 'cat_fig_series',
+        'analogy' => 'cat_analogy',
+        'geo_completion' => 'cat_geo',
+        'mirror_shape' => 'cat_mirror_shape',
+        'mirror_text' => 'cat_mirror_text',
+        'punch_hole' => 'cat_punch',
+        'embedded' => 'cat_embedded',
+        'space_vis' => 'cat_space_vis',
+        _ => 'cat_odd_man',
+      });
 
   static String langLabel(String lang) {
     const labels = {'EN': 'EN', 'MR': 'म', 'HI': 'हि'};
