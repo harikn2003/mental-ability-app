@@ -37,4 +37,47 @@ void main() {
       expect(n, greaterThan(200));
     }
   });
+
+  test('embedded: wrong options never hide the shape, turned or flipped', () {
+    for (final lite in [false, true]) {
+      ExamStyleGenerator.seed(5);
+      var n = 0;
+      for (int i = 0; i < 300; i++) {
+        final q = ExamStyleGenerator.embeddedFigure(lite: lite);
+        if (q == null) continue;
+        n++;
+        final t = LineFig.fromMap(Map<String, dynamic>.from(q.puzzle['target'] as Map));
+        for (int o = 0; o < 4; o++) {
+          final host = LineFig.fromMap(Map<String, dynamic>.from(q.options[o]));
+          final hits = t.dihedral().where(host.embeds).length;
+          if (o == q.correctIndex) {
+            expect(host.embeds(t), isTrue);
+          } else {
+            expect(hits, 0, reason: 'option $o hides the shape turned or flipped');
+          }
+        }
+      }
+      expect(n, greaterThan(200));
+    }
+  });
+
+  test('pattern quarters: wrong options differ by a turn or by the black half, never a dot or one stroke', () {
+    ExamStyleGenerator.seed(6);
+    var n = 0;
+    for (int i = 0; i < 300; i++) {
+      final q = ExamStyleGenerator.patternQuarter();
+      if (q == null) continue;
+      n++;
+      final opts = [for (final o in q.options) LineFig.fromMap(Map<String, dynamic>.from(o))];
+      for (int a = 0; a < 4; a++) {
+        for (int b = a + 1; b < 4; b++) {
+          // Same figure turned or flipped, or the black half moved.
+          final turned = flipClass(opts[a]) == flipClass(opts[b]);
+          final blackMoved = flipClass(opts[a].copyWith(tris: {})) == flipClass(opts[b].copyWith(tris: {}));
+          expect(turned || blackMoved, isTrue, reason: '${q.options[a]} vs ${q.options[b]}');
+        }
+      }
+    }
+    expect(n, greaterThan(200));
+  });
 }

@@ -159,9 +159,9 @@ class ExamStyleGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   // EMBEDDED FIGURE
   // A small line figure hidden inside dense line drawings (JNV 2013-2019
-  // style: grids, diagonals, diamonds). Every option hides a version of it;
-  // only one hides it as shown - the others hide it flipped and/or turned.
-  // Answer set: {as shown, mirrored} x {as shown, turned 90°}.
+  // style: grids, diagonals, diamonds). One option hides it as shown; the
+  // others hide a near-miss (one stroke moved) and never the figure itself,
+  // turned or flipped.
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion? embeddedFigure({bool lite = false}) {
     const n = 4;
@@ -180,9 +180,26 @@ class ExamStyleGenerator {
       if (!t.segs.any((s) => s.$1 != s.$3 && s.$2 != s.$4) || t.segs.every((s) => s.$1 != s.$3 && s.$2 != s.$4)) {
         continue; // mix of straight and diagonal strokes
       }
-      // Medium (lite): the near-misses are flips and a half turn - no
-      // quarter turns - hidden in a lighter drawing.
-      final variants = lite ? [t, t.mirrorX(), t.mirrorY(), t.rot(2)] : [t, t.mirrorX(), t.rot90(), t.mirrorX().rot90()];
+      // The wrong options hide a near-miss - the shape with one stroke moved
+      // - and never the shape itself, however turned or flipped: a child
+      // who finds it turned in an option reads that as hidden there too
+      // (tester, 2026-10-22). Medium (lite) hides them in a lighter drawing.
+      final turnedOrFlipped = t.dihedral();
+      LineFig? nearMiss() {
+        for (int k = 0; k < 30; k++) {
+          final drop = _pick(t.segs.toList());
+          final add = _strokes(2, 2, 1);
+          if (add.isEmpty || t.segs.containsAll(add) || add.contains(drop)) continue;
+          final v = t.copyWith(segs: {...t.segs}..remove(drop)..addAll(add));
+          if (!turnedOrFlipped.any((d) => d.normalized().key == v.normalized().key)) return v;
+        }
+        return null;
+      }
+
+      final misses = [nearMiss(), nearMiss(), nearMiss()];
+      if (misses.any((m) => m == null)) continue;
+      if ({for (final m in misses) m!.normalized().key}.length < 3) continue;
+      final variants = [t, ...misses.cast<LineFig>()];
 
       LineFig? host(LineFig v, bool mustEmbed) {
         for (int k = 0; k < 40; k++) {
@@ -194,8 +211,9 @@ class ExamStyleGenerator {
           // The hidden figure must not be a trivial copy of the structure
           // (at least one of its strokes is not part of the base lines)...
           if (placed.every(base.contains)) continue;
-          // ...and only the correct option may contain the target as shown.
-          if (f.embeds(t) == mustEmbed) return f;
+          // ...and only the correct option may contain the target - the
+          // others not even turned or flipped.
+          if (mustEmbed ? f.embeds(t) : !turnedOrFlipped.any(f.embeds)) return f;
         }
         return null;
       }
@@ -219,7 +237,11 @@ class ExamStyleGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion? patternQuarter({bool mirrorOnly = false}) {
     for (int attempt = 0; attempt < 200; attempt++) {
-      final tri = _r.nextBool() ? {(_r.nextInt(2), _r.nextInt(2), _r.nextInt(4))} : <(int, int, int)>{};
+      // Always a black half-cell: the wrong options' change is that black
+      // half flipping to the other half of its cell - a dot moving one cell
+      // or one stroke more or less was too easy to miss (testers,
+      // 2026-10-22).
+      final tri = {(_r.nextInt(2), _r.nextInt(2), _r.nextInt(4))};
       final t = LineFig(2, 2, segs: _strokes(2, 2, 3 + _r.nextInt(3)), tris: tri, dots: _r.nextBool() ? {(_r.nextInt(2), _r.nextInt(2))} : {});
       if (!_fullyAsymmetric(t)) continue;
 
@@ -238,7 +260,7 @@ class ExamStyleGenerator {
       final LineFig Function(LineFig) wrong = mirrorDesign
           ? (_r.nextBool() ? (g) => g.rot(1) : (g) => g.rot(3))
           : (_r.nextBool() ? (g) => g.mirrorX() : (g) => g.mirrorY());
-      final d = _changeOneDetail(correct);
+      final d = _changeOneDetail(correct, kinds: {'tri'});
       if (d == null) continue;
       final opts = [correct, wrong(correct), d, wrong(d)];
       if (opts.map((o) => o.key).toSet().length != 4) continue;
