@@ -303,8 +303,8 @@ class HardQuestionGenerator {
   // "indistinguishable" cut-offs (>25 difference, <2% of pixels), so any pair
   // that test would flag is already rejected here. At the app's 64dp option
   // size, 2% of the cell is roughly a 9x9dp patch.
-  static const double _minVisibleLumDiff = 30; // the visual test's minAdjacentFillDistance
-  static const double _minVisibleAreaFraction = 0.02; // the visual test's significantPixelFractionThreshold
+  static const double _minVisibleLumDiff = 50; // well above the visual test's 25: testers missed 30-40 apart on dark fills
+  static const double _minVisibleAreaFraction = 0.05; // about a 14x14dp patch at 64dp; 2% (9x9dp) let near-twins through (testers, 2026-10-22)
 
   static bool _insideShape(String shape, double x, double y, double hw, double hh) {
     if (hw <= 0 || hh <= 0) return false;

@@ -151,7 +151,7 @@ Future<void> _announce(int port, bool light, {required bool live}) async {
 /// QR code as text, two modules per character using half blocks, with the
 /// quiet zone scanners need.
 String _qrText(String data, bool light) {
-  final qr = QrImage(QrCode(payload: QrPayload.fromString(data), errorCorrectLevel: QrErrorCorrectLevel.medium));
+  final qr = QrImage(QrCode.fromData(data: data, errorCorrectLevel: QrErrorCorrectLevel.M));
   final n = qr.moduleCount;
   const quiet = 2;
   // Dark console: draw the light modules as blocks, so the code shows as

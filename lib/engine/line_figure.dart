@@ -276,9 +276,48 @@ class LineFig {
   // ── comparison ─────────────────────────────────────────────────────────────
 
   /// Exact visual key: same key <=> the painter draws the same picture.
+  /// The edges of the black half-cells, as unit segments: a stroke along
+  /// one is drawn over by the black and can't be seen.
+  Set<(int, int, int, int)> get _triEdges {
+    const corners = [(0, 0), (1, 0), (1, 1), (0, 1)];
+    return {
+      for (final (cx, cy, k) in tris)
+        for (final (a, b) in [(k, (k + 1) % 4), (k, (k + 3) % 4), ((k + 1) % 4, (k + 3) % 4)])
+          _normSeg((cx + corners[a].$1, cy + corners[a].$2, cx + corners[b].$1, cy + corners[b].$2)),
+    };
+  }
+
+  /// A dot drawn where it can't be seen: on a diagonal or a black
+  /// half-cell. Such a figure isn't what it seems - the dot is part of the
+  /// answer but invisible. (A stroke along a black edge or the frame also
+  /// can't be seen, but the edge looks the same either way: [key] covers it.)
+  bool get hasHiddenDetail => dots.any(_dotHidden);
+
+  Iterable<(int, int, int, int)> get _hiddenSegs {
+    final edges = _triEdges;
+    return segs.where((g) {
+      final (x1, y1, x2, y2) = g;
+      final onFrame = frame && ((x1 == x2 && (x1 == 0 || x1 == w)) || (y1 == y2 && (y1 == 0 || y1 == h)));
+      return edges.contains(g) || onFrame;
+    });
+  }
+
+  bool _dotHidden((int, int) d) {
+    final (x, y) = d;
+    return tris.any((t) => t.$1 == x && t.$2 == y) ||
+        segs.contains(_normSeg((x, y, x + 1, y + 1))) ||
+        segs.contains(_normSeg((x, y + 1, x + 1, y)));
+  }
+
+  /// Equal for figures that look alike. Hidden detail is not a difference:
+  /// a stroke along a black half-cell's edge or along the frame, and a dot
+  /// (drawn at its cell's centre) on a diagonal or a black half-cell.
   String get key {
     List<String> s(Iterable<Object> xs) => xs.map((e) => '$e').toList()..sort();
-    return 'w$w,h$h,f$frame|${s(segs).join()}|${s(cells).join()}|${s(tris).join()}|${s(dots).join()}|${s(rings).join()}'
+    final hiddenSegs = _hiddenSegs.toSet();
+    final visible = segs.where((g) => !hiddenSegs.contains(g));
+    final seenDots = dots.where((d) => !_dotHidden(d));
+    return 'w$w,h$h,f$frame|${s(visible).join()}|${s(cells).join()}|${s(tris).join()}|${s(seenDots).join()}|${s(rings).join()}'
         '|${s(arrows).join()}|${s(hatch).join()}|${s(arcs).join()}|${s(glyphs).join()}';
   }
 

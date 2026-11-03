@@ -72,10 +72,9 @@ void main() {
     for (final q in qs) {
       final t = _fig(q.puzzle['target']);
       expect(_where(q, (o) => o.embeds(t)), [q.correctIndex]);
-      // ...and every drawing hides it in SOME orientation.
-      for (final o in q.options) {
-        expect(t.dihedral().any(_fig(o).embeds), isTrue);
-      }
+      // ...and no other drawing hides it in any orientation: a turned copy
+      // read as hidden there too (testers, 2026-10-22).
+      expect(_where(q, (o) => t.dihedral().any(o.embeds)), [q.correctIndex]);
     }
   });
 

@@ -61,11 +61,13 @@ void main() {
     }
   });
 
-  test('Medium Mirror Text words are 4 characters', () {
+  test('Medium Mirror Text words are 2 or 3 characters', () {
+    final lengths = <int>{};
     for (final q in medium('mirror_text')) {
       if (q.puzzle['is_clock'] == true) continue;
-      expect((q.puzzle['content'] as String).length, 4, reason: q.type);
+      lengths.add((q.puzzle['content'] as String).length);
     }
+    expect(lengths, {2, 3});
   });
 
   LineFig fig(dynamic m) => LineFig.fromMap(Map<String, dynamic>.from(m as Map));
@@ -166,6 +168,7 @@ void main() {
 
   test('Medium Punch Hole never folds twice', () {
     for (final q in medium('punch_hole')) {
+      if (q.type == 'paper_fold') continue; // one fold line, no holes
       final folds = q.puzzle['folds'] as List?;
       if (folds != null) {
         expect(folds.length, 1);
@@ -177,7 +180,8 @@ void main() {
 
   test('Medium Odd Man Out: one-detail variants, no give-aways, no mirror or counting tricks', () {
     final types = {for (final q in medium('odd_man', n: 300)) q.type};
-    expect(types, {'odd_v3', 'odd_v5', 'odd_v10', 'odd_v11', 'odd_man_mirror'});
+    // Plus the guide book's letter words and symbol counting (BookGenerator).
+    expect(types, {'odd_v3', 'odd_v5', 'odd_v10', 'odd_v11', 'odd_man_mirror', 'odd_letters_medium', 'odd_count'});
   });
 
   test('Medium classic Embedded: near-misses are never mirror images', () {

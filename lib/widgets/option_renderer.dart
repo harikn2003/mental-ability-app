@@ -382,7 +382,7 @@ class EnhancedMirrorTextPainter extends CustomPainter {
   }
 
   void _drawText(Canvas canvas, Size size, bool dense, bool selectiveMirrorTrap) {
-    final content = (data['content'] as String? ?? 'A').toUpperCase();
+    final content = data['content'] as String? ?? 'A'; // as given: Easy uses lowercase too
 
     final double fontSize;
     if (content.length == 1) {
@@ -397,6 +397,9 @@ class EnhancedMirrorTextPainter extends CustomPainter {
 
     final double letterSpacing = content.length > 3 ? 1.5 : 0;
     final textStyle = TextStyle(
+      // Android's own font, named so print samples made off the phone
+      // draw the same letters.
+      fontFamily: 'Roboto',
       fontSize: fontSize,
       fontWeight: FontWeight.bold,
       color: const Color(0xFF0F172A),

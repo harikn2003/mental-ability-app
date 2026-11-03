@@ -55,6 +55,8 @@ class SeriesGenerator {
       final keys = opts.map((o) => o.key).toSet();
       if (keys.length != 4) continue;
       if (frames.any((fr) => keys.contains(fr.key))) continue;
+      // Every detail drawn must be seen (no dot under a black half-cell).
+      if ([...frames, ...opts].any((o) => o.hasHiddenDetail)) continue;
       final order = [0, 1, 2, 3]..shuffle(_r);
       return ReasoningQuestion(
         category: 'figure_series',

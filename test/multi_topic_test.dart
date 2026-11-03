@@ -40,13 +40,14 @@ void main() {
     ));
     await tester.pump(const Duration(milliseconds: 500));
     // Header topic labels for the allowed topics.
-    final allowed = {AppLocale.s('topic_analogy'), AppLocale.s('topic_mirror')};
+    String label(String t) => AppLocale.topicName(AppLocale.current, t).toUpperCase();
+    final allowed = {label('analogy'), label('mirror_shape')};
     final seen = <String>{};
     for (int q = 0; q < 12; q++) {
       // The header shows the current topic's label; find which one it is.
-      const keys = ['topic_pattern', 'topic_mirror', 'topic_odd', 'topic_analogy', 'topic_figmatch', 'topic_series',
-          'topic_geo', 'topic_punch', 'topic_embedded', 'topic_space_vis'];
-      final all = {for (final k in keys) AppLocale.s(k)};
+      const topics = ['pattern', 'mirror_shape', 'mirror_text', 'odd_man', 'analogy', 'figure_match', 'figure_series',
+          'geo_completion', 'punch_hole', 'embedded', 'space_vis'];
+      final all = {for (final t in topics) label(t)};
       final topic = all.firstWhere((l) => find.text(l).evaluate().isNotEmpty);
       seen.add(topic);
       if (q == 11) break; // don't press Finish (that saves the session)

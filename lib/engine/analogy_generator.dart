@@ -47,6 +47,8 @@ class AnalogyGenerator {
       if (keys.length != 4) continue;
       final shown = {a.key, b.key, c.key};
       if ([wa, wb, wab].any((o) => shown.contains(o.key))) continue;
+      // Every detail drawn must be seen (no dot under a black half-cell).
+      if ([a, b, c, ...opts].any((o) => o.hasHiddenDetail)) continue;
       final order = [0, 1, 2, 3]..shuffle(_r);
       return ReasoningQuestion(
         category: 'analogy',

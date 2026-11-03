@@ -11,7 +11,11 @@ import 'option_renderer.dart';
 /// Figures are drawn by OptionRenderer, the same code as the answer options.
 class QuestionRenderer extends StatelessWidget {
   final Map<String, dynamic> puzzle;
-  const QuestionRenderer({super.key, required this.puzzle});
+
+  /// False on a printed paper, where the section heading carries the
+  /// instruction once for all its questions.
+  final bool showInstruction;
+  const QuestionRenderer({super.key, required this.puzzle, this.showInstruction = true});
 
   static const Color _subtle = Color(0xFF64748B);
   static const Color _blue = Color(0xFF195DE6);
@@ -40,6 +44,8 @@ class QuestionRenderer extends StatelessWidget {
         return _mirrorTextQ();
       case 'punch_hole':
         return _punchHole();
+      case 'paper_fold':
+        return _paperFold();
       case 'embedded':
         return _embedded();
       case 'space_vis':
@@ -62,7 +68,7 @@ class QuestionRenderer extends StatelessWidget {
   /// options' renderer makes that mismatch impossible.
   static Widget figure(Map<String, dynamic> data, {double size = 64}) => OptionRenderer(data: data, size: size);
 
-  Widget _label(String text) => Text(
+  Widget _label(String text) => !showInstruction ? const SizedBox.shrink() : Text(
     text,
     textAlign: TextAlign.center,
     style: const TextStyle(fontSize: 13, color: _subtle, height: 1.4),
@@ -96,6 +102,16 @@ class QuestionRenderer extends StatelessWidget {
       borderRadius: BorderRadius.circular(2),
     ),
   );
+
+  // ── Paper folding (Punch Hole topic) ──────────────────────────────────────
+  Widget _paperFold() => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _label(AppLocale.s('instr_paper_fold')),
+          const SizedBox(height: 12),
+          _fig(Map<String, dynamic>.from(puzzle['sheet'] as Map), size: 120),
+        ],
+      );
 
   // ── 1. Odd Man Out ─────────────────────────────────────────────────────────
   Widget _oddMan() => Padding(

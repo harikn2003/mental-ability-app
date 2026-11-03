@@ -87,6 +87,10 @@ class ExamStyleGenerator {
 
     LineFig piece(Set<(int, int)> cells) => LineFig(n, n, cells: cells, segs: LineFig.cellBoundary(cells)).normalized();
 
+    // A cut-out piece can be turned over as well as round, so pieces are
+    // told apart up to turning AND flipping: a flipped answer would fit too.
+    String flipClass(LineFig f) => ([for (final g in f.dihedral()) g.shapeKey]..sort()).first;
+
     /// Move one cell of [p] somewhere else along its edge, keeping it one piece.
     Set<(int, int)>? moveOneCell(Set<(int, int)> p, Set<String> avoid) {
       final removable = p.toList()..shuffle(_r);
@@ -97,7 +101,7 @@ class ExamStyleGenerator {
         for (final a in adds) {
           final cand = {...rest, a};
           if (isRect(cand) || !connected(all.difference(cand))) continue;
-          if (!avoid.contains(piece(cand).rotationClassKey)) return cand;
+          if (!avoid.contains(flipClass(piece(cand)))) return cand;
         }
       }
       return null;
@@ -115,28 +119,22 @@ class ExamStyleGenerator {
       if (isRect(p) || !connected(rest)) continue;
 
       final correct = piece(p);
-      final seen = {correct.rotationClassKey};
-      final mirrored = correct.mirrorX();
-      final chiral = seen.add(mirrored.rotationClassKey);
+      final seen = {flipClass(correct)};
 
-      // Second change: mirror image if the piece has one, else another move.
+      // Wrong pieces: one cell moved, another cell moved, and both - never
+      // the answer flipped over.
       final moved = moveOneCell(p, seen);
       if (moved == null) continue;
-      seen.add(piece(moved).rotationClassKey);
-      late final LineFig b, ab;
-      if (chiral) {
-        b = mirrored;
-        ab = piece(moved).mirrorX();
-      } else {
-        final moved2 = moveOneCell(p, seen);
-        if (moved2 == null) continue;
-        b = piece(moved2);
-        final both = moveOneCell(moved2, {...seen, b.rotationClassKey});
-        if (both == null) continue;
-        ab = piece(both);
-      }
+      seen.add(flipClass(piece(moved)));
+      final moved2 = moveOneCell(p, seen);
+      if (moved2 == null) continue;
+      final b = piece(moved2);
+      seen.add(flipClass(b));
+      final both = moveOneCell(moved2, seen);
+      if (both == null) continue;
+      final ab = piece(both);
       final options = [correct, b, piece(moved), ab];
-      if (options.map((o) => o.rotationClassKey).toSet().length != 4) continue;
+      if (options.map(flipClass).toSet().length != 4) continue;
 
       // Show every piece turned by a random amount (the real papers do), all
       // on the square's own 4x4 scale so sizes can be compared.
@@ -161,9 +159,9 @@ class ExamStyleGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   // EMBEDDED FIGURE
   // A small line figure hidden inside dense line drawings (JNV 2013-2019
-  // style: grids, diagonals, diamonds). Every option hides a version of it;
-  // only one hides it as shown - the others hide it flipped and/or turned.
-  // Answer set: {as shown, mirrored} x {as shown, turned 90°}.
+  // style: grids, diagonals, diamonds). One option hides it as shown; the
+  // others hide a near-miss (one stroke moved) and never the figure itself,
+  // turned or flipped.
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion? embeddedFigure({bool lite = false}) {
     const n = 4;
@@ -182,9 +180,26 @@ class ExamStyleGenerator {
       if (!t.segs.any((s) => s.$1 != s.$3 && s.$2 != s.$4) || t.segs.every((s) => s.$1 != s.$3 && s.$2 != s.$4)) {
         continue; // mix of straight and diagonal strokes
       }
-      // Medium (lite): the near-misses are flips and a half turn - no
-      // quarter turns - hidden in a lighter drawing.
-      final variants = lite ? [t, t.mirrorX(), t.mirrorY(), t.rot(2)] : [t, t.mirrorX(), t.rot90(), t.mirrorX().rot90()];
+      // The wrong options hide a near-miss - the shape with one stroke moved
+      // - and never the shape itself, however turned or flipped: a child
+      // who finds it turned in an option reads that as hidden there too
+      // (tester, 2026-10-22). Medium (lite) hides them in a lighter drawing.
+      final turnedOrFlipped = t.dihedral();
+      LineFig? nearMiss() {
+        for (int k = 0; k < 30; k++) {
+          final drop = _pick(t.segs.toList());
+          final add = _strokes(2, 2, 1);
+          if (add.isEmpty || t.segs.containsAll(add) || add.contains(drop)) continue;
+          final v = t.copyWith(segs: {...t.segs}..remove(drop)..addAll(add));
+          if (!turnedOrFlipped.any((d) => d.normalized().key == v.normalized().key)) return v;
+        }
+        return null;
+      }
+
+      final misses = [nearMiss(), nearMiss(), nearMiss()];
+      if (misses.any((m) => m == null)) continue;
+      if ({for (final m in misses) m!.normalized().key}.length < 3) continue;
+      final variants = [t, ...misses.cast<LineFig>()];
 
       LineFig? host(LineFig v, bool mustEmbed) {
         for (int k = 0; k < 40; k++) {
@@ -196,8 +211,9 @@ class ExamStyleGenerator {
           // The hidden figure must not be a trivial copy of the structure
           // (at least one of its strokes is not part of the base lines)...
           if (placed.every(base.contains)) continue;
-          // ...and only the correct option may contain the target as shown.
-          if (f.embeds(t) == mustEmbed) return f;
+          // ...and only the correct option may contain the target - the
+          // others not even turned or flipped.
+          if (mustEmbed ? f.embeds(t) : !turnedOrFlipped.any(f.embeds)) return f;
         }
         return null;
       }
@@ -221,7 +237,11 @@ class ExamStyleGenerator {
   // ═══════════════════════════════════════════════════════════════════════════
   static ReasoningQuestion? patternQuarter({bool mirrorOnly = false}) {
     for (int attempt = 0; attempt < 200; attempt++) {
-      final tri = _r.nextBool() ? {(_r.nextInt(2), _r.nextInt(2), _r.nextInt(4))} : <(int, int, int)>{};
+      // Always a black half-cell: the wrong options' change is that black
+      // half flipping to the other half of its cell - a dot moving one cell
+      // or one stroke more or less was too easy to miss (testers,
+      // 2026-10-22).
+      final tri = {(_r.nextInt(2), _r.nextInt(2), _r.nextInt(4))};
       final t = LineFig(2, 2, segs: _strokes(2, 2, 3 + _r.nextInt(3)), tris: tri, dots: _r.nextBool() ? {(_r.nextInt(2), _r.nextInt(2))} : {});
       if (!_fullyAsymmetric(t)) continue;
 
@@ -240,11 +260,13 @@ class ExamStyleGenerator {
       final LineFig Function(LineFig) wrong = mirrorDesign
           ? (_r.nextBool() ? (g) => g.rot(1) : (g) => g.rot(3))
           : (_r.nextBool() ? (g) => g.mirrorX() : (g) => g.mirrorY());
-      final d = _changeOneDetail(correct);
+      final d = _changeOneDetail(correct, kinds: {'tri'});
       if (d == null) continue;
       final opts = [correct, wrong(correct), d, wrong(d)];
       if (opts.map((o) => o.key).toSet().length != 4) continue;
       if (opts.skip(1).any((o) => visible.contains(o.key))) continue;
+      // Every detail drawn must be seen (no dot under a black half-cell).
+      if ([...tiles, ...opts].any((o) => o.hasHiddenDetail)) continue;
 
       return _question('pattern', 'pattern_quarter', {
         'type': 'quad_pattern',
@@ -321,6 +343,8 @@ class ExamStyleGenerator {
       final ab = _combine(f, a, b);
       final opts = [f, a, b, ab];
       if (opts.map((o) => o.key).toSet().length != 4) continue;
+      // Every detail drawn must be seen (no dot under a black half-cell).
+      if (opts.any((o) => o.hasHiddenDetail)) continue;
       return _question('figure_match', 'figure_match_exam', {'type': 'figure_match', 'target': f.toMap()}, f.toMap(),
           [for (final o in opts.skip(1)) o.toMap()]);
     }
@@ -378,6 +402,8 @@ class ExamStyleGenerator {
       final odd = f.mirrorX().rot(turns[3]);
       final opts = [odd, ...majority];
       if (opts.map((o) => o.key).toSet().length != 4) continue;
+      // Every detail drawn must be seen (no dot under a black half-cell).
+      if (opts.any((o) => o.hasHiddenDetail)) continue;
       return _question('odd_man', 'odd_man_mirror', {'type': 'odd_man'}, odd.toMap(), [for (final m in majority) m.toMap()]);
     }
     return null;
@@ -535,6 +561,8 @@ class ExamStyleGenerator {
       // clearly different flips, no "one decoration left in place" trap.
       final opts = noDetailTrap ? [mirror, water, f, f.rot(2)] : [mirror, water, dotStays(mirror), dotStays(water)];
       if (opts.map((o) => o.key).toSet().length != 4) continue;
+      // Every detail drawn must be seen (no dot under a black half-cell).
+      if ([f, ...opts].any((o) => o.hasHiddenDetail)) continue;
       return _question('mirror_shape', 'mirror_line_fig', {'type': 'mirror_shape', 'target': f.toMap()}, mirror.toMap(),
           [for (final o in opts.skip(1)) o.toMap()]);
     }

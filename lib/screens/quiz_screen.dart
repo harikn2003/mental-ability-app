@@ -479,22 +479,8 @@ class _QuizScreenState extends State<QuizScreen>
   }
 
   // ── UI helpers ─────────────────────────────────────────────────────────────
-  String _getTopicLabel(String category) {
-    final labels = {
-      'pattern': AppLocale.get(currentLang, 'topic_pattern'),
-      'mirror_shape': AppLocale.get(currentLang, 'topic_mirror'),
-      'mirror_text': AppLocale.get(currentLang, 'topic_mirror'),
-      'odd_man': AppLocale.get(currentLang, 'topic_odd'),
-      'analogy': AppLocale.get(currentLang, 'topic_analogy'),
-      'figure_match': AppLocale.get(currentLang, 'topic_figmatch'),
-      'figure_series': AppLocale.get(currentLang, 'topic_series'),
-      'geo_completion': AppLocale.get(currentLang, 'topic_geo'),
-      'punch_hole': AppLocale.get(currentLang, 'topic_punch'),
-      'embedded': AppLocale.get(currentLang, 'topic_embedded'),
-      'space_vis': AppLocale.get(currentLang, 'topic_space_vis'),
-    };
-    return labels[category] ?? AppLocale.get(currentLang, 'topic_odd');
-  }
+  // The config screen's name for the topic, in capitals.
+  String _getTopicLabel(String category) => AppLocale.topicName(currentLang, category).toUpperCase();
 
   String _formatTime(int seconds) {
     if (seconds < 0) return '∞';

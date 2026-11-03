@@ -23,7 +23,7 @@ class MirrorTextPainter extends CustomPainter {
     final bool isClock = data['is_clock'] ?? false;
     final bool mirrorH = data['mirror_h'] ?? false;
     final bool mirrorV = data['mirror_v'] ?? false;
-    final String content = (data['content'] as String? ?? 'A').toUpperCase();
+    final String content = data['content'] as String? ?? 'A'; // as given: Easy uses lowercase too
 
     // For text/numeric content with mirroring, render to picture first then transform
     // This avoids distortion from direct canvas scaling on text
@@ -67,7 +67,7 @@ class MirrorTextPainter extends CustomPainter {
   }
 
   void _drawText(Canvas canvas, Size size) {
-    final content = (data['content'] as String? ?? 'A').toUpperCase();
+    final content = data['content'] as String? ?? 'A'; // as given: Easy uses lowercase too
 
     // Auto-scale font: single chars get large font, words get smaller
     // so they always fit within the card without clipping
@@ -86,6 +86,9 @@ class MirrorTextPainter extends CustomPainter {
       text: TextSpan(
         text: content,
         style: TextStyle(
+          // Android's own font, named so print samples made off the phone
+          // draw the same letters.
+          fontFamily: 'Roboto',
           fontSize: fontSize,
           fontWeight: FontWeight.bold,
           color: const Color(0xFF0F172A),

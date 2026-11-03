@@ -6,6 +6,7 @@ import '../data/hive_service.dart';
 
 import '../widgets/version_badge.dart';
 import 'quiz_screen.dart';
+import 'print_paper_screen.dart';
 import 'session_history_screen.dart';
 
 class SessionConfigScreen extends StatefulWidget {
@@ -129,20 +130,7 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
     'figure_series', 'geo_completion', 'mirror_text', 'punch_hole', 'space_vis', 'embedded',
   ];
 
-  Map<String, String> get _categoryLabels =>
-      {
-        'pattern': AppLocale.get(currentLang, 'cat_pattern'),
-        'analogy': AppLocale.get(currentLang, 'cat_analogy'),
-        'odd_man': AppLocale.get(currentLang, 'cat_odd_man'),
-        'mirror_shape': AppLocale.get(currentLang, 'cat_mirror_shape'),
-        'figure_match': AppLocale.get(currentLang, 'cat_fig_match'),
-        'figure_series': AppLocale.get(currentLang, 'cat_fig_series'),
-        'geo_completion': AppLocale.get(currentLang, 'cat_geo'),
-        'mirror_text': AppLocale.get(currentLang, 'cat_mirror_text'),
-        'punch_hole': AppLocale.get(currentLang, 'cat_punch'),
-        'embedded': AppLocale.get(currentLang, 'cat_embedded'),
-        'space_vis': AppLocale.get(currentLang, 'cat_space_vis'),
-  };
+  Map<String, String> get _categoryLabels => {for (final c in _defaultCategories) c: AppLocale.topicName(currentLang, c)};
 
   // Categories with weight > 1 are considered weak
   List<MapEntry<String, int>> get _weakCategories =>
@@ -384,6 +372,24 @@ class _SessionConfigScreenState extends State<SessionConfigScreen> {
               ),
               Row(
                 children: [
+                  // Printed test paper (coordinators)
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PrintPaperScreen()),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      ),
+                      child: Icon(Icons.print_rounded, color: primary, size: 18,
+                          semanticLabel: AppLocale.get(currentLang, 'paper_print')),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   // History button
                   GestureDetector(
                     onTap: () =>

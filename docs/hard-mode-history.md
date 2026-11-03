@@ -524,6 +524,17 @@ Screenshots saved in `docs/tracker-shots/`. Findings, traced to code:
   Odd Man Out. The strokes must span >= 3x3 of the grid with decorations
   inside their area (an early sample was scattered marks, too hard to turn).
 
+### 25. Testers' near-twins in shaded matrices (2026-10-22)
+Notion "Reducing ambiguity in answers": a 3x3 shaded Pattern question
+whose options A, C and D differed only by dark-on-dark overlap. The
+rasterizer guard (#17) let any change of 2% of the cell at 30/255
+through; on near-black fills that read as identical on a phone. Raised to
+5% of the cell at 50/255 (`_minVisibleLumDiff`, `_minVisibleAreaFraction`).
+Real renders at 64px, option pairs under that bar: Pattern Medium 9/41 ->
+1/41, Pattern Hard 22/84 -> 13/84 (the rest differ by a whole extra
+outline shape), Figure Match Hard 32/84 -> 0/84. Generation stays fast
+(Hard Figure Match ~15ms a question in a test build).
+
 ## Testing infrastructure built during this work
 
 ### `test/hard_generator_diagnostics_test.dart`

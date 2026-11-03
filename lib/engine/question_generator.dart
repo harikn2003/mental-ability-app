@@ -7,6 +7,7 @@ import 'difficulty.dart';
 import 'exam_style_generator.dart';
 import 'hard_question_generator.dart';
 import 'analogy_generator.dart';
+import 'book_generator.dart';
 import 'line_figure.dart';
 import 'series_generator.dart';
 import 'space_vis_generator.dart';
@@ -56,6 +57,7 @@ class QuestionGenerator {
     SpaceVisGenerator.seed(s);
     SeriesGenerator.seed(s);
     AnalogyGenerator.seed(s);
+    BookGenerator.seed(s);
   }
 
   static bool _seen(String sig) => _history.contains(sig);
@@ -251,6 +253,11 @@ class QuestionGenerator {
           final q = ExamStyleGenerator.oddManOut();
           if (q != null) return q;
         }
+        // The guide book's letter words and symbol counting.
+        if (p < 50) {
+          final q = p < 35 ? BookGenerator.oddManLetters(medium: true) : BookGenerator.oddManCount();
+          if (q != null) return q;
+        }
         return _oddMan(medium: true);
       case 'figure_match':
         if (p < 60) {
@@ -273,6 +280,11 @@ class QuestionGenerator {
       case 'figure_series':
         if (p < 60) {
           final q = SeriesGenerator.generate(level: Difficulty.medium);
+          if (q != null) return q;
+        }
+        // The guide book's shifting letters and symbols stepping round a box.
+        if (p >= 80) {
+          final q = p < 90 ? BookGenerator.seriesLetters(medium: true) : BookGenerator.seriesRound(medium: true);
           if (q != null) return q;
         }
         // Classic series with one or two regular changes (no morph, no
@@ -302,6 +314,11 @@ class QuestionGenerator {
       case 'punch_hole':
         if (p < 60) {
           final q = ExamStyleGenerator.punchHole(singleFold: true);
+          if (q != null) return q;
+        }
+        // The guide book's paper folding: a see-through sheet folded once.
+        if (p < 80) {
+          final q = BookGenerator.paperFold();
           if (q != null) return q;
         }
         return _punchHoleTwo() ?? _punchHoleClassic();
@@ -344,6 +361,18 @@ class QuestionGenerator {
         _ => null,
       };
       if (exam != null) return exam;
+    }
+    // Easy: the guide book's letter words, shifting letters and a symbol
+    // stepping round a box, added to the classic mix (see BookGenerator).
+    if (!isHardMode) {
+      final b = _r.nextInt(100);
+      final book = switch (category) {
+        'odd_man' when b < 20 => BookGenerator.oddManLetters(),
+        'figure_series' when b < 10 => BookGenerator.seriesLetters(),
+        'figure_series' when b < 20 => BookGenerator.seriesRound(),
+        _ => null,
+      };
+      if (book != null) return book;
     }
     switch (category) {
       case 'odd_man':
@@ -1997,13 +2026,15 @@ class QuestionGenerator {
         return _f(shape, rot: rot, dots: (dots + 1).clamp(0, 4), filled: !fill);
       }
 
+      // Three figures and the question mark, like every other series (a
+      // fifth figure confused the mentors): turn, then dots and fill, then
+      // the answer turns again.
       final s0 = _f(shape, rot: startRot, dots: startDots, filled: startFill);
       final s1 = step(s0, 1);
       final s2 = step(s1, 2);
-      final s3 = step(s2, 3);
-      final ans = step(s3, 4);
+      final ans = step(s2, 3);
 
-      final seq = [s0, s1, s2, s3];
+      final seq = [s0, s1, s2];
       if (!_hasVisibleVariation(seq)) continue;
       final ansRot = ans['rotation'] as int;
       final ansDots = ans['dots'] as int;
@@ -2803,16 +2834,18 @@ class QuestionGenerator {
       return current;
     }
 
-    // Hard Mode: 5 distinct characters mixing letters and digits, with some
-    // that look the same in a mirror (A, H, M, 0, 8...) among ones that
-    // don't - the solver can't just flip every glyph, they have to know
-    // which ones change.
+    // Character counts per level (tracker: "Simple - 1 alphanumeric,
+    // Medium - 2-3, Hard - 4"; younger children struggle with 4).
+    //
+    // Hard: 4 distinct characters mixing letters and digits, one that looks
+    // the same in a mirror (A, H, M, 0, 8...) among ones that don't - the
+    // solver can't just flip every glyph, they have to know which change.
     String pickHardContent() {
       final sym = 'AHMOTUVWXY08'.split('')..shuffle(_r);
       final asym = 'BCDEFGJKLNPRSZ234579'.split('')..shuffle(_r);
       final hasDigit = RegExp(r'\d');
       for (;;) {
-        final chars = [...sym.take(2), ...asym.take(3)]..shuffle(_r);
+        final chars = [...sym.take(1), ...asym.take(3)]..shuffle(_r);
         final s = chars.join();
         if (hasDigit.hasMatch(s) && RegExp(r'[A-Z]').hasMatch(s)) return s;
         sym.shuffle(_r);
@@ -2820,26 +2853,33 @@ class QuestionGenerator {
       }
     }
 
-    // Easy (grades 2-3): three characters whose mirror image clearly
-    // differs, so every flip is visible.
-    String pickEasyContent(bool isDigit) {
-      final pool = (isDigit ? '234579' : 'BCDEFGJKLNPRSZ').split('')..shuffle(_r);
-      return pool.take(3).join();
+    // Easy (grades 2-3): one character that looks different flipped
+    // sideways, upside down and both ways (no B, C, D, E, K, c, k: upside
+    // down they look unchanged; no N, S, Z, n, s, u, z: turned over they
+    // look the same; no b, d, p, q: they flip into each other; no 9: turned
+    // over it reads 6). Lowercase too, for enough variety: 18 characters.
+    // Easy: one or two characters (tracker: "Mirror Image simple mode should
+    // show 1 or 2 alphanumerics"), each one whose mirror image looks
+    // different; two are both letters or both digits.
+    String pickEasyContent() {
+      const letters = 'FGJLPQRaefghjr', digits = '2457';
+      final pool = (_r.nextInt(18) < 4 ? digits : letters).split('')..shuffle(_r);
+      return pool.take(_r.nextBool() ? 1 : 2).join();
     }
 
-    // Medium: four characters of one kind - three whose mirror image
-    // clearly differs and one that looks the same in a mirror - so the
-    // solver must notice that not every glyph flips.
+    // Medium: two characters whose mirror image clearly differs, or three
+    // with one that looks the same in a mirror - so the solver must notice
+    // that not every glyph flips.
     String pickMediumContent(bool isDigit) {
       final asym = (isDigit ? '234579' : 'BCDEFGJKLNPRSZ').split('')..shuffle(_r);
       final sym = (isDigit ? '08' : 'AHMOTUVWXY').split('')..shuffle(_r);
-      return ([...asym.take(3), sym.first]..shuffle(_r)).join();
+      return ([...asym.take(2), if (_r.nextBool()) sym.first]..shuffle(_r)).join();
     }
 
     mirrorTextAttempt:
     for (int attempt = 0; attempt < 80; attempt++) {
       final isDigit = _r.nextBool();
-      // Hard: half the questions are the balanced 5-character set; the other
+      // Hard: half the questions are the balanced 4-character set; the other
       // half are the original 4-character set with single-letter traps (one
       // letter left unflipped, two letters swapped), which used to be Easy's
       // and is too fine a distinction for grades 2-3.
@@ -2847,14 +2887,33 @@ class QuestionGenerator {
       final content = medium
           ? pickMediumContent(isDigit)
           : !isHardMode
-              ? pickEasyContent(isDigit)
+              ? pickEasyContent()
               : classicTraps
                   ? pickBaseContent(isDigit)
                   : pickHardContent();
       final sigKey = 'mirTextAdv:$content|${isDigit ? 'digit' : 'word'}${classicTraps ? '|traps' : ''}';
-      if (_seen(sigKey)) continue;
+      // Easy has few contents: past 60 tries a repeat beats the 4-digit
+      // fallback at the end.
+      if (_seen(sigKey) && attempt < 60) continue;
 
-      // Balanced whole-word set (Hard 5 characters, Easy 3).
+      // Easy, one or two characters: {flipped sideways, not} x {upside
+      // down, not}. Flipped sideways is the whole mirror image (two
+      // characters swap places too).
+      if (!isHardMode && !medium) {
+        Map<String, dynamic> glyph(bool h, bool v) =>
+            {'type': 'mirror_text', 'is_clock': false, 'content': content, 'mirror_h': h, 'mirror_v': v};
+        final packed = _packExact(glyph(true, false), [glyph(false, false), glyph(false, true), glyph(true, true)]);
+        _markSeen(sigKey);
+        return ReasoningQuestion(
+          category: 'mirror_text',
+          type: 'mirror_text_easy',
+          puzzle: glyph(false, false),
+          options: packed.opts,
+          correctIndex: packed.idx,
+        );
+      }
+
+      // Balanced whole-word set (Hard 4 characters, Medium 2-3).
       if (!classicTraps) {
         // Balanced answer set: {letter order reversed, not} x {each letter
         // flipped, not} - the mistakes a mirror image invites (JNV 2018-2019

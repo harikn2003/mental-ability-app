@@ -165,6 +165,9 @@ int distance(LineFig a, LineFig b) {
   return d(a.segs, b.segs) + d(a.arrows, b.arrows) + d(a.rings, b.rings) + d(a.dots, b.dots) + d(a.tris, b.tris) + d(a.glyphs, b.glyphs);
 }
 
+/// The guide book's series (see book_generator_test).
+bool isBookSeries(String type) => type.startsWith('series_letters') || type.startsWith('series_round');
+
 void main() {
   for (final hard in [false, true]) {
     for (final family in hard ? SeriesGenerator.families : SeriesGenerator.easyFamilies) {
@@ -193,10 +196,12 @@ void main() {
     for (final hard in [false, true]) {
       QuestionGenerator.resetSession();
       final rules = <String>{};
-      var exam = 0;
-      const n = 200;
-      for (int i = 0; i < n; i++) {
+      var exam = 0, n = 0;
+      for (int i = 0; i < 200; i++) {
         final q = QuestionGenerator.generate('figure_series', isHardMode: hard);
+        // The guide book's series (book_generator_test) sit outside this mix.
+        if (isBookSeries(q.type)) continue;
+        n++;
         if (!q.type.startsWith('series_exam_')) continue;
         exam++;
         rules.add(q.puzzle['rule'] as String);
@@ -274,7 +279,7 @@ void main() {
     for (int i = 0; i < 800 && classic < 200; i++) {
       if (i % 10 == 0) QuestionGenerator.resetSession();
       final q = QuestionGenerator.generate('figure_series');
-      if (q.type.startsWith('series_exam_')) continue;
+      if (q.type.startsWith('series_exam_') || isBookSeries(q.type)) continue;
       classic++;
       final seq = [for (final m in q.puzzle['sequence'] as List) m as Map];
       final changing = {

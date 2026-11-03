@@ -17,6 +17,9 @@ class PunchPainter extends CustomPainter {
   PunchPainter(this.data);
 
   static const Color _paper = Color(0xFFFAFAF0);
+
+  /// 'print': a printed paper is plain line art - the sheet is white.
+  Color get _paperColor => data['print'] == true ? const Color(0xFFFFFFFF) : _paper;
   static const Color _border = Color(0xFF334155);
   static const Color _fold = Color(0xFFCBD5E1);
   static const Color _hole = Color(0xFF0F172A);
@@ -59,7 +62,7 @@ class PunchPainter extends CustomPainter {
       return;
     }
 
-    final paperPaint = Paint()..color = _paper;
+    final paperPaint = Paint()..color = _paperColor;
     final borderPaint = Paint()
       ..color = _border
       ..strokeWidth = 2
@@ -128,7 +131,42 @@ class PunchPainter extends CustomPainter {
 
     // Paper border
     canvas.drawRect(rect, borderPaint);
+    if (!unfolded) {
+      // Which way each fold went (mentors: show arrows for the folds).
+      if (axis == 0 || axis == 2) _foldArrow(canvas, rect, const Offset(0.8, 0.2), const Offset(0.35, 0.2));
+      if (axis == 1) _foldArrow(canvas, rect, const Offset(0.2, 0.8), const Offset(0.2, 0.35));
+      if (axis == 2) _foldArrow(canvas, rect, const Offset(0.2, 0.8), const Offset(0.2, 0.62));
+    }
     _drawHoles(canvas, size, rect);
+  }
+
+  /// Where a point lands when folded over [fold]'s line (unit square).
+  static Offset _across(String fold, Offset p) => switch (fold) {
+        'v' => Offset(1 - p.dx, p.dy),
+        'h' => Offset(p.dx, 1 - p.dy),
+        'd' => Offset(p.dy, p.dx),
+        _ => Offset(1 - p.dy, 1 - p.dx),
+      };
+
+  /// An arrow from [from] to [to] (unit square): the direction of a fold.
+  void _foldArrow(Canvas canvas, Rect rect, Offset from, Offset to) {
+    Offset at(Offset u) => Offset(rect.left + u.dx * rect.width, rect.top + u.dy * rect.height);
+    final a = at(from), b = at(to);
+    final paint = Paint()
+      ..color = _hole
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(a, b, paint);
+    final d = (b - a) / (b - a).distance, n = Offset(-d.dy, d.dx);
+    final head = rect.width * 0.09;
+    canvas.drawPath(
+        Path()
+          ..moveTo(b.dx, b.dy)
+          ..lineTo((b - d * head + n * head * 0.55).dx, (b - d * head + n * head * 0.55).dy)
+          ..lineTo((b - d * head - n * head * 0.55).dx, (b - d * head - n * head * 0.55).dy)
+          ..close(),
+        Paint()..color = _hole);
   }
 
   Path _poly(Rect rect, List<Offset> pts) {
@@ -154,7 +192,7 @@ class PunchPainter extends CustomPainter {
     for (int i = 0; i < step && i < folds.length; i++) {
       paper = Path.combine(PathOperation.intersect, paper, _poly(rect, _kept[folds[i]]!));
     }
-    canvas.drawPath(paper, Paint()..color = _paper);
+    canvas.drawPath(paper, Paint()..color = _paperColor);
     if (step < folds.length) {
       final flap = Path.combine(PathOperation.intersect, paper, _poly(rect, _flap[folds[step]]!));
       canvas.drawPath(flap, Paint()..color = _fold);
@@ -175,6 +213,22 @@ class PunchPainter extends CustomPainter {
           5,
           4);
       canvas.restore();
+      // Arrow from the flap's middle (the mean of points inside it; a
+      // triangle's bounding box centre lies on the fold) to where it lands.
+      var sum = Offset.zero;
+      var count = 0;
+      for (int i = 0; i < 20; i++) {
+        for (int j = 0; j < 20; j++) {
+          final q = Offset((i + 0.5) / 20, (j + 0.5) / 20);
+          if (flap.contains(Offset(rect.left + q.dx * rect.width, rect.top + q.dy * rect.height))) {
+            sum += q;
+            count++;
+          }
+        }
+      }
+      final u = count == 0 ? const Offset(0.5, 0.5) : sum / count.toDouble();
+      final v = _across(folds[step], u);
+      _foldArrow(canvas, rect, Offset.lerp(u, v, 0.1)!, Offset.lerp(u, v, 0.8)!);
     }
     canvas.drawPath(
         paper,
