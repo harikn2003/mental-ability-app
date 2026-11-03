@@ -60,45 +60,79 @@ This document explains the whole project from the ground up: what it is, how to 
 
 ## 2. Setting up a computer from zero
 
-These steps are for **Windows 10/11**, the machine the project has always been developed on. Allow about 1-2 hours, mostly downloads.
+These steps are for **Windows 10/11**. The setup is deliberately light: **Visual Studio Code** as the editor and Android's **command-line tools** instead of Android Studio. That is about 1.5 GB of downloads and far less memory while working, compared with 3-4 GB and a heavy IDE. Allow 30-60 minutes, mostly downloads.
 
-### 2.1 Install the tools
+> **Note:** "Visual Studio Code" (VS Code) is the free, lightweight editor - not "Visual Studio", the large IDE. The Visual Studio IDE is not needed at all.
 
-| # | Tool | Why | How |
-|---|---|---|---|
-| 1 | **Git** | Version control; download the code | https://git-scm.com/download/win, accept the defaults. This also installs **Git Bash**, used by the release hook. |
-| 2 | **Android Studio** | Android SDK, emulator, and the main editor | https://developer.android.com/studio. On first start, let it install the **Android SDK**, **SDK Platform-Tools** (this gives `adb`) and an **Android Virtual Device** if you want an emulator. |
-| 3 | **Flutter SDK** | The app framework (includes Dart) | https://docs.flutter.dev/get-started/install/windows. Unzip to a path **without spaces**, e.g. `C:\Flutter\flutter`, and add `C:\Flutter\flutter\bin` to the Windows `Path`. The project was last built with **Flutter 3.41.9 (stable)**; any recent stable version should work. |
-| 4 | **Java 17** | Android builds need it | Android Studio ships its own JDK, which Flutter uses automatically. CI uses Temurin 17. |
-| 5 | **GitHub CLI** (optional) | Check releases and CI from the terminal | https://cli.github.com, then `gh auth login` |
-| 6 | **Flutter and Dart plugins** in Android Studio | Code completion, run button | Android Studio → Settings → Plugins → search "Flutter" → Install (it adds Dart too) → restart |
+### 2.1 What gets installed
 
-After installing, open a new terminal (PowerShell) and run:
+| Tool | Why | Size |
+|---|---|---|
+| **Git** | Version control; also gives **Git Bash**, used by the release hook | ~300 MB |
+| **Visual Studio Code** + **Flutter extension** | Editor with code completion, run and debug buttons | ~400 MB |
+| **Java 17** (Temurin), or any Java 17+ already installed | Android builds run on Java | ~180 MB |
+| **Flutter SDK** (stable) | The app framework; includes Dart | ~1 GB on disk |
+| **Android SDK command-line tools** with platform-tools (`adb`), Android 36, build-tools 36, NDK 27 | Builds and installs the Android app; no Android Studio needed | ~1.2 GB on disk |
 
-```powershell
-flutter doctor
-```
+### 2.2 One-step setup (recommended)
 
-Every line should be a green tick except perhaps Visual Studio (only needed for Windows desktop apps, which we don't build) and Chrome. If "Android licenses" is not accepted, run `flutter doctor --android-licenses` and answer `y` to everything.
-
-### 2.2 Get the code
+The repository has a script that installs everything above, skips anything already installed, sets the paths, accepts the Android licences and checks the result. Open **PowerShell** and run:
 
 ```powershell
-cd $HOME\StudioProjects
-git clone https://github.com/harikn2003/mental-ability-app.git mental_ability_app
-cd mental_ability_app
-flutter pub get
-git config core.hooksPath tools/git-hooks
+# 1. Get the script (or copy tools\setup_windows.ps1 from the repository)
+Invoke-WebRequest https://raw.githubusercontent.com/harikn2003/mental-ability-app/master/tools/setup_windows.ps1 -OutFile setup_windows.ps1
+
+# 2. Run it; it also clones the project into the folder you give
+powershell -ExecutionPolicy Bypass -File setup_windows.ps1 -ProjectDir "$HOME\StudioProjects\mental_ability_app"
 ```
 
-- `flutter pub get` downloads the libraries listed in `pubspec.yaml`.
-- The last line switches on the project's **pre-push release hook** (section 7.4).
+- Windows may ask for permission while installing Git, VS Code and Java: click **Yes**.
+- Add `-DryRun` to see what it would do without changing anything.
+- When it finishes, **close PowerShell and open a new one** so the new paths take effect, then run `flutter doctor`. Android toolchain, VS Code and Flutter should have green ticks. "Visual Studio" and "Chrome" may show warnings - ignore them (they are only for Windows desktop and web builds).
+- The first app build downloads a few more Android pieces automatically; that is normal.
 
-> **Important:** Run `git config core.hooksPath tools/git-hooks` once in every new clone. Without it, pushing master won't offer to make a beta, and the two version files can drift apart.
+### 2.3 Open the project in VS Code
 
-Open the folder in Android Studio (File → Open → `mental_ability_app`).
+```powershell
+code "$HOME\StudioProjects\mental_ability_app"
+```
 
-### 2.3 Connect a phone
+1. VS Code offers to install the **recommended extensions** (Flutter and Dart, listed in `.vscode/extensions.json`): click **Install**.
+2. Pick the device in the bottom-right status bar (your phone, once connected - see 2.5).
+3. Open `lib/main.dart` and press **F5** to run with debugging, or **Ctrl+F5** to run without. Save a file to hot-reload.
+4. **Ctrl+Shift+P → "Flutter: Run Flutter Doctor"** checks the setup from inside VS Code.
+
+> **Important:** The setup script switches on the project's **pre-push release hook** (`git config core.hooksPath tools/git-hooks`). If you clone the project another way, run that command once in the new folder. Without it, pushing master won't offer to make a beta, and the two version files can drift apart.
+
+### 2.4 Manual setup (if the script can't be used)
+
+1. Install with winget (or from each website):
+   ```powershell
+   winget install --id Git.Git -e
+   winget install --id Microsoft.VisualStudioCode -e
+   winget install --id EclipseAdoptium.Temurin.17.JDK -e
+   ```
+2. Flutter: `git clone https://github.com/flutter/flutter.git -b stable C:\src\flutter`, then add `C:\src\flutter\bin` to your user `Path` (Start → "Edit environment variables for your account"). Use a folder **without spaces**. The project was last built with **Flutter 3.41.9 (stable)**.
+3. Android command-line tools: from https://developer.android.com/studio#command-line-tools-only download "Command line tools only" for Windows, and unzip so that `%LOCALAPPDATA%\Android\Sdk\cmdline-tools\latest\bin\sdkmanager.bat` exists. Set the user variable `ANDROID_HOME` to `%LOCALAPPDATA%\Android\Sdk`, and add its `platform-tools` and `cmdline-tools\latest\bin` folders to `Path`.
+4. In a new terminal:
+   ```powershell
+   sdkmanager --licenses
+   sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973"
+   flutter config --android-sdk "$env:LOCALAPPDATA\Android\Sdk"
+   flutter doctor --android-licenses
+   code --install-extension Dart-Code.flutter
+   ```
+5. Get the code:
+   ```powershell
+   git clone https://github.com/harikn2003/mental-ability-app.git "$HOME\StudioProjects\mental_ability_app"
+   cd "$HOME\StudioProjects\mental_ability_app"
+   flutter pub get
+   git config core.hooksPath tools/git-hooks
+   ```
+
+Optional: the **GitHub CLI** (`winget install --id GitHub.cli -e`, then `gh auth login`) checks releases and CI from the terminal.
+
+### 2.5 Connect a phone
 
 The app is tested on a real Android phone (we used a Nothing Phone (2a), model A142).
 
@@ -423,7 +457,7 @@ The most common class of bug. It almost always had the same shape: two options t
 |---|---|
 | Dependency errors after `git pull` | `flutter clean` then `flutter pub get` |
 | Gradle/AGP version errors | Keep Gradle 8.14.3 and AGP 8.13.0 (`android/gradle/wrapper/gradle-wrapper.properties`, `android/settings.gradle.kts`); don't upgrade AGP to 9.x until Flutter supports it |
-| Java errors | Use Java 17 (Android Studio's bundled JDK); `flutter doctor -v` shows which one Flutter uses |
+| Java errors | Use Java 17 or newer; `flutter doctor -v` shows which one Flutter uses. To point Flutter at a specific JDK: `flutter config --jdk-dir "<path to JDK>"` |
 | CI fails at "Validate tag" | Tag and `pubspec.yaml` version differ; fix `pubspec.yaml`, release the next beta number |
 | CI fails at "Test" but tests pass locally | Look for tests depending on Windows paths or fonts; tests must not use `C:\...` |
 
@@ -457,7 +491,7 @@ The most common class of bug. It almost always had the same shape: two options t
 | GitHub repository `harikn2003/mental-ability-app` | Hari's GitHub account | Add the manager as a collaborator with Admin, or transfer the repository to an organisation account |
 | GitHub Actions | Runs in the repository | No secrets are configured at present |
 | Notion tracker | Amod Joshi's Notion space | Ask Amod to share the database with the manager |
-| Test phone | Hari | Hand over or set up a new one (section 2.3) |
+| Test phone | Hari | Hand over or set up a new one (section 2.5) |
 
 > **Note:** No passwords, keys or tokens are stored in the repository.
 

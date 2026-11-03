@@ -1,0 +1,4 @@
+{
+  // VS Code offers to install these when the project is opened.
+  "recommendations": ["Dart-Code.flutter", "Dart-Code.dart-code"]
+}
