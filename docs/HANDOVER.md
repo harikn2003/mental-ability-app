@@ -92,7 +92,9 @@ git config core.hooksPath tools/git-hooks
 ```
 
 - `flutter pub get` downloads the libraries listed in `pubspec.yaml`.
-- The last line switches on the project's **pre-push release hook** (section 7.4). It is needed once per clone.
+- The last line switches on the project's **pre-push release hook** (section 7.4).
+
+> **Important:** Run `git config core.hooksPath tools/git-hooks` once in every new clone. Without it, pushing master won't offer to make a beta, and the two version files can drift apart.
 
 Open the folder in Android Studio (File → Open → `mental_ability_app`).
 
@@ -163,6 +165,8 @@ SessionConfigScreen (home: topics, level, length, timer, language, Print paper b
 ```
 
 Session lengths: 5, 10, 15, 20, 25, 30, 40 or 50 questions. Timer per question: 30 s, 1 min, 2 min or unlimited.
+
+> **Important:** Read `docs/hard-mode-history.md` before changing `hard_question_generator.dart` or `sandia_painter.dart`. It records about 25 bugs found and fixed there; several look like new reports but had different causes.
 
 ### 4.3 Code map (`lib/`)
 
@@ -265,7 +269,7 @@ The project relies on automated tests because a person can't check thousands of 
 | Screens | `quiz_layout_test`, `multi_topic_test`, `report_screens_test`, `print_paper_screen_test` | Screens build and behave at phone size |
 | Paper | `paper_pdf_test`, `test_paper_test`, `mentor_paper_review_test` | Every page fits A4 in all languages; PDF page counts; mentors' review points |
 
-Rule of thumb used throughout: **every bug fix starts with a test that fails, then the fix makes it pass.**
+> **Tip:** Every bug fix starts with a test that fails; the fix then makes it pass. This rule kept the same bugs from coming back.
 
 ### 7.2 Feedback loop
 
@@ -296,7 +300,7 @@ Version format: `pubspec.yaml` `version: 1.0.0-beta.N+N`, tag `v1.0.0-beta.N`. `
 4. Pushing the tag starts **GitHub Actions**: it checks the tag matches `pubspec.yaml`, runs analyze and tests, builds the APK and AAB, and publishes them as the **Latest** release (about 8 minutes). Watch it under the repo's **Actions** tab or with `gh run list`.
 5. Send testers the release link. They install `app-release.apk` (see 11.3 about signing).
 
-Never delete or reuse a published tag; if something is wrong, fix it and release the next beta number (`docs/release_beta.md`).
+> **Important:** Never delete or reuse a published tag. If something is wrong, fix it and release the next beta number (`docs/release_beta.md`).
 
 ---
 
@@ -455,7 +459,7 @@ The most common class of bug. It almost always had the same shape: two options t
 | Notion tracker | Amod Joshi's Notion space | Ask Amod to share the database with the manager |
 | Test phone | Hari | Hand over or set up a new one (section 2.3) |
 
-No passwords, keys or tokens are stored in the repository.
+> **Note:** No passwords, keys or tokens are stored in the repository.
 
 ### 11.2 Local files that are not in the repository
 
@@ -467,10 +471,12 @@ The project folder on Hari's PC also has these, which are **not** part of the co
 
 Fix (about 1 hour):
 
-1. Create a release keystore once (`keytool -genkey -v -keystore nplusprep-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias nplusprep`). **Keep it and its passwords safe and backed up; if it is lost, the app can never be updated under the same name.**
+1. Create a release keystore once (`keytool -genkey -v -keystore nplusprep-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias nplusprep`).
 2. Add a `release` signing config in `android/app/build.gradle.kts` reading the keystore path and passwords from `android/key.properties` (not committed).
 3. In GitHub: Settings → Secrets → add the keystore (base64) and passwords; in `beta-release.yml`, decode it and write `key.properties` before building.
 4. The first beta with the new key still needs one uninstall; after that, updates install over the top.
+
+> **Warning:** Keep the keystore and its passwords safe and backed up in two places. If it is lost, the app can never again be updated under the same name.
 
 ### 11.4 Open items
 
