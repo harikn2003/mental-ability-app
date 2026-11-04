@@ -87,6 +87,11 @@ void main() {
     expect(g[1], greaterThan(g[0] + 60), reason: 'highlighted line is green: $g');
     expect(_px(plain, 60, top)[0], lessThan(80), reason: 'normal line is dark');
     expect(_px(lit, 60, top)[0], greaterThan(150), reason: 'dimmed line is faint');
+    // At the start (dim 0) nothing is green yet: the hidden figure lights up
+    // as the rest fades.
+    final start = await _paint(tester, LineFigurePainter({...fig, 'dim': 0.0, 'highlight_segs': [[0, 2, 4, 2]]}));
+    final s = _px(start, 60, mid);
+    expect(s[1], lessThan(s[0] + 20), reason: 'not green before the fade: $s');
   });
 
   testWidgets('three-shape option: highlight and dim paint at every step', (tester) async {

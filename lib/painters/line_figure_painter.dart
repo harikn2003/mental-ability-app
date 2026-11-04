@@ -239,11 +239,11 @@ class LineFigurePainter extends CustomPainter {
     }
     if (dim > 0) canvas.restore();
     final lit = Paint()
-      ..color = highlight
+      ..color = highlight.withValues(alpha: dim)
       ..strokeWidth = stroke.strokeWidth * (1 + dim)
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
-    for (final s in list('highlight_segs')) {
+    for (final s in dim > 0 ? list('highlight_segs') : const <List<int>>[]) {
       canvas.drawLine(p(s[0], s[1]), p(s[2], s[3]), lit);
     }
   }
