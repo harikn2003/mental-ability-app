@@ -383,18 +383,22 @@ class LineFig {
   /// True if every line and arc of [t] appears in this figure after some
   /// shift - i.e. [t] is hidden in this figure at the same size and
   /// orientation.
-  bool embeds(LineFig t) {
+  bool embeds(LineFig t) => embedding(t) != null;
+
+  /// The lines of [t] as they sit in this figure (the first shift that hides
+  /// [t] here at the same size and orientation), or null if it isn't hidden.
+  Set<(int, int, int, int)>? embedding(LineFig t) {
     final tn = t.normalized();
-    if (tn.segs.isEmpty && tn.arcs.isEmpty) return false;
+    if (tn.segs.isEmpty && tn.arcs.isEmpty) return null;
     for (int dx = 0; dx <= w - tn.w; dx++) {
       for (int dy = 0; dy <= h - tn.h; dy++) {
         if (tn.segs.every((s) => segs.contains((s.$1 + dx, s.$2 + dy, s.$3 + dx, s.$4 + dy))) &&
             tn.arcs.every((a) => arcs.contains((a.$1 + 2 * dx, a.$2 + 2 * dy, a.$3, a.$4)))) {
-          return true;
+          return {for (final s in tn.segs) (s.$1 + dx, s.$2 + dy, s.$3 + dx, s.$4 + dy)};
         }
       }
     }
-    return false;
+    return null;
   }
 
   /// Segments separating filled cells from unfilled ones (and the outside).
