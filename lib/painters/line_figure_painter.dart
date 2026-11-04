@@ -40,9 +40,9 @@ class LineFigurePainter extends CustomPainter {
     // compared); the content itself is centred in the canvas.
     if (data['center'] == true) {
       final xs = <int>[], ys = <int>[];
-      for (final s in list('segs')) {
-        xs..add(s[0])..add(s[2]);
-        ys..add(s[1])..add(s[3]);
+      for (final s in nums('segs')) {
+        xs..add(s[0].floor())..add(s[2].ceil());
+        ys..add(s[1].floor())..add(s[3].ceil());
       }
       for (final c in <List<num>>[...nums('cells'), ...nums('dots'), ...nums('tris'), ...nums('hatch'), for (final g in glyphList()) [g.$1, g.$2]]) {
         xs..add(c[0].floor())..add(c[0].ceil() + 1);
@@ -201,7 +201,7 @@ class LineFigurePainter extends CustomPainter {
             ..close(),
           ink);
     }
-    for (final s in list('segs')) {
+    for (final s in nums('segs')) {
       canvas.drawLine(p(s[0], s[1]), p(s[2], s[3]), stroke);
     }
     for (final a in list('arcs')) {

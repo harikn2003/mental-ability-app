@@ -21,6 +21,7 @@ class MorphLine {
   /// A canonical string: element lists compared as sets, segments with
   /// their ends in order.
   static String canon(Map<String, dynamic> f) {
+    if (f['center'] == true) return canon(uncentred(f));
     final out = <String, dynamic>{};
     for (final k in _sets) {
       final items = <String>{};
@@ -44,6 +45,52 @@ class MorphLine {
     if (((f['flip'] as num?) ?? 1) != 1) out['flip'] = _num(f['flip']);
     if (((f['zoom'] as num?) ?? 1) != 1) out['zoom'] = _num(f['zoom']);
     return jsonEncode(out);
+  }
+
+  /// A `'center': true` figure (drawn centred in its box) written as the
+  /// same drawing without centring: every position shifted so the content
+  /// sits where the painter would centre it (same rule as
+  /// LineFigurePainter). Others are returned unchanged.
+  static Map<String, dynamic> uncentred(Map<String, dynamic> f) {
+    if (f['center'] != true) return f;
+    List<List<num>> l(String k) => [for (final e in (f[k] as List? ?? const [])) (e as List).sublist(0, k == 'glyphs' ? 2 : null).cast<num>()];
+    final xs = <num>[], ys = <num>[];
+    for (final s in l('segs')) {
+      xs..add(s[0].floor())..add(s[2].ceil());
+      ys..add(s[1].floor())..add(s[3].ceil());
+    }
+    for (final c in [...l('cells'), ...l('dots'), ...l('tris'), ...l('hatch'), ...l('glyphs')]) {
+      xs..add(c[0].floor())..add(c[0].ceil() + 1);
+      ys..add(c[1].floor())..add(c[1].ceil() + 1);
+    }
+    for (final a in l('arrows')) {
+      xs..add(a[0])..add(a[2]);
+      ys..add(a[1])..add(a[3]);
+    }
+    for (final a in l('arcs')) {
+      final (sx, sy) = LineFig.arcQuadrants[a[3].toInt()];
+      xs..add((a[0] / 2).floor())..add(((a[0] + sx * a[2]) / 2).round());
+      ys..add((a[1] / 2).floor())..add(((a[1] + sy * a[2]) / 2).round());
+    }
+    final out = Map<String, dynamic>.of(f)..remove('center');
+    if (xs.isEmpty) return out;
+    final dx = (f['w'] as num) / 2 - (xs.reduce(min) + xs.reduce(max)) / 2;
+    final dy = (f['h'] as num) / 2 - (ys.reduce(min) + ys.reduce(max)) / 2;
+    List<List<Object>> shift(String k, List<int> xi, List<int> yi, {num mul = 1}) => [
+          for (final e in (f[k] as List? ?? const []))
+            [
+              for (int i = 0; i < (e as List).length; i++)
+                xi.contains(i) ? (e[i] as num) + dx * mul : yi.contains(i) ? (e[i] as num) + dy * mul : e[i] as Object,
+            ],
+        ];
+    for (final k in ['cells', 'dots', 'rings', 'tris', 'hatch', 'glyphs']) {
+      if (f.containsKey(k)) out[k] = shift(k, [0], [1]);
+    }
+    for (final k in ['segs', 'arrows']) {
+      if (f.containsKey(k)) out[k] = shift(k, [0, 2], [1, 3]);
+    }
+    if (f.containsKey('arcs')) out['arcs'] = shift('arcs', [0], [1], mul: 2);
+    return out;
   }
 
   /// [fig] as a map, keeping [like]'s other keys (fold, center, ...).

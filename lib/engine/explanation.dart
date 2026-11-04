@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'explain/figure_match.dart';
+import 'explain/geo.dart';
 import 'line_figure.dart';
 import 'paper_fold.dart';
 import 'reasoning_question.dart';
@@ -30,6 +31,7 @@ sealed class Explanation {
         'punch_hole' => _punch(puzzle, answer),
         'embedded' => _embedded(puzzle, answer),
         'figure_match' => _scene(figureMatchScene(q), answer),
+        'geo_completion' => _scene(geoScene(q), answer),
         _ => null,
       };
     } catch (_) {
