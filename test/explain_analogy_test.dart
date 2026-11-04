@@ -36,8 +36,8 @@ void main() {
       // Turns, flips and slides must be the same. A swap sets a part to a
       // value (e.g. "the inner shape becomes a circle"); when C already has
       // it there's nothing to change, so C:D's swaps are some of A:B's.
-      final moves = (List<String> l) => l.where((k) => !k.startsWith('swap')).toList();
-      final swaps = (List<String> l) => l.where((k) => k.startsWith('swap')).toSet();
+      List<String> moves(List<String> l) => l.where((k) => !k.startsWith('swap')).toList();
+      Set<String> swaps(List<String> l) => l.where((k) => k.startsWith('swap')).toSet();
       expect(moves(cd), moves(ab), reason: '${q.type}: A:B is $ab but C:D is $cd');
       if (q.type.startsWith('analogy_r')) {
         // Classic figures: a part changed in only one pair still ends with
