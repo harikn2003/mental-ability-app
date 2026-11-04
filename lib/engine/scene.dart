@@ -67,14 +67,16 @@ class MorphStep extends SceneStep {
 }
 
 /// A copy of [figure] (by default what [from] holds) flies from slot [from]
-/// to slot [to], playing [beats] on the way; [to] then holds the result.
+/// to slot [to], playing [beats] on the way; [to] then holds the result, or
+/// [land] when the copy lands on something it adds to (e.g. two cells
+/// flying into one, which then holds both).
 class FlyStep extends SceneStep {
   final int from, to;
   final List<Beat> beats;
-  final Map<String, dynamic>? figure;
-  const FlyStep(this.from, this.to, this.beats, {this.figure, super.weight});
+  final Map<String, dynamic>? figure, land;
+  const FlyStep(this.from, this.to, this.beats, {this.figure, this.land, super.weight});
 
-  Map<String, dynamic>? result(List<Map<String, dynamic>?> c) => beats.isNotEmpty ? beats.last.to : (figure ?? c[from]);
+  Map<String, dynamic>? result(List<Map<String, dynamic>?> c) => land ?? (beats.isNotEmpty ? beats.last.to : (figure ?? c[from]));
 
   @override
   void apply(List<Map<String, dynamic>?> contents) => contents[to] = result(contents);

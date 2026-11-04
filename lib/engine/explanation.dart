@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'explain/analogy.dart';
 import 'explain/figure_match.dart';
 import 'explain/geo.dart';
+import 'explain/pattern.dart';
 import 'explain/series.dart';
 import 'line_figure.dart';
 import 'paper_fold.dart';
@@ -36,6 +37,7 @@ sealed class Explanation {
         'geo_completion' => _scene(geoScene(q), answer),
         'analogy' => _scene(analogyScene(q), answer),
         'figure_series' => _scene(seriesScene(q), answer),
+        'pattern' => _scene(patternScene(q), answer),
         _ => null,
       };
     } catch (_) {
