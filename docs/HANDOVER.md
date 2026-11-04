@@ -60,23 +60,28 @@ This document explains the whole project from the ground up: what it is, how to 
 
 ## 2. Setting up a computer from zero
 
-These steps are for **Windows 10/11**. The setup is deliberately light: **Visual Studio Code** as the editor and Android's **command-line tools** instead of Android Studio. That is about 1.5 GB of downloads and far less memory while working, compared with 3-4 GB and a heavy IDE. Allow 30-60 minutes, mostly downloads.
+The project can be developed on **Windows 10/11** or **Linux** (Ubuntu/Debian or Fedora). The setup is deliberately light: **Visual Studio Code** as the editor and Android's **command-line tools** instead of Android Studio. That is about 1.5 GB of downloads and far less memory while working, compared with 3-4 GB and a heavy IDE. Allow 30-60 minutes, mostly downloads.
 
-> **Note:** "Visual Studio Code" (VS Code) is the free, lightweight editor - not "Visual Studio", the large IDE. The Visual Studio IDE is not needed at all.
+> **Note:** "Visual Studio Code" (VS Code) is the free, lightweight editor - not "Visual Studio", the large Windows IDE, which is not needed at all.
 
 ### 2.1 What gets installed
 
-| Tool | Why | Size |
+| Tool | Why | Installed from (Windows / Linux) |
 |---|---|---|
-| **Git** | Version control; also gives **Git Bash**, used by the release hook | ~300 MB |
-| **Visual Studio Code** + **Flutter extension** | Editor with code completion, run and debug buttons | ~400 MB |
-| **Java 17** (Temurin), or any Java 17+ already installed | Android builds run on Java | ~180 MB |
-| **Flutter SDK** (stable) | The app framework; includes Dart | ~1 GB on disk |
-| **Android SDK command-line tools** with platform-tools (`adb`), Android 36, build-tools 36, NDK 27 | Builds and installs the Android app; no Android Studio needed | ~1.2 GB on disk |
+| **Git** | Version control; on Windows also gives **Git Bash**, used by the release hook | winget / apt or dnf |
+| **Visual Studio Code** + **Flutter extension** | Editor with code completion, run and debug buttons | winget / snap, or the Microsoft package |
+| **Java 17** (or any Java 17+ already installed) | Android builds run on Java | winget (Temurin) / apt or dnf (OpenJDK) |
+| **Flutter SDK** (stable) | The app framework; includes Dart | Git clone of the stable branch |
+| **Android SDK command-line tools**: platform-tools (`adb`), Android 36, build-tools 36, NDK 27 | Builds and installs the Android app | Google's download, then `sdkmanager` |
+| **zenity** (Linux only) | Dialog boxes for the release hook | apt or dnf |
 
-### 2.2 One-step setup (recommended)
+Install locations: Flutter in `C:\src\flutter` (Windows) or `~/development/flutter` (Linux); the Android SDK in `%LOCALAPPDATA%\Android\Sdk` (Windows) or `~/Android/Sdk` (Linux).
 
-The repository has a script that installs everything above, skips anything already installed, sets the paths, accepts the Android licences and checks the result. Open **PowerShell** and run:
+Both setup scripts install only what is missing, set the paths, accept the Android licences, install the VS Code extension, can clone the project, switch on the release hook, and finish with `flutter doctor`. Both have a dry-run mode that shows what they would do without changing anything.
+
+### 2.2 Windows: one-step setup
+
+Open **PowerShell** and run:
 
 ```powershell
 # 1. Get the script (or copy tools\setup_windows.ps1 from the repository)
@@ -88,59 +93,98 @@ powershell -ExecutionPolicy Bypass -File setup_windows.ps1 -ProjectDir "$HOME\St
 
 - Windows may ask for permission while installing Git, VS Code and Java: click **Yes**.
 - Add `-DryRun` to see what it would do without changing anything.
-- When it finishes, **close PowerShell and open a new one** so the new paths take effect, then run `flutter doctor`. Android toolchain, VS Code and Flutter should have green ticks. "Visual Studio" and "Chrome" may show warnings - ignore them (they are only for Windows desktop and web builds).
-- The first app build downloads a few more Android pieces automatically; that is normal.
+- When it finishes, **close PowerShell and open a new one** so the new paths take effect, then run `flutter doctor`.
 
-### 2.3 Open the project in VS Code
+### 2.3 Linux: one-step setup
 
-```powershell
-code "$HOME\StudioProjects\mental_ability_app"
+Open a terminal and run:
+
+```bash
+# 1. Get the script (or copy tools/setup_linux.sh from the repository)
+curl -fsSLO https://raw.githubusercontent.com/harikn2003/mental-ability-app/master/tools/setup_linux.sh
+
+# 2. Run it; it also clones the project into the folder you give
+bash setup_linux.sh --project-dir ~/projects/mental_ability_app
+```
+
+- It asks for your password (`sudo`) to install system packages.
+- Add `--dry-run` to see what it would do without changing anything.
+- When it finishes, open a **new terminal** (or run `source ~/.bashrc`), then run `flutter doctor`.
+- To use a phone over USB, add yourself to the `plugdev` group once and log out and in: `sudo usermod -aG plugdev "$USER"`.
+
+> **Tip:** On either system, `flutter doctor` should show green ticks for Flutter, the Android toolchain and VS Code. Warnings for "Visual Studio", "Chrome" or "Linux toolchain" can be ignored: those are only for desktop and web builds, which this project doesn't use. The first app build downloads a few more Android parts automatically; that is normal.
+
+### 2.4 Open the project in VS Code
+
+```bash
+code ~/projects/mental_ability_app          # Linux
+code "$HOME\StudioProjects\mental_ability_app"   # Windows (PowerShell)
 ```
 
 1. VS Code offers to install the **recommended extensions** (Flutter and Dart, listed in `.vscode/extensions.json`): click **Install**.
-2. Pick the device in the bottom-right status bar (your phone, once connected - see 2.5).
+2. Pick the device in the bottom-right status bar (your phone, once connected - see 2.6).
 3. Open `lib/main.dart` and press **F5** to run with debugging, or **Ctrl+F5** to run without. Save a file to hot-reload.
 4. **Ctrl+Shift+P → "Flutter: Run Flutter Doctor"** checks the setup from inside VS Code.
 
-> **Important:** The setup script switches on the project's **pre-push release hook** (`git config core.hooksPath tools/git-hooks`). If you clone the project another way, run that command once in the new folder. Without it, pushing master won't offer to make a beta, and the two version files can drift apart.
+> **Important:** The setup scripts switch on the project's **pre-push release hook** (`git config core.hooksPath tools/git-hooks`). If you clone the project another way, run that command once in the new folder (on Linux also `chmod +x tools/git-hooks/pre-push`). Without it, pushing master won't offer to make a beta, and the two version files can drift apart.
 
-### 2.4 Manual setup (if the script can't be used)
+### 2.5 Manual setup (if a script can't be used)
 
-1. Install with winget (or from each website):
+**Windows**
+
+1. Install the tools:
    ```powershell
    winget install --id Git.Git -e
    winget install --id Microsoft.VisualStudioCode -e
    winget install --id EclipseAdoptium.Temurin.17.JDK -e
    ```
-2. Flutter: `git clone https://github.com/flutter/flutter.git -b stable C:\src\flutter`, then add `C:\src\flutter\bin` to your user `Path` (Start → "Edit environment variables for your account"). Use a folder **without spaces**. The project was last built with **Flutter 3.41.9 (stable)**.
-3. Android command-line tools: from https://developer.android.com/studio#command-line-tools-only download "Command line tools only" for Windows, and unzip so that `%LOCALAPPDATA%\Android\Sdk\cmdline-tools\latest\bin\sdkmanager.bat` exists. Set the user variable `ANDROID_HOME` to `%LOCALAPPDATA%\Android\Sdk`, and add its `platform-tools` and `cmdline-tools\latest\bin` folders to `Path`.
-4. In a new terminal:
-   ```powershell
+2. Flutter: `git clone https://github.com/flutter/flutter.git -b stable C:\src\flutter`, then add `C:\src\flutter\bin` to your user `Path` (Start → "Edit environment variables for your account"). Use a folder **without spaces**.
+3. Android command-line tools: from https://developer.android.com/studio#command-line-tools-only download "Command line tools only" for Windows and unzip so that `%LOCALAPPDATA%\Android\Sdk\cmdline-tools\latest\bin\sdkmanager.bat` exists. Set the user variable `ANDROID_HOME` to `%LOCALAPPDATA%\Android\Sdk`, and add its `platform-tools` and `cmdline-tools\latest\bin` folders to `Path`.
+
+**Linux (Ubuntu/Debian; use `dnf` and the Fedora package names on Fedora)**
+
+1. Install the tools:
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y git curl unzip xz-utils zip libglu1-mesa openjdk-17-jdk zenity
+   sudo snap install code --classic
+   ```
+2. Flutter: `git clone https://github.com/flutter/flutter.git -b stable ~/development/flutter`.
+3. Android command-line tools: download "Command line tools only" for Linux from the same page and unzip so that `~/Android/Sdk/cmdline-tools/latest/bin/sdkmanager` exists.
+4. Add to `~/.bashrc`, then open a new terminal:
+   ```bash
+   export ANDROID_HOME="$HOME/Android/Sdk"
+   export PATH="$HOME/development/flutter/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+   ```
+
+**Both systems, in a new terminal**
+
+1. Android packages and licences:
+   ```bash
    sdkmanager --licenses
    sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973"
-   flutter config --android-sdk "$env:LOCALAPPDATA\Android\Sdk"
    flutter doctor --android-licenses
    code --install-extension Dart-Code.flutter
    ```
-5. Get the code:
-   ```powershell
-   git clone https://github.com/harikn2003/mental-ability-app.git "$HOME\StudioProjects\mental_ability_app"
-   cd "$HOME\StudioProjects\mental_ability_app"
+2. Get the code (on Windows use `$HOME\StudioProjects\mental_ability_app` as the folder):
+   ```bash
+   git clone https://github.com/harikn2003/mental-ability-app.git ~/projects/mental_ability_app
+   cd ~/projects/mental_ability_app
    flutter pub get
    git config core.hooksPath tools/git-hooks
    ```
 
-Optional: the **GitHub CLI** (`winget install --id GitHub.cli -e`, then `gh auth login`) checks releases and CI from the terminal.
+The project was last built with **Flutter 3.41.9 (stable)**. Optional: the **GitHub CLI** (`winget install --id GitHub.cli -e` on Windows, `sudo apt-get install gh` on Linux, then `gh auth login`) checks releases and CI from the terminal.
 
-### 2.5 Connect a phone
+### 2.6 Connect a phone
 
-The app is tested on a real Android phone (we used a Nothing Phone (2a), model A142).
+The app is tested on a real Android phone (a Nothing Phone (2a), model A142).
 
 1. On the phone: **Settings → About phone → tap "Build number" 7 times** to unlock Developer options.
-2. **Settings → System → Developer options → turn on "USB debugging"** (and "Wireless debugging" if you want to work without a cable).
-3. **With a cable:** plug in, accept the "Allow USB debugging?" prompt on the phone.
+2. **Settings → System → Developer options → turn on "USB debugging"** (and "Wireless debugging" to work without a cable).
+3. **With a cable:** plug in and accept the "Allow USB debugging?" prompt on the phone. On Linux, if `adb devices` shows "no permissions", check you are in the `plugdev` group (2.3) and reconnect.
 4. **Without a cable (Wi-Fi):** phone and PC on the same Wi-Fi. In Developer options → Wireless debugging → "Pair device with pairing code". On the PC:
-   ```powershell
+   ```bash
    adb pair <ip>:<pairing-port>     # type the 6-digit code shown on the phone
    adb devices                      # the phone should be listed as "device"
    ```
@@ -152,7 +196,7 @@ Wireless debugging switches itself off when the phone sleeps or changes network;
 
 ## 3. Daily tasks: run, test, build
 
-All commands run in the project folder.
+All commands run in the project folder and are the same on Windows and Linux; only paths differ (`build\app\...` on Windows, `build/app/...` on Linux).
 
 | Task | Command | Notes |
 |---|---|---|
@@ -330,7 +374,7 @@ Version format: `pubspec.yaml` `version: 1.0.0-beta.N+N`, tag `v1.0.0-beta.N`. `
 
 1. Merge the work branch into `master`; resolve conflicts; run `flutter analyze` and `flutter test` on the result.
 2. Push master: `git push origin master`.
-3. The **pre-push hook** (`tools/git-hooks/pre-push`) opens a Windows dialog: "cut a new beta?". Click **Yes** and accept the suggested tag. It bumps both version files, commits, tags and pushes the tag. (If you made the version commit and tag yourself, click **No**.)
+3. The **pre-push hook** (`tools/git-hooks/pre-push`) asks "cut a new beta?" - in a dialog box on Windows, a zenity dialog on a Linux desktop, or as a question in the terminal otherwise. Click **Yes** and accept the suggested tag. It bumps both version files, commits, tags and pushes the tag. (If you made the version commit and tag yourself, click **No**.)
 4. Pushing the tag starts **GitHub Actions**: it checks the tag matches `pubspec.yaml`, runs analyze and tests, builds the APK and AAB, and publishes them as the **Latest** release (about 8 minutes). Watch it under the repo's **Actions** tab or with `gh run list`.
 5. Send testers the release link. They install `app-release.apk` (see 11.3 about signing).
 
@@ -417,6 +461,7 @@ The most common class of bug. It almost always had the same shape: two options t
 | Beta 6 CI failed | Tests depended on a Windows-only font | Tests no longer load Windows fonts |
 | pubspec version and in-app version drifted | Two files updated by hand | The pre-push hook updates both together |
 | Hook suggested the wrong next beta | It didn't notice an untagged version | Fixed in the hook (Sep) |
+| Release hook blocked pushes on Linux | It called Windows-only `powershell.exe` | The hook picks Windows dialogs, zenity, or terminal prompts automatically (Nov) |
 | Debug and release app couldn't both be installed | Same package name | Debug builds use the `.debug` suffix |
 | Releases didn't show on the GitHub repo page | Published as pre-releases | Published as Latest releases |
 | `INSTALL_FAILED_UPDATE_INCOMPATIBLE` on the phone | Release builds are signed with a CI-generated debug key that changes each run | Uninstall then install; permanent fix in 11.3 |
@@ -491,7 +536,7 @@ The most common class of bug. It almost always had the same shape: two options t
 | GitHub repository `harikn2003/mental-ability-app` | The developer's GitHub account | Add the new owner as a collaborator with Admin, or transfer the repository to an organisation account |
 | GitHub Actions | Runs in the repository | No secrets are configured at present |
 | Notion tracker | The mentors' Notion workspace | Ask the workspace owner to share the database with the new owner |
-| Test phone | The developer | Hand over or set up a new one (section 2.5) |
+| Test phone | The developer | Hand over or set up a new one (section 2.6) |
 
 > **Note:** No passwords, keys or tokens are stored in the repository.
 

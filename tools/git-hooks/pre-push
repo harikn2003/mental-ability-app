@@ -16,9 +16,8 @@
 # get a real interactive terminal - a `read` prompt can hang or be silently
 # skipped depending on IDE/OS/git version. A native Win32 dialog box doesn't
 # need a TTY at all, so it works the same whether you push from the IDE
-# button or a terminal. If you're not on Windows, see the NON-WINDOWS
-# FALLBACK note near the bottom - you'll want zenity/osascript instead of
-# the powershell.exe calls below.
+# button or a terminal. On Linux it uses zenity dialogs if installed,
+# otherwise prompts in the terminal.
 #
 # SETUP (one-time, see also tools/git-hooks/README.md if you keep one):
 #   1. This file should live at tools/git-hooks/pre-push in the repo (already
@@ -50,38 +49,74 @@ if [[ "$pushing_main" != true ]]; then
   exit 0
 fi
 
-# --- GUI helpers (Windows via powershell.exe) -------------------------------
-# Every call is its own short-lived PowerShell process showing one native
-# dialog. Empty stdout from an input box means the user hit Cancel.
+# --- dialog helpers ----------------------------------------------------------
+# Windows: native dialogs via powershell.exe (works from IDE push buttons,
+# which have no terminal). Linux: zenity dialogs if installed, otherwise
+# plain prompts on the terminal (/dev/tty).
+
+if command -v powershell.exe >/dev/null 2>&1; then
+  DIALOGS=windows
+elif command -v zenity >/dev/null 2>&1 && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+  DIALOGS=zenity
+else
+  DIALOGS=tty
+fi
 
 gui_confirm() {
   # $1 = message, $2 = title. Returns 0 for Yes, 1 for No/Cancel.
   local message="$1" title="$2"
-  local result
-  result=$(powershell.exe -NoProfile -Command "
-    Add-Type -AssemblyName System.Windows.Forms
-    \$r = [System.Windows.Forms.MessageBox]::Show('$message', '$title', 'YesNo', 'Question')
-    Write-Output \$r
-  " | tr -d '\r\n')
-  [[ "$result" == "Yes" ]]
+  case "$DIALOGS" in
+    windows)
+      local result
+      result=$(powershell.exe -NoProfile -Command "
+        Add-Type -AssemblyName System.Windows.Forms
+        \$r = [System.Windows.Forms.MessageBox]::Show('$message', '$title', 'YesNo', 'Question')
+        Write-Output \$r
+      " | tr -d '\r\n')
+      [[ "$result" == "Yes" ]] ;;
+    zenity)
+      zenity --question --title="$title" --text="$message" 2>/dev/null ;;
+    tty)
+      local answer=""
+      printf '%s
+%s [y/N] ' "$title" "$message" >/dev/tty
+      read -r answer </dev/tty || true
+      [[ "$answer" =~ ^[Yy] ]] ;;
+  esac
 }
 
 gui_input() {
   # $1 = prompt, $2 = title, $3 = default value. Prints the entered value
   # (or the default if Cancel/empty) to stdout.
-  local prompt="$1" title="$2" default="$3"
-  powershell.exe -NoProfile -Command "
-    Add-Type -AssemblyName Microsoft.VisualBasic
-    [Microsoft.VisualBasic.Interaction]::InputBox('$prompt', '$title', '$default')
-  " | tr -d '\r\n'
+  local prompt="$1" title="$2" default="$3" value=""
+  case "$DIALOGS" in
+    windows)
+      powershell.exe -NoProfile -Command "
+        Add-Type -AssemblyName Microsoft.VisualBasic
+        [Microsoft.VisualBasic.Interaction]::InputBox('$prompt', '$title', '$default')
+      " | tr -d '\r\n' ;;
+    zenity)
+      value=$(zenity --entry --title="$title" --text="$prompt" --entry-text="$default" 2>/dev/null || true)
+      printf '%s' "${value:-$default}" ;;
+    tty)
+      printf '%s [%s]: ' "$prompt" "$default" >/dev/tty
+      read -r value </dev/tty || true
+      printf '%s' "${value:-$default}" ;;
+  esac
 }
 
 gui_error() {
   local message="$1"
-  powershell.exe -NoProfile -Command "
-    Add-Type -AssemblyName System.Windows.Forms
-    [System.Windows.Forms.MessageBox]::Show('$message', 'Release tag error', 'OK', 'Error') | Out-Null
-  " >/dev/null
+  case "$DIALOGS" in
+    windows)
+      powershell.exe -NoProfile -Command "
+        Add-Type -AssemblyName System.Windows.Forms
+        [System.Windows.Forms.MessageBox]::Show('$message', 'Release tag error', 'OK', 'Error') | Out-Null
+      " >/dev/null ;;
+    zenity) zenity --error --title='Release tag error' --text="$message" 2>/dev/null || true ;;
+    tty) printf 'Release tag error: %s
+' "$message" >/dev/tty ;;
+  esac
 }
 
 # --- read current version state --------------------------------------------
@@ -163,11 +198,5 @@ git tag -a "$tag_name" -m "$commit_message"
 git push origin "$tag_name"
 
 echo "pre-push: created and pushed ${tag_name} (build #${next_build_number}). Continuing with your original push..." >&2
-
-# NON-WINDOWS FALLBACK:
-# Replace gui_confirm/gui_input/gui_error's powershell.exe bodies with:
-#   zenity --question / --entry / --error   (Linux)
-#   osascript -e 'display dialog ...'        (macOS)
-# The rest of the script (version parsing, git commands) is unchanged.
 
 exit 0
