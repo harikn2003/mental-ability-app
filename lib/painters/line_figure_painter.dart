@@ -29,8 +29,11 @@ class LineFigurePainter extends CustomPainter {
     var oy = (size.height - unit * h) / 2;
 
     List<List<int>> list(String k) => [for (final e in (data[k] as List? ?? const [])) (e as List).cast<int>()];
-    List<(int, int, String)> glyphList() =>
-        [for (final g in (data['glyphs'] as List? ?? const [])) ((g as List)[0] as int, g[1] as int, g[2] as String)];
+    // Tokens (dots, rings, symbols) may sit between lattice points: an
+    // answer explanation glides them along their path.
+    List<List<num>> nums(String k) => [for (final e in (data[k] as List? ?? const [])) (e as List).cast<num>()];
+    List<(num, num, String)> glyphList() =>
+        [for (final g in (data['glyphs'] as List? ?? const [])) ((g as List)[0] as num, g[1] as num, g[2] as String)];
 
     // 'center': the lattice only sets the SCALE (e.g. geo pieces all drawn
     // at the same 4x4 scale as the square they're cut from, so size can be
@@ -41,9 +44,9 @@ class LineFigurePainter extends CustomPainter {
         xs..add(s[0])..add(s[2]);
         ys..add(s[1])..add(s[3]);
       }
-      for (final c in [...list('cells'), ...list('dots'), ...list('tris'), ...list('hatch'), for (final g in glyphList()) [g.$1, g.$2]]) {
-        xs..add(c[0])..add(c[0] + 1);
-        ys..add(c[1])..add(c[1] + 1);
+      for (final c in <List<num>>[...list('cells'), ...nums('dots'), ...list('tris'), ...list('hatch'), for (final g in glyphList()) [g.$1, g.$2]]) {
+        xs..add(c[0].floor())..add(c[0].ceil() + 1);
+        ys..add(c[1].floor())..add(c[1].ceil() + 1);
       }
       for (final a in list('arrows')) {
         xs..add(a[0])..add(a[2]);
@@ -74,7 +77,22 @@ class LineFigurePainter extends CustomPainter {
     // Answer explanation (Embedded): 'dim' 0..1 fades the drawing to a
     // quarter so the hidden figure's lines ('highlight_segs') stand out.
     final dim = ((data['dim'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0);
-    if (dim > 0) canvas.saveLayer(Offset.zero & size, Paint()..color = Color.fromRGBO(0, 0, 0, 1 - 0.75 * dim));
+
+    // Answer explanation: 'turn' (quarter turns, may be fractional) and
+    // 'flip' (horizontal scale, 1 -> -1 mirrors) move the whole drawing about
+    // the canvas centre, for the frames between a figure and its turned or
+    // mirrored copy.
+    final turn = (data['turn'] as num?)?.toDouble() ?? 0;
+    final flip = (data['flip'] as num?)?.toDouble() ?? 1;
+    final moved = turn != 0 || flip != 1;
+    if (moved) {
+      canvas.save();
+      canvas.translate(size.width / 2, size.height / 2);
+      canvas.rotate(turn * pi / 2);
+      canvas.scale(flip, 1);
+      canvas.translate(-size.width / 2, -size.height / 2);
+    }
+    if (dim > 0) canvas.saveLayer(null, Paint()..color = Color.fromRGBO(0, 0, 0, 1 - 0.75 * dim));
 
     // Filled cells first, so every line sits on top of them.
     // 'print': a printed paper is plain line art - filled cells white.
@@ -215,7 +233,7 @@ class LineFigurePainter extends CustomPainter {
       if (shape == null) continue;
       final g = unit * 0.15;
       final c = p(cx + 0.5, cy + 0.5);
-      Offset q(int x, int y) => c + Offset(x * g, y * g);
+      Offset q(num x, num y) => c + Offset(x * g, y * g);
       for (final (x1, y1, x2, y2) in shape.$1) {
         canvas.drawLine(q(x1, y1), q(x2, y2), glyphStroke);
       }
@@ -224,7 +242,7 @@ class LineFigurePainter extends CustomPainter {
         canvas.drawCircle(q(x, y), r * g * (filled ? 1.3 : 0.8), filled ? ink : glyphStroke);
       }
     }
-    for (final d in list('dots')) {
+    for (final d in nums('dots')) {
       canvas.drawCircle(p(d[0] + 0.5, d[1] + 0.5), max(unit * 0.16, size.shortestSide * 0.03), ink); // 4x4 size at least
     }
     final ringPaint = Paint()
@@ -232,7 +250,7 @@ class LineFigurePainter extends CustomPainter {
       ..strokeWidth = stroke.strokeWidth * 0.8
       ..style = PaintingStyle.stroke;
     final ringFill = Paint()..color = Colors.white;
-    for (final r in list('rings')) {
+    for (final r in nums('rings')) {
       final ringR = max(unit * 0.17, size.shortestSide * 0.032); // as on a 4x4 figure, at least
       canvas.drawCircle(p(r[0], r[1]), ringR, ringFill);
       canvas.drawCircle(p(r[0], r[1]), ringR, ringPaint);
@@ -246,6 +264,7 @@ class LineFigurePainter extends CustomPainter {
     for (final s in dim > 0 ? list('highlight_segs') : const <List<int>>[]) {
       canvas.drawLine(p(s[0], s[1]), p(s[2], s[3]), lit);
     }
+    if (moved) canvas.restore();
   }
 
   @override
