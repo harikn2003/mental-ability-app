@@ -56,3 +56,6 @@ app.*.map.json
 /tool/dup_report_500.json
 /tool/dup_report_no_odd_50.json
 /tool/dup_report_no_odd_500.json
+
+# Brainstorm mockups (local only)
+.superpowers/
