@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mental_ability_app/engine/difficulty.dart';
 import 'package:mental_ability_app/engine/explanation.dart';
+import 'package:mental_ability_app/engine/line_figure.dart';
 import 'package:mental_ability_app/engine/morph.dart';
 import 'package:mental_ability_app/engine/question_generator.dart';
 import 'package:mental_ability_app/engine/reasoning_question.dart';
@@ -38,6 +39,27 @@ void checkBeats(List<Beat> beats, Map start, String why) {
     expect(Morph.same(Morph.frame(b, 0), b.from), isTrue, reason: '$why: frame 0');
     expect(Morph.same(Morph.frame(b, 1), b.to), isTrue, reason: '$why: frame 1');
     expect(Morph.same(b.from, b.to), isFalse, reason: '$why: a change that changes nothing');
+    checkMotion(b, why);
+  }
+}
+
+/// A turn or flip really carries its figure onto the next one (right angle,
+/// right way round), not just ends there: line drawings and classic shapes.
+void checkMotion(Beat b, String why) {
+  final kind = Morph.kindOf(Morph.plain(b.from));
+  if (b is TurnBeat && b.part == null && b.zoom == 1 && b.degrees % 90 == 0) {
+    final k = ((b.degrees ~/ 90) % 4 + 4) % 4;
+    if (kind == FigureKind.line) {
+      expect(LineFig.fromMap(Morph.plain(b.from)).rot(k).shapeKey, LineFig.fromMap(Morph.plain(b.to)).shapeKey,
+          reason: '$why: a turn by ${b.degrees} does not lead to the next figure');
+    } else if (kind == FigureKind.classic) {
+      final r0 = (b.from['rotation'] as num? ?? 0).round(), r1 = (b.to['rotation'] as num? ?? 0).round();
+      expect((r0 + k - r1) % 4, 0, reason: '$why: a turn by ${b.degrees} does not lead to the next figure');
+    }
+  }
+  if (b is FlipBeat && kind == FigureKind.line) {
+    expect(LineFig.fromMap(Morph.plain(b.from)).mirrorX().shapeKey, LineFig.fromMap(Morph.plain(b.to)).shapeKey,
+        reason: '$why: a flip does not lead to the next figure');
   }
 }
 

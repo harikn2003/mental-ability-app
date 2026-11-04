@@ -28,6 +28,57 @@ String _kind(Beat b) => switch (b) {
       SwapBeat(:final changed) => 'swap ${(changed.toList()..sort()).join(',')}',
     };
 
+/// What changes from [a] to [b], value by value: amounts by how much (turns
+/// modulo a full turn), named things (shape, fill...) by what they become; on/off
+/// switches by toggling.
+/// Two pairs show "the same change" only when these are equal.
+const _shades = ['white', 'grey40', 'grey10', 'black'];
+
+Map<String, String> _change(Map a, Map b) {
+  final fa = <String, dynamic>{}, fb = <String, dynamic>{};
+  void flat(dynamic v, String path, Map<String, dynamic> out) {
+    if (v is Map) {
+      for (final e in v.entries) {
+        flat(e.value, '$path.${e.key}', out);
+      }
+    } else if (v is List) {
+      for (int i = 0; i < v.length; i++) {
+        flat(v[i], '$path[$i]', out);
+      }
+    } else {
+      out[path] = v;
+    }
+  }
+
+  flat(a, '', fa);
+  flat(b, '', fb);
+  const named = {'shape', 'inner', 'filled', 'mirror', 'missingCorner', 'fill'};
+  final out = <String, String>{};
+  for (final k in {...fa.keys, ...fb.keys}) {
+    final x = fa[k], y = fb[k];
+    if (x is num && y is num && !named.contains(k.substring(k.lastIndexOf('.') + 1))) {
+      if ((x - y).abs() < 1e-9) continue;
+      var d = y - x;
+      if (k.endsWith('.rotation')) d %= 4;
+      if (k.endsWith('.rot')) d %= 360;
+      out[k] = 'by ${d.toStringAsFixed(4)}';
+    } else if (k.endsWith('.fill') && _shades.contains(x) && _shades.contains(y)) {
+      // Sandia fills step through a cycle of shades: compare the steps.
+      out[k] = 'shade by ${(_shades.indexOf(y as String) - _shades.indexOf(x as String)) % _shades.length}';
+    } else if (x is bool && y is bool) {
+      if (x != y) out[k] = 'toggles';
+    } else if ('$x' != '$y') {
+      out[k] = 'to $y';
+    }
+  }
+  return out;
+}
+
+bool _sameChange(Map a, Map b, Map c, Map d) {
+  final x = _change(a, b), y = _change(c, d);
+  return x.length == y.length && x.entries.every((e) => y[e.key] == e.value);
+}
+
 int _sign(List<Beat> beats) => beats.whereType<TurnBeat>().any((t) => t.degrees < 0) ? -1 : 1;
 
 Scene? _quad(Map<String, dynamic> p, Map<String, dynamic> answer) {
@@ -108,6 +159,7 @@ Scene? _byExample(List<Map<String, dynamic>?> cells, int m, Map<String, dynamic>
           final ans = Morph.diff(cells[s]!, answer, turnSign: _sign(ref));
           if (ans == null) continue;
           if (ans.map(_kind).join('|') != ref.map(_kind).join('|')) continue;
+          if (!_sameChange(cells[from]!, cells[to]!, cells[s]!, answer)) continue;
           found = (from, to, s, ref, ans);
         }
       }
