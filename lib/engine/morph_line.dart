@@ -277,7 +277,14 @@ class MorphLine {
     var bestScore = double.infinity;
     for (final op in ops) {
       if (op.$2.w != fb.w || op.$2.h != fb.h) continue;
-      final score = _bodyDiff(op.$2, fb) * 1000 + _match(_tokens(op.$2), tb).$2 + op.$3;
+      // The lines decide the turn; tokens only count when they can't all be
+      // paired (50 each, inside the match cost), and their travel only
+      // breaks ties - so contents that swap corners glide, rather than
+      // being explained as the whole figure mirrored.
+      final (pairs, cost) = _match(_tokens(op.$2), tb);
+      final travel = pairs.fold(0.0, (s, p) => s + _dist(p.$2, p.$3));
+      final unpaired = cost - travel;
+      final score = _bodyDiff(op.$2, fb) * 1000 + unpaired + op.$3 + travel * 0.01;
       if (score < bestScore) {
         bestScore = score;
         best = op;

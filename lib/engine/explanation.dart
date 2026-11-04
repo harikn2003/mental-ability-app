@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'explain/analogy.dart';
 import 'explain/figure_match.dart';
 import 'explain/geo.dart';
 import 'line_figure.dart';
@@ -32,6 +33,7 @@ sealed class Explanation {
         'embedded' => _embedded(puzzle, answer),
         'figure_match' => _scene(figureMatchScene(q), answer),
         'geo_completion' => _scene(geoScene(q), answer),
+        'analogy' => _scene(analogyScene(q), answer),
         _ => null,
       };
     } catch (_) {
