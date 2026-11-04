@@ -435,8 +435,15 @@ class Morph {
         }
       case ResizeBeat() || MoveBeat():
         return _lerp(from, beat.to, t) as Map<String, dynamic>;
-      case GlideBeat():
-        return kindOf(from) == FigureKind.line ? _lerp(from, beat.to, t) as Map<String, dynamic> : (t < 0.5 ? from : beat.to);
+      case GlideBeat(:final tokens):
+        if (kindOf(from) == FigureKind.letters) {
+          final targets = List<int>.generate((from['content'] as String).length, (i) => i);
+          for (final (i, j) in tokens) {
+            targets[i] = j;
+          }
+          return {...from, 'glide_to': beat.to['content'], 'targets': targets, 't': t};
+        }
+        return _lerp(from, beat.to, t) as Map<String, dynamic>;
       case FlipBeat():
         return kindOf(from) == FigureKind.line ? MorphLine.flipFrame(beat, t) : (t < 0.5 ? from : beat.to);
       case SwapBeat() || RegroupBeat():

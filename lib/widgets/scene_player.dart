@@ -145,8 +145,6 @@ class ScenePlayer extends StatelessWidget {
         );
       case SwapBeat():
         return _crossFade(beat.from, beat.to, t, size);
-      case GlideBeat() when !line:
-        return _crossFade(beat.from, beat.to, t, size);
       case RegroupBeat(:final pieces):
         final s = ((t - 0.7) / 0.3).clamp(0.0, 1.0);
         return SizedBox.square(

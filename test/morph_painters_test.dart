@@ -122,4 +122,16 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(_diff(glyphMid, await _render(tester, {'type': 'line_fig', 'w': 4, 'h': 4, 'frame': false})), greaterThan(0.002));
   });
+  testWidgets('letters: the slide starts on the first word and ends on the second', (tester) async {
+    Map<String, dynamic> word(String s) => {'type': 'mirror_text', 'content': s, 'is_clock': false, 'mirror_h': false, 'mirror_v': false};
+    // Tests draw every letter as the same block; spaces show where it is.
+    final glide = {...word('N  '), 'glide_to': '  N', 'targets': [2, 0, 1]};
+    final first = await _render(tester, word('N  ')), second = await _render(tester, word('  N'));
+    expect(_diff(first, second), greaterThan(0.01));
+    expect(_diff(await _render(tester, {...glide, 't': 0}), first), lessThan(0.002));
+    expect(_diff(await _render(tester, {...glide, 't': 1}), second), lessThan(0.002));
+    final mid = await _render(tester, {...glide, 't': 0.5});
+    expect(_diff(mid, first), greaterThan(0.01));
+    expect(_diff(mid, second), greaterThan(0.01));
+  });
 }

@@ -429,13 +429,43 @@ class EnhancedMirrorTextPainter extends CustomPainter {
     canvas.save();
     canvas.scale(fit, fit);
 
+    // Answer explanation: letters gliding to their places in 'glide_to'
+    // ('targets'[i] = where letter i goes, 't' = 0..1). A letter that jumps
+    // over others travels on an arc above them.
+    final glideTo = data['glide_to'] as String?;
+    final targets = (data['targets'] as List?)?.cast<num>();
+    final glideT = (data['t'] as num?)?.toDouble() ?? 0;
+    List<double>? toCentres;
+    if (glideTo != null && targets != null && glideTo.length == content.length) {
+      toCentres = [];
+      double tw = 0;
+      final ws = [
+        for (int i = 0; i < glideTo.length; i++)
+          (TextPainter(text: TextSpan(text: glideTo[i], style: textStyle), textDirection: TextDirection.ltr)..layout()).width,
+      ];
+      for (int i = 0; i < ws.length; i++) {
+        tw += ws[i] + (i < ws.length - 1 ? letterSpacing : 0);
+      }
+      var x = -tw / 2;
+      for (final w in ws) {
+        toCentres.add(x + w / 2);
+        x += w + letterSpacing;
+      }
+    }
+
     for (int i = 0; i < content.length; i++) {
       final tp = painters[i];
-      final charCenterX = currentX + tp.width / 2;
+      var charCenterX = currentX + tp.width / 2;
+      var charY = 0.0;
+      if (toCentres != null) {
+        final to = targets![i].toInt();
+        charCenterX += (toCentres[to] - charCenterX) * glideT;
+        if ((to - i).abs() > 1) charY = -sin(pi * glideT) * fontSize * 0.75;
+      }
 
       canvas.save();
       // Translate to character center
-      canvas.translate(charCenterX, 0.0);
+      canvas.translate(charCenterX, charY);
 
       // If selective mirror trap is active for this character, apply a local scale(-1, 1)
       // to cancel out the global mirror scale(-1, 1).
