@@ -25,8 +25,13 @@ sealed class Explanation {
   Duration get duration => const Duration(seconds: 3);
 
   /// The explanation for [q], or null for a topic without one or a question
-  /// whose data doesn't fit (never throws).
-  static Explanation? of(ReasoningQuestion q) {
+  /// whose data doesn't fit (never throws). Worked out once per question
+  /// (the quiz asks whether there is one, then plays it).
+  static Explanation? of(ReasoningQuestion q) => (_worked[q] ??= (_work(q),)).$1;
+
+  static final _worked = Expando<(Explanation?,)>('explanation');
+
+  static Explanation? _work(ReasoningQuestion q) {
     try {
       if (q.correctIndex < 0 || q.correctIndex >= q.options.length) return null;
       final answer = _map(q.options[q.correctIndex]);

@@ -127,6 +127,12 @@ void main() {
         ]));
   });
 
+  test('a question is worked out once (the quiz asks for it twice)', () {
+    QuestionGenerator.seed(5);
+    final q = QuestionGenerator.generate('pattern', difficulty: Difficulty.hard);
+    expect(identical(Explanation.of(q), Explanation.of(q)), isTrue);
+  });
+
   test('a topic the app does not know has no explanation', () {
     final q = ReasoningQuestion(category: 'unknown_topic', type: 'unknown', puzzle: const {}, options: const [{}, {}, {}, {}], correctIndex: 0);
     expect(Explanation.of(q), isNull);

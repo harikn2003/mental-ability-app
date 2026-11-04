@@ -28,7 +28,6 @@ class LineFigurePainter extends CustomPainter {
     var ox = (size.width - unit * w) / 2;
     var oy = (size.height - unit * h) / 2;
 
-    List<List<int>> list(String k) => [for (final e in (data[k] as List? ?? const [])) (e as List).cast<int>()];
     // Tokens (dots, rings, symbols) may sit between lattice points: an
     // answer explanation glides them along their path.
     List<List<num>> nums(String k) => [for (final e in (data[k] as List? ?? const [])) (e as List).cast<num>()];
@@ -48,12 +47,12 @@ class LineFigurePainter extends CustomPainter {
         xs..add(c[0].floor())..add(c[0].ceil() + 1);
         ys..add(c[1].floor())..add(c[1].ceil() + 1);
       }
-      for (final a in list('arrows')) {
-        xs..add(a[0])..add(a[2]);
-        ys..add(a[1])..add(a[3]);
+      for (final a in nums('arrows')) {
+        xs..add(min(a[0], a[2]).floor())..add(max(a[0], a[2]).ceil());
+        ys..add(min(a[1], a[3]).floor())..add(max(a[1], a[3]).ceil());
       }
-      for (final a in list('arcs')) {
-        final (sx, sy) = LineFig.arcQuadrants[a[3]];
+      for (final a in nums('arcs')) {
+        final (sx, sy) = LineFig.arcQuadrants[a[3].toInt()];
         xs..add((a[0] / 2).floor())..add(((a[0] + sx * a[2]) / 2).round());
         ys..add((a[1] / 2).floor())..add(((a[1] + sy * a[2]) / 2).round());
       }
@@ -204,12 +203,12 @@ class LineFigurePainter extends CustomPainter {
     for (final s in nums('segs')) {
       canvas.drawLine(p(s[0], s[1]), p(s[2], s[3]), stroke);
     }
-    for (final a in list('arcs')) {
+    for (final a in nums('arcs')) {
       // Doubled coordinates; quadrant q starts at angle (q - 1) * 90° (y down).
       final r = a[2] / 2 * unit;
       canvas.drawArc(Rect.fromCircle(center: p(a[0] / 2, a[1] / 2), radius: r), (a[3] - 1) * pi / 2, pi / 2, false, stroke);
     }
-    for (final a in list('arrows')) {
+    for (final a in nums('arrows')) {
       // Filled head at (x2, y2), pointing away from (x1, y1).
       final tip = p(a[2], a[3]);
       final dir = tip - p(a[0], a[1]);
@@ -266,7 +265,7 @@ class LineFigurePainter extends CustomPainter {
       ..strokeWidth = stroke.strokeWidth * (1 + dim)
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
-    for (final s in dim > 0 ? list('highlight_segs') : const <List<int>>[]) {
+    for (final s in dim > 0 ? nums('highlight_segs') : const <List<num>>[]) {
       canvas.drawLine(p(s[0], s[1]), p(s[2], s[3]), lit);
     }
     if (moved) canvas.restore();

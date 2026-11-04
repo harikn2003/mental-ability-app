@@ -66,7 +66,8 @@ class ScenePlayer extends StatelessWidget {
         case RevealStep():
           reveal = done ? 1 : local;
       }
-      if (done) step.apply(contents);
+      // (A TogetherStep's steps have each applied themselves above.)
+      if (done && step is! TogetherStep) step.apply(contents);
     }
 
     var start = leadIn;

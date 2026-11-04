@@ -27,6 +27,19 @@ final LineFig everything = LineFig(4, 4,
     dots: {(2, 0)});
 
 void main() {
+  testWidgets('an in-between frame with arrows, arcs and highlights between lattice points draws', (tester) async {
+    final data = <String, dynamic>{
+      'type': 'line_fig', 'w': 4, 'h': 4,
+      'segs': [[0.5, 0, 1.5, 1]],
+      'arrows': [[0.5, 0.5, 2.5, 1.5]],
+      'arcs': [[2.5, 6, 2, 0]],
+      'highlight_segs': [[0.5, 0, 1.5, 1]],
+      'dim': 0.5, 'center': true,
+    };
+    await tester.pumpWidget(CustomPaint(painter: LineFigurePainter(data), size: const Size(80, 80)));
+    expect(tester.takeException(), isNull);
+  });
+
   group('model', () {
     test('group identities hold with every kind of part', () {
       expect(everything.rot(4).key, everything.key);

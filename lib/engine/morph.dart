@@ -315,7 +315,7 @@ class Morph {
     final beats = <Beat>[];
     var cur = plain(a);
     if ([for (int i = 0; i < fa.length; i++) fa[i].length != fb[i].length].any((x) => x)) {
-      // Features added or removed: keep the ones that match, then swap.
+      // Features added or removed: the whole cell cross-fades.
       return [SwapBeat(a, b, {'count'})];
     }
     List<List<Map<String, dynamic>>> curF() => _featureLists(cur);

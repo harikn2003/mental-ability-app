@@ -23,6 +23,8 @@ void main() {
       Set<String> segs(Map m) => {for (final s in m['segs'] as List) (s as List).join(',')};
       for (int i = 1; i < flies.length; i++) {
         expect(Morph.same(flies[i - 1].land!, flies[i].land!), isFalse);
+        // (The last landing is the answer, drawn on its own lattice: checked below.)
+        if (i < flies.length - 1) expect(segs(flies[i].land!).containsAll(segs(flies[i - 1].land!)), isTrue, reason: 'a landing drops lines already there');
       }
       expect(segs(flies.last.land!), segs(q.options[q.correctIndex]));
     });
