@@ -6,6 +6,7 @@ import 'explain/geo.dart';
 import 'explain/odd_man.dart';
 import 'explain/pattern.dart';
 import 'explain/series.dart';
+import 'explain/space_vis.dart';
 import 'line_figure.dart';
 import 'paper_fold.dart';
 import 'reasoning_question.dart';
@@ -40,6 +41,7 @@ sealed class Explanation {
         'figure_series' => _scene(seriesScene(q), answer),
         'pattern' => _scene(patternScene(q), answer),
         'odd_man' => _scene(oddManScene(q), answer),
+        'space_vis' => _scene(spaceVisScene(q), answer),
         _ => null,
       };
     } catch (_) {

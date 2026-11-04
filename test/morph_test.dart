@@ -262,4 +262,21 @@ void main() {
       }
     });
   });
+
+  test('a symmetric line figure turns without a flip that changes nothing', () {
+    // A 6x2 bar (mirror-symmetric) standing up: a flip then a turn would
+    // also get there, but the flip alone changes nothing.
+    final bar = {
+      'type': 'line_fig', 'w': 8, 'h': 8, 'frame': false, 'center': true,
+      'segs': [[6, 0, 6, 1], [6, 1, 6, 2], [5, 2, 6, 2], [4, 2, 5, 2], [4, 0, 5, 0], [5, 0, 6, 0], [3, 2, 4, 2], [2, 2, 3, 2], [2, 0, 3, 0], [3, 0, 4, 0], [1, 2, 2, 2], [0, 2, 1, 2], [0, 1, 0, 2], [0, 0, 0, 1], [0, 0, 1, 0], [1, 0, 2, 0]],
+      'cells': [], 'tris': [], 'dots': [], 'rings': [],
+    };
+    final standing = {
+      ...bar,
+      'segs': [[0, 6, 1, 6], [1, 6, 2, 6], [2, 5, 2, 6], [2, 4, 2, 5], [0, 4, 0, 5], [0, 5, 0, 6], [2, 3, 2, 4], [2, 2, 2, 3], [0, 2, 0, 3], [0, 3, 0, 4], [2, 1, 2, 2], [2, 0, 2, 1], [1, 0, 2, 0], [0, 0, 1, 0], [0, 0, 0, 1], [0, 1, 0, 2]],
+    };
+    final beats = Morph.diff(bar, standing)!;
+    expect(beats.map((b) => b.runtimeType), [TurnBeat]);
+    expectChain(beats, bar, standing);
+  });
 }

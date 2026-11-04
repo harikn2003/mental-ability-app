@@ -157,7 +157,9 @@ class Morph {
     };
     if (beats == null) return null;
     assert(beats.isEmpty || same(beats.last.to, pb));
-    return beats;
+    // A step that looks the same before and after (e.g. flipping a
+    // symmetric shape on the way to a turn) is left out: nothing to watch.
+    return [for (final x in beats) if (!same(x.from, x.to)) x];
   }
 
   /// Signed quarter turns from [ra] to [rb], or 0.
