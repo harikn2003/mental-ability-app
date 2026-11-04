@@ -14,7 +14,7 @@ Scene? patternScene(ReasoningQuestion q) {
   final p = Morph.plain(q.puzzle);
   final answer = Morph.plain(q.options[q.correctIndex]);
   if (p['type'] == 'quad_pattern') return _quad(p, answer);
-  if (p['type'] == 'matrix' && p['cells'] is List) return _matrix(p, answer);
+  if (p['type'] == 'matrix' && p['cells'] is List) return _matrix(p, answer, [for (final o in q.options) Morph.plain(o)]);
   return null;
 }
 
@@ -61,8 +61,9 @@ Map<String, String> _change(Map a, Map b) {
       var d = y - x;
       if (k.endsWith('.rotation')) d %= 4;
       if (k.endsWith('.rot')) d %= 360;
-      out[k] = 'by ${d.toStringAsFixed(4)}';
-    } else if (k.endsWith('.fill') && _shades.contains(x) && _shades.contains(y)) {
+      // Sandia shapes shrink by a share, down to a floor: compare the way.
+      out[k] = k.endsWith('.scale') ? (d < 0 ? 'smaller' : 'larger') : 'by ${d.toStringAsFixed(4)}';
+    } else if (k.endsWith('.fill') && x != y && _shades.contains(x) && _shades.contains(y)) {
       // Sandia fills step through a cycle of shades: compare the steps.
       out[k] = 'shade by ${(_shades.indexOf(y as String) - _shades.indexOf(x as String)) % _shades.length}';
     } else if (x is bool && y is bool) {
@@ -119,18 +120,18 @@ List<Slot> _grid(List<Map<String, dynamic>?> cells, int missing) {
 
 const _extent = Size(3 * 60 + 2 * 10, 3 * 60 + 2 * 10);
 
-Scene? _matrix(Map<String, dynamic> p, Map<String, dynamic> answer) {
+Scene? _matrix(Map<String, dynamic> p, Map<String, dynamic> answer, List<Map<String, dynamic>> options) {
   final raw = p['cells'] as List;
   if (raw.length != 9) return null;
   final cells = [for (final c in raw) c is Map && c['empty'] != true ? Morph.plain(c) : null];
   final missing = p['missing'] as int? ?? cells.indexOf(null);
   if (missing < 0) return null;
-  return _logic(cells, missing, answer) ?? _byExample(cells, missing, answer);
+  return _logic(cells, missing, answer) ?? _byExample(cells, missing, answer, options);
 }
 
 /// A pair of cells that changes the way the gap's neighbour must change:
 /// both are shown, example first.
-Scene? _byExample(List<Map<String, dynamic>?> cells, int m, Map<String, dynamic> answer) {
+Scene? _byExample(List<Map<String, dynamic>?> cells, int m, Map<String, dynamic> answer, List<Map<String, dynamic>> options) {
   final mr = m ~/ 3, mc = m % 3;
   final sources = <int>[
     for (final d in [-1, 1, -2, 2])
@@ -167,7 +168,7 @@ Scene? _byExample(List<Map<String, dynamic>?> cells, int m, Map<String, dynamic>
     }
     if (found != null) break;
   }
-  if (found == null) return _nearest(cells, m, answer, sources);
+  if (found == null) return _byLayers(cells, m, answer, options) ?? _nearest(cells, m, answer, sources);
   final (from, to, s, ref, ans) = found;
   return Scene(
     extent: _extent,
@@ -253,6 +254,148 @@ Scene? _logic(List<Map<String, dynamic>?> cells, int m, Map<String, dynamic> ans
 extension on List<int> {
   (int, int) toPair() => (this[0], this[1]);
 }
+
+/// One layer of [cell], alone.
+Map<String, dynamic> _onlyLayer(Map<String, dynamic> cell, int i) => {
+      ...cell,
+      'layers': [_layers(cell)[i]],
+    };
+
+/// A Sandia layer as one shape and how many copies of it (the copies differ
+/// only in where they sit), or null when its shapes differ (logic layers).
+Map<String, dynamic>? sandiaSummary(Map<String, dynamic> layer) {
+  final f = [for (final x in _features(layer)) Morph.plain(x as Map)..remove('cx')..remove('cy')];
+  if (f.isEmpty) return {'count': 0};
+  if (f.any((x) => _key(x) != _key(f.first))) return null;
+  return {'count': f.length, ...f.first};
+}
+
+/// [layer] with the [keys] of its shapes taken from [from]'s shapes.
+Map<String, dynamic> _withParts(Map<String, dynamic> layer, Map<String, dynamic> from, Set<String> keys) {
+  final src = Morph.plain(_features(from).first as Map);
+  return {
+    ...layer,
+    'features': [
+      for (final x in _features(layer)) {...Morph.plain(x as Map), for (final k in keys) k.substring(1): src[k.substring(1)]},
+    ],
+  };
+}
+
+/// Sandia layers, and the parts of one layer, follow lines of their own (the
+/// shape copied along the row, the shade down the column, a turn along a
+/// diagonal), so no whole cell changes like the gap. The answer is built one
+/// layer at a time, using only the parts that tell the options apart:
+/// - a line of the gap whose step (two cells back to one back) changes some
+///   of those parts as the gap's neighbour on the line must: the step flies
+///   as an example, then the neighbour's layer flies into the gap and lands
+///   on the layers already there;
+/// - parts that stay the same down a line: that line's two cells pulse and
+///   the gap takes them on (one line after another);
+/// - a layer none of this explains flies in from its nearest neighbour.
+/// Parts no line gives (the grid doesn't fix them) change as the layer flies.
+Scene? _byLayers(List<Map<String, dynamic>?> cells, int m, Map<String, dynamic> answer, List<Map<String, dynamic>> options) {
+  if (answer['type'] != 'sandia_cell' || answer['layers'] is! List) return null;
+  final ans = _layers(answer);
+  bool fits(Map<String, dynamic>? c) => c != null && c['type'] == 'sandia_cell' && c['layers'] is List && _layers(c).length == ans.length;
+  if (!options.every(fits) || !cells.every((c) => c == null || fits(c))) return null;
+  final mr = m ~/ 3, mc = m % 3;
+  int? at(int r, int c) => r < 0 || r > 2 || c < 0 || c > 2 ? null : r * 3 + c;
+  // The gap's lines, nearest first: row, column, diagonals: (neighbour, one further).
+  final lines = <(int, int)>[
+    for (final (dr, dc) in const [(0, -1), (0, 1), (-1, 0), (1, 0), (-1, -1), (1, 1), (-1, 1), (1, -1)])
+      if (at(mr - dr, mc - dc) case final s? when cells[s] != null)
+        if (at(mr - 2 * dr, mc - 2 * dc) case final e? when cells[e] != null) (s, e),
+  ];
+  if (lines.isEmpty) return null;
+  Map<String, String>? change(Map<String, dynamic> a, Map<String, dynamic> b) {
+    final x = sandiaSummary(a), y = sandiaSummary(b);
+    return x == null || y == null ? null : _change(x, y);
+  }
+
+  final steps = <SceneStep>[];
+  var gap = <Map<String, dynamic>>[]; // the layers in the gap so far
+  Map<String, dynamic> gapCell() => {...answer, 'layers': gap};
+  var explained = false;
+  for (int i = 0; i < ans.length; i++) {
+    Map<String, dynamic> layer(int c) => _layers(cells[c]!)[i];
+    Map<String, dynamic> alone(Map<String, dynamic> l) => {...answer, 'layers': [l]};
+    final deciding = <String>{};
+    for (final o in options) {
+      final c = change(ans[i], _layers(o)[i]);
+      if (c == null) return null;
+      deciding.addAll(c.keys);
+    }
+    // The line whose step changes the most deciding parts as the gap needs.
+    (int, int, Set<String>)? best;
+    for (final (s, e) in lines) {
+      final step = change(layer(e), layer(s)), into = change(layer(s), ans[i]);
+      if (step == null || into == null) continue;
+      final keys = {for (final k in deciding) if (step[k] != null && step[k] == into[k]) k};
+      if (keys.isNotEmpty && (best == null || keys.length > best.$3.length)) best = (s, e, keys);
+    }
+    // Lines down which the remaining parts stay the same (not the count:
+    // copies can't be taken on one part at a time).
+    var rest = deciding.difference(best?.$3 ?? const {})..remove('.count');
+    final copies = <(int, int, Set<String>)>[];
+    while (rest.isNotEmpty) {
+      (int, int, Set<String>)? pick;
+      for (final (s, e) in lines) {
+        final a = change(layer(e), layer(s)), b = change(layer(s), ans[i]);
+        if (a == null || b == null) continue;
+        final keys = {for (final k in rest) if (a[k] == null && b[k] == null) k};
+        if (keys.isNotEmpty && (pick == null || keys.length > pick.$3.length)) pick = (s, e, keys);
+      }
+      if (pick == null) break;
+      copies.add(pick);
+      rest = rest.difference(pick.$3);
+    }
+    final s = best?.$1 ?? lines.first.$1;
+    if (best == null && copies.isEmpty) {
+      // No line explains any of its deciding parts: no example for this layer.
+      final beats = Morph.diff(_onlyLayer(cells[s]!, i), alone(ans[i]));
+      if (beats == null || beats.length > 5) return null;
+      gap = [...gap, ans[i]];
+      steps.add(FlyStep(s, m, beats, figure: _onlyLayer(cells[s]!, i), land: gapCell(), weight: 1.1));
+      continue;
+    }
+    // It lands with the copied parts still as they are in the neighbour.
+    var cur = _withParts(ans[i], layer(s), {for (final c in copies) ...c.$3});
+    final beats = Morph.diff(_onlyLayer(cells[s]!, i), alone(cur));
+    if (beats == null || beats.length > 5) return null;
+    if (best != null) {
+      final e = best.$2;
+      final ref = Morph.diff(_onlyLayer(cells[e]!, i), _onlyLayer(cells[s]!, i));
+      if (ref == null || ref.isEmpty || ref.length > 5) return null;
+      steps.addAll([
+        FlyStep(e, s, ref, figure: _onlyLayer(cells[e]!, i), land: cells[s], weight: 1.1),
+        PulseStep([s], weight: 0.4),
+      ]);
+      explained = true;
+    }
+    gap = [...gap, cur];
+    steps.add(FlyStep(s, m, beats, figure: _onlyLayer(cells[s]!, i), land: gapCell(), weight: 1.1));
+    for (final (cs, ce, keys) in copies) {
+      final before = gapCell();
+      cur = _withParts(cur, ans[i], keys);
+      gap = [...gap.sublist(0, i), cur];
+      final take = Morph.diff(before, gapCell());
+      if (take == null || take.length > 5) return null;
+      // (Already right when the neighbour that flew in has them too: the
+      // line still pulses, with the gap, to show they match.)
+      steps.addAll([
+        if (take.isEmpty) PulseStep([ce, cs, m], weight: 0.5) else PulseStep([ce, cs], weight: 0.5),
+        if (take.isNotEmpty) MorphStep(m, take, weight: 0.8),
+      ]);
+      explained = true;
+    }
+    if (!Morph.same(cur, ans[i])) return null;
+    gap = [...gap.sublist(0, i), ans[i]];
+  }
+  if (!explained) return null; // nothing explained: plain fallback
+  return Scene(extent: _extent, slots: _grid(cells, m), steps: [...steps, const RevealStep()], answerSlot: m);
+}
+
+bool _mapEq(Map<String, String> a, Map<String, String> b) => a.length == b.length && a.entries.every((e) => b[e.key] == e.value);
 
 /// No pair in the grid changes exactly like the gap (a few Sandia grids mix
 /// several rules along different lines): the closest neighbour changes into
