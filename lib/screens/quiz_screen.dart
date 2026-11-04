@@ -12,6 +12,7 @@ import '../engine/difficulty.dart';
 import '../engine/question_attempt.dart';
 import '../engine/question_generator.dart';
 import '../engine/reasoning_question.dart';
+import '../widgets/explanation_panel.dart';
 import '../widgets/option_renderer.dart';
 import '../widgets/question_renderer.dart';
 import 'student_result_screen.dart';
@@ -63,7 +64,12 @@ class _QuizScreenState extends State<QuizScreen>
   bool isAnswered = false;
   bool isCorrect = false;
   int skippedCount = 0;
-  bool _nextLocked = false; // true for 1.2s after wrong answer
+  bool _nextLocked = false; // after a wrong answer: 1.2s, and until the explanation ends
+  // Next unlocks when both are done: the 1.2s minimum after a wrong answer
+  // and the answer explanation (ExplanationPanel), when there is one.
+  bool _minLockDone = true;
+  bool _explainDone = true;
+  bool _hasExplanation = false; // the current wrong / skipped answer has one
   bool _timedOut = false; // true when timer expired on current question
 
   // ── Timer ─────────────────────────────────────────────────────────────────
@@ -312,12 +318,7 @@ class _QuizScreenState extends State<QuizScreen>
           timeSpentSeconds: timeSecs,
         ),
       );
-      if (!correct) {
-        _nextLocked = true;
-        Future.delayed(const Duration(milliseconds: 1200), () {
-          if (mounted) setState(() => _nextLocked = false);
-        });
-      }
+      if (!correct) _lockNext(minimum: true);
     });
     _updateWeights(cat, correct);
     _revealResult();
@@ -335,6 +336,34 @@ class _QuizScreenState extends State<QuizScreen>
     });
   }
 
+  /// Locks Next after a wrong, skipped or timed-out answer until the 1.2s
+  /// minimum ([minimum], wrong answers only) and the answer explanation
+  /// have both finished. Call inside setState.
+  void _lockNext({required bool minimum}) {
+    final index = currentQuestionIndex;
+    _minLockDone = !minimum;
+    _hasExplanation = ExplanationPanel.has(_currentQ);
+    _explainDone = !_hasExplanation;
+    _nextLocked = !(_minLockDone && _explainDone);
+    if (minimum) {
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (!mounted || currentQuestionIndex != index) return;
+        setState(() {
+          _minLockDone = true;
+          _nextLocked = !_explainDone;
+        });
+      });
+    }
+  }
+
+  void _onExplained() {
+    if (!mounted || _explainDone) return;
+    setState(() {
+      _explainDone = true;
+      _nextLocked = !_minLockDone;
+    });
+  }
+
   void _skipQuestion() {
     if (isAnswered) return;
     _timer?.cancel();
@@ -345,6 +374,7 @@ class _QuizScreenState extends State<QuizScreen>
       selectedOption = null;
       isCorrect = false;
       skippedCount++;
+      _lockNext(minimum: false);
       timeSpentPerQuestion.add(timeSecs);
       categoryPerformance.putIfAbsent(cat, () => []).add(false);
       _attempts.add(
@@ -431,6 +461,7 @@ class _QuizScreenState extends State<QuizScreen>
       selectedOption = null;
       isCorrect = false;
       _timedOut = false;
+      _nextLocked = false;
       _startTimer();
     });
     // Each question starts at the top (the previous one may have been
@@ -918,6 +949,13 @@ class _QuizScreenState extends State<QuizScreen>
             ],
           ),
         ),
+        // Wrong, skipped or timed out: the rule acted out on the figure.
+        if (!isCorrect && _hasExplanation)
+          ExplanationPanel(
+            key: ValueKey('explain_$currentQuestionIndex'),
+            question: _currentQ,
+            onFinished: _onExplained,
+          ),
         // The coordinator's bias-weight chart used to be toggled from here,
         // in the child's view; the same weights show on the New Session
         // screen's weak-areas card.
