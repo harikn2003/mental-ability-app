@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'line_figure.dart';
 import 'paper_fold.dart';
 import 'reasoning_question.dart';
+import 'scene.dart';
 
 /// What the answer explanation animates for a question, worked out from the
 /// puzzle and its correct option (so it also works for sessions saved before
@@ -12,6 +13,9 @@ sealed class Explanation {
   /// The correct option; the animation's last frame.
   final Map<String, dynamic> answer;
   const Explanation(this.answer);
+
+  /// How long the animation plays.
+  Duration get duration => const Duration(seconds: 3);
 
   /// The explanation for [q], or null for a topic without one or a question
   /// whose data doesn't fit (never throws).
@@ -99,4 +103,14 @@ final class EmbeddedExplanation extends Explanation {
   final int? shapeIndex;
   final List<List<int>>? segs;
   const EmbeddedExplanation(super.answer, {this.shapeIndex, this.segs});
+}
+
+/// An explanation acted out as a [Scene] (Figure Series, Analogy, Pattern,
+/// Odd Man Out, Figure Match, Geo Completion, Space Visualisation).
+class SceneExplanation extends Explanation {
+  final Scene scene;
+  const SceneExplanation(this.scene, super.answer);
+
+  @override
+  Duration get duration => scene.duration;
 }

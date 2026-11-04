@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import '../config/localization.dart';
 import '../engine/explanation.dart';
 import '../engine/reasoning_question.dart';
+import '../engine/scene.dart';
 import '../painters/line_figure_painter.dart';
 import '../painters/punch_painter.dart';
 import 'question_renderer.dart';
+import 'scene_player.dart';
 
 /// Shown under the result after a wrong, skipped or timed-out answer: the
 /// rule acted out on the question's own figure (the figure flips over the
@@ -19,7 +21,13 @@ class ExplanationPanel extends StatefulWidget {
   /// Called each time the animation finishes (also after a replay).
   final VoidCallback? onFinished;
 
-  const ExplanationPanel({super.key, required this.question, this.onFinished});
+  /// A scene given directly instead of worked out from [question].
+  final Scene? scene;
+
+  const ExplanationPanel({super.key, required this.question, this.onFinished}) : scene = null;
+
+  /// Plays [scene] (used by tests and previews).
+  const ExplanationPanel.scene({super.key, required this.question, required Scene this.scene, this.onFinished});
 
   static bool has(ReasoningQuestion q) => Explanation.of(q) != null;
 
@@ -32,14 +40,16 @@ class _ExplanationPanelState extends State<ExplanationPanel> with SingleTickerPr
   static const _blue = Color(0xFF195DE6);
   static const double _box = 140;
 
-  late final Explanation? _e = Explanation.of(widget.question);
+  late final Explanation? _e = widget.scene != null
+      ? SceneExplanation(widget.scene!, widget.question.options[widget.question.correctIndex])
+      : Explanation.of(widget.question);
   late final AnimationController _c;
   bool _started = false;
 
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(vsync: this, duration: const Duration(seconds: 3))
+    _c = AnimationController(vsync: this, duration: _e?.duration ?? const Duration(seconds: 3))
       ..addStatusListener((s) {
         if (s == AnimationStatus.completed) widget.onFinished?.call();
       });
@@ -101,6 +111,7 @@ class _ExplanationPanelState extends State<ExplanationPanel> with SingleTickerPr
                   UnfoldExplanation() => _unfold(e),
                   FoldOverExplanation() => _foldOver(e),
                   EmbeddedExplanation() => _embedded(e),
+                  SceneExplanation(:final scene) => ScenePlayer(scene: scene, progress: _c.value),
                 },
               ),
             ),

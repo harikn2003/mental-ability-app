@@ -112,6 +112,8 @@ void main() {
             case EmbeddedExplanation():
               expect(cat, 'embedded');
               _checkEmbedded(q, e);
+            case SceneExplanation():
+              fail('slice-1 topics are not scenes');
           }
         }
       }
