@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'line_figure.dart';
+import 'paper_fold.dart';
 import 'reasoning_question.dart';
 
 /// Exam-style Hard Mode items, modelled on the real JNVST papers in docs/
@@ -423,26 +424,6 @@ class ExamStyleGenerator {
   // {shapes flipped correctly, triangles copied unflipped / one hole missing}.
   // ═══════════════════════════════════════════════════════════════════════════
 
-  static (double, double) _reflect(String fold, double x, double y) => switch (fold) {
-        'v' => (1 - x, y),
-        'h' => (x, 1 - y),
-        'd' => (y, x),
-        _ => (1 - y, 1 - x),
-      };
-
-  /// Triangle direction 0 up, 1 right, 2 down, 3 left, reflected by [fold].
-  static int _reflectDir(String fold, int dir) {
-    const v = [(0, -1), (1, 0), (0, 1), (-1, 0)];
-    final (dx, dy) = v[dir];
-    final r = switch (fold) {
-      'v' => (-dx, dy),
-      'h' => (dx, -dy),
-      'd' => (dy, dx),
-      _ => (-dy, -dx),
-    };
-    return v.indexOf(r);
-  }
-
   /// Signed distance-ish test: is (x,y) on the kept side of [fold], and how far
   /// from the fold line (in unit-square coordinates)?
   static double _keptMargin(String fold, double x, double y) => switch (fold) {
@@ -451,32 +432,6 @@ class ExamStyleGenerator {
         'd' => (y - x) / sqrt2,
         _ => (1 - x - y) / sqrt2,
       };
-
-  /// Unfolds [holes] by undoing [folds] last-first, optionally skipping one
-  /// fold ([skip]) and optionally NOT flipping triangle directions.
-  static List<Map<String, dynamic>> _unfold(List<Map<String, dynamic>> holes, List<String> folds,
-      {int? skip, bool flipShapes = true}) {
-    var cur = [for (final h in holes) Map<String, dynamic>.from(h)];
-    for (int i = folds.length - 1; i >= 0; i--) {
-      if (i == skip) continue;
-      final f = folds[i];
-      cur = [
-        ...cur,
-        for (final h in cur)
-          () {
-            final (x, y) = _reflect(f, h['x'] as double, h['y'] as double);
-            return {...h, 'x': x, 'y': y, if (flipShapes && h['shape'] == 'tri') 'dir': _reflectDir(f, h['dir'] as int)};
-          }(),
-      ];
-    }
-    return cur;
-  }
-
-  static String _punchKey(List<Map<String, dynamic>> holes) => ([
-        for (final h in holes)
-          '${((h['x'] as double) * 100).round()},${((h['y'] as double) * 100).round()},${h['shape']},${h['shape'] == 'tri' ? h['dir'] : ''}'
-      ]..sort())
-          .join(';');
 
   static ReasoningQuestion? punchHole({bool singleFold = false}) {
     const sequences = [['v', 'h'], ['h', 'v'], ['d'], ['a'], ['d', 'a'], ['a', 'd']];
@@ -502,7 +457,7 @@ class ExamStyleGenerator {
       final skip = folds.length > 1 ? _r.nextInt(folds.length) : null;
       final aFolds = folds.length > 1 ? folds : [const {'d': 'a', 'a': 'd', 'v': 'h', 'h': 'v'}[folds.single]!];
       List<Map<String, dynamic>> unfold({required bool changeA, required bool flip}) =>
-          _unfold(holes, changeA ? aFolds : folds, skip: changeA ? skip : null, flipShapes: flip);
+          PaperFold.unfold(holes, changeA ? aFolds : folds, skip: changeA ? skip : null, flipShapes: flip);
       // Change B: triangles copied without flipping; for round/square holes,
       // which have no direction, one hole missing instead.
       List<Map<String, dynamic>> option({required bool changeA, required bool changeB}) {
@@ -518,7 +473,7 @@ class ExamStyleGenerator {
         option(changeA: false, changeB: true),
         option(changeA: true, changeB: true),
       ];
-      if (sets.map(_punchKey).toSet().length != 4) continue;
+      if (sets.map(PaperFold.holesKey).toSet().length != 4) continue;
       // Every card, not just the right one: a wrong unfolding (e.g. the other
       // diagonal) can bring two holes on top of each other.
       bool apart(List<Map<String, dynamic>> hs) => [

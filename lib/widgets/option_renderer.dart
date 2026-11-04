@@ -85,7 +85,7 @@ class EnhancedFigurePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final int shape = data['shape'] ?? 0;
     final bool filled = data['filled'] ?? false;
-    final int rot = data['rotation'] ?? 0;
+    final double rot = ((data['rotation'] as num?) ?? 0).toDouble();
     final bool mirror = data['mirror'] ?? false;
     final int dots = data['dots'] ?? 0;
     final int inner = data['inner'] ?? 0;
@@ -429,13 +429,43 @@ class EnhancedMirrorTextPainter extends CustomPainter {
     canvas.save();
     canvas.scale(fit, fit);
 
+    // Answer explanation: letters gliding to their places in 'glide_to'
+    // ('targets'[i] = where letter i goes, 't' = 0..1). A letter that jumps
+    // over others travels on an arc above them.
+    final glideTo = data['glide_to'] as String?;
+    final targets = (data['targets'] as List?)?.cast<num>();
+    final glideT = (data['t'] as num?)?.toDouble() ?? 0;
+    List<double>? toCentres;
+    if (glideTo != null && targets != null && glideTo.length == content.length) {
+      toCentres = [];
+      double tw = 0;
+      final ws = [
+        for (int i = 0; i < glideTo.length; i++)
+          (TextPainter(text: TextSpan(text: glideTo[i], style: textStyle), textDirection: TextDirection.ltr)..layout()).width,
+      ];
+      for (int i = 0; i < ws.length; i++) {
+        tw += ws[i] + (i < ws.length - 1 ? letterSpacing : 0);
+      }
+      var x = -tw / 2;
+      for (final w in ws) {
+        toCentres.add(x + w / 2);
+        x += w + letterSpacing;
+      }
+    }
+
     for (int i = 0; i < content.length; i++) {
       final tp = painters[i];
-      final charCenterX = currentX + tp.width / 2;
+      var charCenterX = currentX + tp.width / 2;
+      var charY = 0.0;
+      if (toCentres != null) {
+        final to = targets![i].toInt();
+        charCenterX += (toCentres[to] - charCenterX) * glideT;
+        if ((to - i).abs() > 1) charY = -sin(pi * glideT) * fontSize * 0.75;
+      }
 
       canvas.save();
       // Translate to character center
-      canvas.translate(charCenterX, 0.0);
+      canvas.translate(charCenterX, charY);
 
       // If selective mirror trap is active for this character, apply a local scale(-1, 1)
       // to cancel out the global mirror scale(-1, 1).
@@ -645,6 +675,22 @@ class _EmbeddedOption extends StatelessWidget {
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
     final s = size * 0.42;
+    // Answer explanation: 'highlight' (shape index) gets a green ring and the
+    // other shapes fade as 'dim' goes 0 -> 1.
+    final lit = data['highlight'] as int?;
+    final dim = ((data['dim'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0);
+    Widget fig(int i) {
+      final f = EnhancedFigureWidget(data: shapes[i], size: s);
+      if (lit == null) return f;
+      if (i != lit) return Opacity(opacity: 1 - 0.75 * dim, child: f);
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(s * 0.15),
+          border: Border.all(color: LineFigurePainter.highlight.withValues(alpha: dim), width: 3),
+        ),
+        child: f,
+      );
+    }
 
     if (shapes.length >= 3) {
       return SizedBox(
@@ -655,17 +701,17 @@ class _EmbeddedOption extends StatelessWidget {
             Positioned(
               top: 0,
               left: 0,
-              child: EnhancedFigureWidget(data: shapes[0], size: s),
+              child: fig(0),
             ),
             Positioned(
               top: 0,
               right: 0,
-              child: EnhancedFigureWidget(data: shapes[1], size: s),
+              child: fig(1),
             ),
             Positioned(
               bottom: 0,
               left: size / 2 - s / 2,
-              child: EnhancedFigureWidget(data: shapes[2], size: s),
+              child: fig(2),
             ),
           ],
         ),
@@ -699,11 +745,11 @@ class _EmbeddedOption extends StatelessWidget {
         children: [
           Align(
             alignment: alignA,
-            child: EnhancedFigureWidget(data: shapes[0], size: s),
+            child: fig(0),
           ),
           Align(
             alignment: alignB,
-            child: EnhancedFigureWidget(data: shapes[1], size: s),
+            child: fig(1),
           ),
         ],
       ),

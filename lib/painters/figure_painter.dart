@@ -28,7 +28,7 @@ class FigurePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final int shape = data['shape'] ?? 0;
     final bool filled = data['filled'] ?? false;
-    final int rot = data['rotation'] ?? 0;
+    final double rot = ((data['rotation'] as num?) ?? 0).toDouble();
     final bool mirror = data['mirror'] ?? false;
     final int dots = data['dots'] ?? 0;
     final int inner = data['inner'] ?? 0;

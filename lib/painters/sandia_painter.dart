@@ -145,7 +145,7 @@ class SandiaPainter extends CustomPainter {
     final double wFrac = ((f['w'] as num?) ?? 0.5).toDouble();
     final double hFrac = ((f['h'] as num?) ?? 0.5).toDouble();
     final double scale = ((f['scale'] as num?) ?? 1.0).toDouble();
-    final int rot = ((f['rot'] as num?) ?? 0).toInt();
+    final double rot = ((f['rot'] as num?) ?? 0).toDouble();
     final double cxFrac = ((f['cx'] as num?) ?? 0.5).toDouble();
     final double cyFrac = ((f['cy'] as num?) ?? 0.5).toDouble();
     final String fillKey = f['fill'] as String? ?? 'white';
@@ -286,7 +286,7 @@ class SandiaPainter extends CustomPainter {
     final int surfaceType = layerData['surface'] as int? ?? 0;
     final int fillPattern = layerData['fill'] as int? ?? 0; // 0=White, 1=Grey10, 2=Grey40, 3=DarkSlate
     final double scaleRatio = ((layerData['scale'] as num? ?? 2) / 2.0).toDouble();
-    final int rotation = layerData['rotation'] as int? ?? 0;
+    final double rotation = ((layerData['rotation'] as num?) ?? 0).toDouble();
     final bool mirrorH = layerData['mirror_h'] as bool? ?? false;
     final bool drawOutline = layerData['outline'] as bool? ?? true;
     final bool drawGridBox = (layerData['grid_box'] as bool? ?? false) && data['print'] != true;

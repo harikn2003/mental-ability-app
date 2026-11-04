@@ -1,3 +1,6 @@
+import 'dart:math';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 /// PunchPainter renders a square piece of paper showing:
@@ -169,7 +172,7 @@ class PunchPainter extends CustomPainter {
         Paint()..color = _hole);
   }
 
-  Path _poly(Rect rect, List<Offset> pts) {
+  static Path _poly(Rect rect, List<Offset> pts) {
     final p = Path();
     for (int i = 0; i < pts.length; i++) {
       final o = Offset(rect.left + pts[i].dx * rect.width, rect.top + pts[i].dy * rect.height);
@@ -248,11 +251,12 @@ class PunchPainter extends CustomPainter {
     }
   }
 
-  void _drawHoles(Canvas canvas, Size size, Rect rect) {
+  void _drawHoles(Canvas canvas, Size size, Rect rect) => _paintHoles(canvas, size, rect, data['holes'] as List? ?? const []);
+
+  static void _paintHoles(Canvas canvas, Size size, Rect rect, List holes) {
     final holePaint = Paint()
       ..color = _hole
       ..style = PaintingStyle.fill;
-    final List holes = data['holes'] ?? [];
     final r = size.width * 0.07;
     for (final h in holes) {
       final px = rect.left + (h['x'] as num).toDouble() * rect.width;
@@ -291,4 +295,81 @@ class PunchPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter old) => true;
+}
+
+/// The answer explanation for a punch-hole question: the folded, punched
+/// paper opening again, last fold first. [stages] are
+/// [UnfoldExplanation.stages] (`stages[k]` = holes with k folds still
+/// closed); [progress] runs from 0 (fully folded) to `folds.length` (fully
+/// open, drawn exactly like the unfolded answer card).
+class UnfoldPainter extends CustomPainter {
+  final List<String> folds;
+  final List<List<Map<String, dynamic>>> stages;
+  final double progress;
+
+  UnfoldPainter({required this.folds, required this.stages, required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final margin = size.width * 0.06;
+    final rect = Rect.fromLTWH(margin, margin, size.width - margin * 2, size.height - margin * 2);
+    final p = progress.clamp(0.0, folds.length.toDouble());
+    final opened = p.floor();
+    final k = folds.length - opened; // folds still closed
+    final t = p - opened; // how far the next fold has opened
+
+    final square = PunchPainter._poly(rect, const [Offset(0, 0), Offset(1, 0), Offset(1, 1), Offset(0, 1)]);
+    PunchPainter._dashedPath(
+        canvas,
+        square,
+        Paint()
+          ..color = PunchPainter._foldLine.withValues(alpha: 0.35)
+          ..strokeWidth = 1
+          ..style = PaintingStyle.stroke,
+        3,
+        3);
+
+    var paper = square;
+    for (int i = 0; i < k; i++) {
+      paper = Path.combine(PathOperation.intersect, paper, PunchPainter._poly(rect, PunchPainter._kept[folds[i]]!));
+    }
+    final border = Paint()
+      ..color = PunchPainter._border
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeJoin = StrokeJoin.round;
+
+    void layer(Color fill) {
+      canvas.drawPath(paper, Paint()..color = fill);
+      canvas.drawPath(paper, border);
+      PunchPainter._paintHoles(canvas, size, rect, stages[k]);
+    }
+
+    layer(PunchPainter._paper);
+    if (k == 0 || t == 0) return;
+
+    // The flap swings about the fold line: x' = x - (1+s)((x-p).n)n, from
+    // s = -1 (lying on the paper) to s = 1 (opened out = mirror image).
+    final l = PunchPainter._line[folds[k - 1]]!;
+    final a = Offset(rect.left + l[0].dx * rect.width, rect.top + l[0].dy * rect.height);
+    final b = Offset(rect.left + l[1].dx * rect.width, rect.top + l[1].dy * rect.height);
+    final d = (b - a) / (b - a).distance;
+    final nx = -d.dy, ny = d.dx;
+    final s = -cos(pi * t);
+    final f = 1 + s;
+    final pn = a.dx * nx + a.dy * ny;
+    final m = Float64List.fromList([
+      1 - f * nx * nx, -f * nx * ny, 0, 0, //
+      -f * nx * ny, 1 - f * ny * ny, 0, 0,
+      0, 0, 1, 0,
+      f * pn * nx, f * pn * ny, 0, 1,
+    ]);
+    canvas.save();
+    canvas.transform(m);
+    layer(Color.lerp(PunchPainter._fold, PunchPainter._paper, t)!);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant UnfoldPainter old) => old.progress != progress || old.stages != stages;
 }

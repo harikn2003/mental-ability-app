@@ -27,6 +27,19 @@ final LineFig everything = LineFig(4, 4,
     dots: {(2, 0)});
 
 void main() {
+  testWidgets('an in-between frame with arrows, arcs and highlights between lattice points draws', (tester) async {
+    final data = <String, dynamic>{
+      'type': 'line_fig', 'w': 4, 'h': 4,
+      'segs': [[0.5, 0, 1.5, 1]],
+      'arrows': [[0.5, 0.5, 2.5, 1.5]],
+      'arcs': [[2.5, 6, 2, 0]],
+      'highlight_segs': [[0.5, 0, 1.5, 1]],
+      'dim': 0.5, 'center': true,
+    };
+    await tester.pumpWidget(CustomPaint(painter: LineFigurePainter(data), size: const Size(80, 80)));
+    expect(tester.takeException(), isNull);
+  });
+
   group('model', () {
     test('group identities hold with every kind of part', () {
       expect(everything.rot(4).key, everything.key);
@@ -118,6 +131,32 @@ void main() {
       });
       return out;
     }
+
+    testWidgets('a square frame stays put while what is in it turns', (tester) async {
+      // Halfway through a quarter turn: the box must not swing out into a diamond.
+      final f = LineFig(4, 4, segs: {...LineFig.line(1, 2, 3, 2)});
+      final key = GlobalKey();
+      await tester.pumpWidget(Center(
+        child: RepaintBoundary(
+          key: key,
+          child: ColoredBox(
+            color: Colors.white,
+            child: CustomPaint(size: Size.square(size.toDouble()), painter: LineFigurePainter({...f.toMap(), 'frame': true, 'turn': 0.5})),
+          ),
+        ),
+      ));
+      late Uint8List px;
+      await tester.runAsync(() async {
+        final img = await (key.currentContext!.findRenderObject() as RenderRepaintBoundary).toImage();
+        px = (await img.toByteData(format: ui.ImageByteFormat.rawRgba))!.buffer.asUint8List();
+        img.dispose();
+      });
+      bool dark(int x, int y) => px[(y * size + x) * 4] < 128;
+      // The frame's corners (12% padding) are inked; the corners of the canvas are not.
+      final c = (size * 0.12).round();
+      expect([dark(c, c), dark(size - 1 - c, c), dark(c, size - 1 - c), dark(size - 1 - c, size - 1 - c)], everyElement(isTrue));
+      expect(dark(1, size ~/ 2), isFalse, reason: 'the frame swings out');
+    });
 
     /// Dark pixel mask, so anti-aliasing differences don't count.
     List<bool> ink(Uint8List px) => [for (int i = 0; i < px.length; i += 4) px[i] < 128];

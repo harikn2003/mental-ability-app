@@ -14,6 +14,9 @@ class LineFigurePainter extends CustomPainter {
   static const Color _ink = Color(0xFF1E293B);
   static const Color _cellFill = Color(0xFFE2E8F0);
 
+  /// The answer explanation's green.
+  static const Color highlight = Color(0xFF16A34A);
+
   @override
   void paint(Canvas canvas, Size size) {
     final int w = data['w'] as int? ?? 1;
@@ -25,29 +28,31 @@ class LineFigurePainter extends CustomPainter {
     var ox = (size.width - unit * w) / 2;
     var oy = (size.height - unit * h) / 2;
 
-    List<List<int>> list(String k) => [for (final e in (data[k] as List? ?? const [])) (e as List).cast<int>()];
-    List<(int, int, String)> glyphList() =>
-        [for (final g in (data['glyphs'] as List? ?? const [])) ((g as List)[0] as int, g[1] as int, g[2] as String)];
+    // Tokens (dots, rings, symbols) may sit between lattice points: an
+    // answer explanation glides them along their path.
+    List<List<num>> nums(String k) => [for (final e in (data[k] as List? ?? const [])) (e as List).cast<num>()];
+    List<(num, num, String)> glyphList() =>
+        [for (final g in (data['glyphs'] as List? ?? const [])) ((g as List)[0] as num, g[1] as num, g[2] as String)];
 
     // 'center': the lattice only sets the SCALE (e.g. geo pieces all drawn
     // at the same 4x4 scale as the square they're cut from, so size can be
     // compared); the content itself is centred in the canvas.
     if (data['center'] == true) {
       final xs = <int>[], ys = <int>[];
-      for (final s in list('segs')) {
-        xs..add(s[0])..add(s[2]);
-        ys..add(s[1])..add(s[3]);
+      for (final s in nums('segs')) {
+        xs..add(s[0].floor())..add(s[2].ceil());
+        ys..add(s[1].floor())..add(s[3].ceil());
       }
-      for (final c in [...list('cells'), ...list('dots'), ...list('tris'), ...list('hatch'), for (final g in glyphList()) [g.$1, g.$2]]) {
-        xs..add(c[0])..add(c[0] + 1);
-        ys..add(c[1])..add(c[1] + 1);
+      for (final c in <List<num>>[...nums('cells'), ...nums('dots'), ...nums('tris'), ...nums('hatch'), for (final g in glyphList()) [g.$1, g.$2]]) {
+        xs..add(c[0].floor())..add(c[0].ceil() + 1);
+        ys..add(c[1].floor())..add(c[1].ceil() + 1);
       }
-      for (final a in list('arrows')) {
-        xs..add(a[0])..add(a[2]);
-        ys..add(a[1])..add(a[3]);
+      for (final a in nums('arrows')) {
+        xs..add(min(a[0], a[2]).floor())..add(max(a[0], a[2]).ceil());
+        ys..add(min(a[1], a[3]).floor())..add(max(a[1], a[3]).ceil());
       }
-      for (final a in list('arcs')) {
-        final (sx, sy) = LineFig.arcQuadrants[a[3]];
+      for (final a in nums('arcs')) {
+        final (sx, sy) = LineFig.arcQuadrants[a[3].toInt()];
         xs..add((a[0] / 2).floor())..add(((a[0] + sx * a[2]) / 2).round());
         ys..add((a[1] / 2).floor())..add(((a[1] + sy * a[2]) / 2).round());
       }
@@ -56,7 +61,12 @@ class LineFigurePainter extends CustomPainter {
         oy = size.height / 2 - (ys.reduce(min) + ys.reduce(max)) / 2 * unit;
       }
     }
-    Offset p(num x, num y) => Offset(ox + x * unit, oy + y * unit);
+    // 'zoom' (answer explanations): the drawing's positions scaled about the
+    // canvas centre, strokes unchanged - the in-between frames of a turn by
+    // 45°, which also stretches the figure from one lattice to the other.
+    final zoom = (data['zoom'] as num?)?.toDouble() ?? 1;
+    final mid = Offset(size.width / 2, size.height / 2);
+    Offset p(num x, num y) => mid + (Offset(ox + x * unit, oy + y * unit) - mid) * zoom;
 
     final stroke = Paint()
       ..color = _ink
@@ -68,16 +78,40 @@ class LineFigurePainter extends CustomPainter {
       ..color = _ink
       ..style = PaintingStyle.fill;
 
+    // Answer explanation (Embedded): 'dim' 0..1 fades the drawing to a
+    // quarter so the hidden figure's lines ('highlight_segs') stand out.
+    final dim = ((data['dim'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0);
+
+    // Answer explanation: 'turn' (quarter turns, may be fractional) and
+    // 'flip' (horizontal scale, 1 -> -1 mirrors) move the whole drawing about
+    // the canvas centre, for the frames between a figure and its turned or
+    // mirrored copy.
+    final turn = (data['turn'] as num?)?.toDouble() ?? 0;
+    final flip = (data['flip'] as num?)?.toDouble() ?? 1;
+    final moved = turn != 0 || flip != 1;
+    // A square frame (a series' box) looks the same turned or mirrored: it
+    // stays put, unzoomed, while what is inside it turns.
+    final stillFrame = data['frame'] == true && w == h;
+    if (stillFrame) canvas.drawRect(Rect.fromPoints(Offset(ox, oy), Offset(ox + w * unit, oy + h * unit)), stroke);
+    if (moved) {
+      canvas.save();
+      canvas.translate(size.width / 2, size.height / 2);
+      canvas.rotate(turn * pi / 2);
+      canvas.scale(flip, 1);
+      canvas.translate(-size.width / 2, -size.height / 2);
+    }
+    if (dim > 0) canvas.saveLayer(null, Paint()..color = Color.fromRGBO(0, 0, 0, 1 - 0.75 * dim));
+
     // Filled cells first, so every line sits on top of them.
     // 'print': a printed paper is plain line art - filled cells white.
     final cellPaint = Paint()..color = data['print'] == true ? const Color(0xFFFFFFFF) : _cellFill;
-    for (final c in list('cells')) {
+    for (final c in nums('cells')) {
       // Slight overlap hides hairline seams between neighbouring cells.
       canvas.drawRect(Rect.fromPoints(p(c[0], c[1]), p(c[0] + 1, c[1] + 1)).inflate(0.4), cellPaint);
     }
 
     const corners = [(0, 0), (1, 0), (1, 1), (0, 1)];
-    Path region(int cx, int cy, int part) {
+    Path region(num cx, num cy, int part) {
       if (part == 4) return Path()..addRect(Rect.fromPoints(p(cx, cy), p(cx + 1, cy + 1)));
       final a = corners[part], b = corners[(part + 1) % 4], c = corners[(part + 3) % 4];
       return Path()
@@ -97,11 +131,11 @@ class LineFigurePainter extends CustomPainter {
     // striped with a global phase, so stripes run on unbroken across cells
     // (per-cell clipping left seams at every cell edge).
     for (int dir = 0; dir < 4; dir++) {
-      final cellsInDir = list('hatch').where((hc) => hc[3] == dir).toList();
+      final cellsInDir = nums('hatch').where((hc) => hc[3] == dir).toList();
       if (cellsInDir.isEmpty) continue;
       final clip = Path();
       for (final hc in cellsInDir) {
-        clip.addPath(region(hc[0], hc[1], hc[2]), Offset.zero);
+        clip.addPath(region(hc[0], hc[1], hc[2].toInt()), Offset.zero);
       }
       final (vx, vy) = LineFig.hatchDirs[dir];
       final len = sqrt((vx * vx + vy * vy).toDouble());
@@ -124,8 +158,8 @@ class LineFigurePainter extends CustomPainter {
       canvas.restore();
     }
 
-    for (final t in list('tris')) {
-      final (cx, cy, k) = (t[0], t[1], t[2]);
+    for (final t in nums('tris')) {
+      final (cx, cy, k) = (t[0], t[1], t[2].toInt());
       // Right angle at corner k; the other two vertices are its neighbours.
       final a = corners[k], b = corners[(k + 1) % 4], c = corners[(k + 3) % 4];
       canvas.drawPath(
@@ -137,7 +171,7 @@ class LineFigurePainter extends CustomPainter {
           ink);
     }
 
-    if (data['frame'] == true) {
+    if (data['frame'] == true && !stillFrame) {
       canvas.drawRect(Rect.fromPoints(p(0, 0), p(w, h)), stroke);
     }
     // 'fold': a paper-folding sheet's fold line [x1, y1, x2, y2], dashed,
@@ -170,15 +204,15 @@ class LineFigurePainter extends CustomPainter {
             ..close(),
           ink);
     }
-    for (final s in list('segs')) {
+    for (final s in nums('segs')) {
       canvas.drawLine(p(s[0], s[1]), p(s[2], s[3]), stroke);
     }
-    for (final a in list('arcs')) {
+    for (final a in nums('arcs')) {
       // Doubled coordinates; quadrant q starts at angle (q - 1) * 90° (y down).
       final r = a[2] / 2 * unit;
       canvas.drawArc(Rect.fromCircle(center: p(a[0] / 2, a[1] / 2), radius: r), (a[3] - 1) * pi / 2, pi / 2, false, stroke);
     }
-    for (final a in list('arrows')) {
+    for (final a in nums('arrows')) {
       // Filled head at (x2, y2), pointing away from (x1, y1).
       final tip = p(a[2], a[3]);
       final dir = tip - p(a[0], a[1]);
@@ -207,7 +241,7 @@ class LineFigurePainter extends CustomPainter {
       if (shape == null) continue;
       final g = unit * 0.15;
       final c = p(cx + 0.5, cy + 0.5);
-      Offset q(int x, int y) => c + Offset(x * g, y * g);
+      Offset q(num x, num y) => c + Offset(x * g, y * g);
       for (final (x1, y1, x2, y2) in shape.$1) {
         canvas.drawLine(q(x1, y1), q(x2, y2), glyphStroke);
       }
@@ -216,7 +250,7 @@ class LineFigurePainter extends CustomPainter {
         canvas.drawCircle(q(x, y), r * g * (filled ? 1.3 : 0.8), filled ? ink : glyphStroke);
       }
     }
-    for (final d in list('dots')) {
+    for (final d in nums('dots')) {
       canvas.drawCircle(p(d[0] + 0.5, d[1] + 0.5), max(unit * 0.16, size.shortestSide * 0.03), ink); // 4x4 size at least
     }
     final ringPaint = Paint()
@@ -224,11 +258,21 @@ class LineFigurePainter extends CustomPainter {
       ..strokeWidth = stroke.strokeWidth * 0.8
       ..style = PaintingStyle.stroke;
     final ringFill = Paint()..color = Colors.white;
-    for (final r in list('rings')) {
+    for (final r in nums('rings')) {
       final ringR = max(unit * 0.17, size.shortestSide * 0.032); // as on a 4x4 figure, at least
       canvas.drawCircle(p(r[0], r[1]), ringR, ringFill);
       canvas.drawCircle(p(r[0], r[1]), ringR, ringPaint);
     }
+    if (dim > 0) canvas.restore();
+    final lit = Paint()
+      ..color = highlight.withValues(alpha: dim)
+      ..strokeWidth = stroke.strokeWidth * (1 + dim)
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    for (final s in dim > 0 ? nums('highlight_segs') : const <List<num>>[]) {
+      canvas.drawLine(p(s[0], s[1]), p(s[2], s[3]), lit);
+    }
+    if (moved) canvas.restore();
   }
 
   @override
