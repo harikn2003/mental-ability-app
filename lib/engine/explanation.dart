@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'explain/figure_match.dart';
 import 'line_figure.dart';
 import 'paper_fold.dart';
 import 'reasoning_question.dart';
@@ -28,12 +29,15 @@ sealed class Explanation {
         'mirror_shape' || 'mirror_text' => _mirror(puzzle, answer),
         'punch_hole' => _punch(puzzle, answer),
         'embedded' => _embedded(puzzle, answer),
+        'figure_match' => _scene(figureMatchScene(q), answer),
         _ => null,
       };
     } catch (_) {
       return null;
     }
   }
+
+  static Explanation? _scene(Scene? s, Map<String, dynamic> answer) => s == null ? null : SceneExplanation(s, answer);
 
   static Map<String, dynamic> _map(Object? m) => Map<String, dynamic>.from(m as Map);
 
