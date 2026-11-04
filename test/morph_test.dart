@@ -5,6 +5,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mental_ability_app/engine/difficulty.dart';
+import 'package:mental_ability_app/engine/line_figure.dart';
 import 'package:mental_ability_app/engine/morph.dart';
 import 'package:mental_ability_app/engine/question_generator.dart';
 import 'package:mental_ability_app/engine/reasoning_question.dart';
@@ -32,7 +33,7 @@ void expectChain(List<Beat>? beats, Map a, Map b, {int maxBeats = 5, String why 
   }
 }
 
-/// A round trip like a saved session's: JSON, then Map<dynamic, dynamic>.
+/// A round trip like a saved session's: JSON, then `Map<dynamic, dynamic>`.
 Map _saved(Map m) {
   dynamic deep(dynamic v) => v is Map ? <dynamic, dynamic>{for (final e in v.entries) e.key: deep(e.value)} : v is List ? [for (final x in v) deep(x)] : v;
   return deep(jsonDecode(jsonEncode(m))) as Map;
@@ -149,6 +150,75 @@ void main() {
     });
     test('a changed letter is a swap', () {
       expect(Morph.diff(word('ABCD'), word('ABCE'))!.single, isA<SwapBeat>());
+    });
+  });
+
+  group('line', () {
+    Map<String, dynamic> fig(Map<String, dynamic> over) => {'type': 'line_fig', 'w': 4, 'h': 4, 'frame': false, 'segs': [], 'cells': [], 'tris': [], 'dots': [], 'rings': [], ...over};
+    final ell = [[0, 0, 0, 1], [0, 1, 0, 2], [0, 2, 1, 2]];
+
+    test('a quarter turn', () {
+      final a = fig({'segs': ell, 'dots': [[0, 0]]});
+      final b = Morph.plain(LineFig.fromMap(a).rot(1).toMap());
+      final beats = Morph.diff(a, b);
+      expectChain(beats, a, b);
+      expect((beats!.single as TurnBeat).degrees, 90);
+      expect(Morph.frame(beats.single, 0.5)['turn'], 0.5);
+    });
+
+    test('a mirror image is a flip, drawn edge-on half way', () {
+      final a = fig({'segs': ell});
+      final b = Morph.plain(LineFig.fromMap(a).mirrorX().toMap());
+      final beats = Morph.diff(a, b);
+      expectChain(beats, a, b);
+      expect(beats!.single, isA<FlipBeat>());
+      expect(Morph.frame(beats.single, 0.5)['flip'], closeTo(0, 1e-9));
+    });
+
+    test('a dot moving is a glide through the cells in between', () {
+      final a = fig({'segs': ell, 'dots': [[1, 1]]}), b = fig({'segs': ell, 'dots': [[3, 1]]});
+      final beats = Morph.diff(a, b);
+      expectChain(beats, a, b);
+      expect(Morph.frame(beats!.single, 0.5)['dots'], [[2.0, 1]]);
+    });
+
+    test('a line added is a swap', () {
+      final a = fig({'segs': ell}), b = fig({'segs': [...ell, [3, 3, 4, 4]]});
+      expect(Morph.diff(a, b)!.single, isA<SwapBeat>());
+    });
+
+    test('an arrow turned by 45° stretches onto the diagonal', () {
+      final a = fig({'w': 6, 'h': 6, 'segs': [[3, 1, 3, 2], [3, 2, 3, 3]], 'arrows': [[3, 2, 3, 1]]});
+      final b = fig({'w': 6, 'h': 6, 'segs': [[3, 3, 4, 2], [4, 2, 5, 1]], 'arrows': [[4, 2, 5, 1]]});
+      final beats = Morph.diff(a, b);
+      expectChain(beats, a, b);
+      final turn = beats!.single as TurnBeat;
+      expect(turn.degrees, 45);
+      expect(turn.zoom, closeTo(1.41421356, 1e-6));
+    });
+
+    test('generated series steps (exam style and round the box)', () {
+      final kinds = <String>{};
+      for (final q in _gen('figure_series', (q) => q.type.startsWith('series_exam') || q.type.startsWith('series_round'))) {
+        final seq = [for (final f in q.puzzle['sequence'] as List) _saved(f as Map), _saved(q.options[q.correctIndex])];
+        for (int i = 0; i + 1 < seq.length; i++) {
+          final beats = Morph.diff(seq[i], seq[i + 1]);
+          expectChain(beats, seq[i], seq[i + 1], why: '${q.type} step $i');
+          kinds.add(q.type);
+        }
+      }
+      expect(kinds, containsAll(['series_exam_spokes', 'series_exam_symbols', 'series_exam_arrow', 'series_exam_turning', 'series_round']));
+    });
+
+    test('generated exam analogies: A to B and C to the answer', () {
+      final kinds = <String>{};
+      for (final q in _gen('analogy', (q) => q.type.startsWith('analogy_exam'))) {
+        final p = q.puzzle;
+        expectChain(Morph.diff(_saved(p['A']), _saved(p['B'])), _m(p['A']), _m(p['B']), why: '${q.type} A:B');
+        expectChain(Morph.diff(_saved(p['C']), _saved(q.options[q.correctIndex])), _m(p['C']), q.options[q.correctIndex], why: '${q.type} C:D');
+        kinds.add(q.type);
+      }
+      expect(kinds, containsAll(['analogy_exam_turn', 'analogy_exam_corners', 'analogy_exam_nest']));
     });
   });
 

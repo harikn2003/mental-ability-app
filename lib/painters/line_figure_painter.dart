@@ -44,7 +44,7 @@ class LineFigurePainter extends CustomPainter {
         xs..add(s[0])..add(s[2]);
         ys..add(s[1])..add(s[3]);
       }
-      for (final c in <List<num>>[...list('cells'), ...nums('dots'), ...list('tris'), ...list('hatch'), for (final g in glyphList()) [g.$1, g.$2]]) {
+      for (final c in <List<num>>[...nums('cells'), ...nums('dots'), ...nums('tris'), ...nums('hatch'), for (final g in glyphList()) [g.$1, g.$2]]) {
         xs..add(c[0].floor())..add(c[0].ceil() + 1);
         ys..add(c[1].floor())..add(c[1].ceil() + 1);
       }
@@ -62,7 +62,12 @@ class LineFigurePainter extends CustomPainter {
         oy = size.height / 2 - (ys.reduce(min) + ys.reduce(max)) / 2 * unit;
       }
     }
-    Offset p(num x, num y) => Offset(ox + x * unit, oy + y * unit);
+    // 'zoom' (answer explanations): the drawing's positions scaled about the
+    // canvas centre, strokes unchanged - the in-between frames of a turn by
+    // 45°, which also stretches the figure from one lattice to the other.
+    final zoom = (data['zoom'] as num?)?.toDouble() ?? 1;
+    final mid = Offset(size.width / 2, size.height / 2);
+    Offset p(num x, num y) => mid + (Offset(ox + x * unit, oy + y * unit) - mid) * zoom;
 
     final stroke = Paint()
       ..color = _ink
@@ -97,13 +102,13 @@ class LineFigurePainter extends CustomPainter {
     // Filled cells first, so every line sits on top of them.
     // 'print': a printed paper is plain line art - filled cells white.
     final cellPaint = Paint()..color = data['print'] == true ? const Color(0xFFFFFFFF) : _cellFill;
-    for (final c in list('cells')) {
+    for (final c in nums('cells')) {
       // Slight overlap hides hairline seams between neighbouring cells.
       canvas.drawRect(Rect.fromPoints(p(c[0], c[1]), p(c[0] + 1, c[1] + 1)).inflate(0.4), cellPaint);
     }
 
     const corners = [(0, 0), (1, 0), (1, 1), (0, 1)];
-    Path region(int cx, int cy, int part) {
+    Path region(num cx, num cy, int part) {
       if (part == 4) return Path()..addRect(Rect.fromPoints(p(cx, cy), p(cx + 1, cy + 1)));
       final a = corners[part], b = corners[(part + 1) % 4], c = corners[(part + 3) % 4];
       return Path()
@@ -123,11 +128,11 @@ class LineFigurePainter extends CustomPainter {
     // striped with a global phase, so stripes run on unbroken across cells
     // (per-cell clipping left seams at every cell edge).
     for (int dir = 0; dir < 4; dir++) {
-      final cellsInDir = list('hatch').where((hc) => hc[3] == dir).toList();
+      final cellsInDir = nums('hatch').where((hc) => hc[3] == dir).toList();
       if (cellsInDir.isEmpty) continue;
       final clip = Path();
       for (final hc in cellsInDir) {
-        clip.addPath(region(hc[0], hc[1], hc[2]), Offset.zero);
+        clip.addPath(region(hc[0], hc[1], hc[2].toInt()), Offset.zero);
       }
       final (vx, vy) = LineFig.hatchDirs[dir];
       final len = sqrt((vx * vx + vy * vy).toDouble());
@@ -150,8 +155,8 @@ class LineFigurePainter extends CustomPainter {
       canvas.restore();
     }
 
-    for (final t in list('tris')) {
-      final (cx, cy, k) = (t[0], t[1], t[2]);
+    for (final t in nums('tris')) {
+      final (cx, cy, k) = (t[0], t[1], t[2].toInt());
       // Right angle at corner k; the other two vertices are its neighbours.
       final a = corners[k], b = corners[(k + 1) % 4], c = corners[(k + 3) % 4];
       canvas.drawPath(

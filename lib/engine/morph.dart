@@ -21,7 +21,11 @@ sealed class Beat {
 /// A turn by [degrees] (clockwise positive).
 class TurnBeat extends Beat {
   final double degrees;
-  const TurnBeat(super.from, super.to, this.degrees, {super.part});
+
+  /// Line drawings turned by 45° also stretch (or shrink) by √2 to stay on
+  /// the lattice.
+  final double zoom;
+  const TurnBeat(super.from, super.to, this.degrees, {super.part, this.zoom = 1});
 }
 
 /// The whole figure flips over a vertical line (mirror image).
@@ -46,6 +50,14 @@ class GlideBeat extends Beat {
   const GlideBeat(super.from, super.to, {this.tokens = const []});
 }
 
+/// Separate shapes of a line drawing move (and grow or shrink) to new
+/// places, e.g. drawn apart in one figure and inside each other in the
+/// next. [pieces] pairs each shape as drawn in [from] with itself in [to].
+class RegroupBeat extends Beat {
+  final List<(Map<String, dynamic>, Map<String, dynamic>)> pieces;
+  const RegroupBeat(super.from, super.to, this.pieces);
+}
+
 /// A part changes into something else (shape, fill, count, detail): shown
 /// as a cross-fade with a green flash. [changed] names what changed.
 class SwapBeat extends Beat {
@@ -57,7 +69,7 @@ class Morph {
   Morph._();
 
   /// A deep copy as plain JSON-like data (maps restored from Hive come back
-  /// as Map<dynamic, dynamic>).
+  /// as `Map<dynamic, dynamic>`).
   static Map<String, dynamic> plain(Map m) => {for (final e in m.entries) '${e.key}': _plainValue(e.value)};
   static dynamic _plainValue(dynamic v) => v is Map ? plain(v) : v is List ? [for (final x in v) _plainValue(x)] : v;
 
@@ -425,12 +437,15 @@ class Morph {
         return _lerp(from, beat.to, t) as Map<String, dynamic>;
       case GlideBeat():
         return kindOf(from) == FigureKind.line ? _lerp(from, beat.to, t) as Map<String, dynamic> : (t < 0.5 ? from : beat.to);
-      case FlipBeat() || SwapBeat():
+      case FlipBeat():
+        return kindOf(from) == FigureKind.line ? MorphLine.flipFrame(beat, t) : (t < 0.5 ? from : beat.to);
+      case SwapBeat() || RegroupBeat():
         return t < 0.5 ? from : beat.to;
     }
   }
 
   static dynamic _lerp(dynamic a, dynamic b, double t) {
+    if (a == b) return a;
     if (a is num && b is num) return a + (b - a) * t;
     if (a is Map && b is Map) return {for (final k in a.keys) '$k': b.containsKey(k) ? _lerp(a[k], b[k], t) : a[k]};
     if (a is List && b is List && a.length == b.length) return [for (int i = 0; i < a.length; i++) _lerp(a[i], b[i], t)];
