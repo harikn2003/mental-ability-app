@@ -645,6 +645,22 @@ class _EmbeddedOption extends StatelessWidget {
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
     final s = size * 0.42;
+    // Answer explanation: 'highlight' (shape index) gets a green ring and the
+    // other shapes fade as 'dim' goes 0 -> 1.
+    final lit = data['highlight'] as int?;
+    final dim = ((data['dim'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0);
+    Widget fig(int i) {
+      final f = EnhancedFigureWidget(data: shapes[i], size: s);
+      if (lit == null) return f;
+      if (i != lit) return Opacity(opacity: 1 - 0.75 * dim, child: f);
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(s * 0.15),
+          border: Border.all(color: LineFigurePainter.highlight.withValues(alpha: dim), width: 3),
+        ),
+        child: f,
+      );
+    }
 
     if (shapes.length >= 3) {
       return SizedBox(
@@ -655,17 +671,17 @@ class _EmbeddedOption extends StatelessWidget {
             Positioned(
               top: 0,
               left: 0,
-              child: EnhancedFigureWidget(data: shapes[0], size: s),
+              child: fig(0),
             ),
             Positioned(
               top: 0,
               right: 0,
-              child: EnhancedFigureWidget(data: shapes[1], size: s),
+              child: fig(1),
             ),
             Positioned(
               bottom: 0,
               left: size / 2 - s / 2,
-              child: EnhancedFigureWidget(data: shapes[2], size: s),
+              child: fig(2),
             ),
           ],
         ),
@@ -699,11 +715,11 @@ class _EmbeddedOption extends StatelessWidget {
         children: [
           Align(
             alignment: alignA,
-            child: EnhancedFigureWidget(data: shapes[0], size: s),
+            child: fig(0),
           ),
           Align(
             alignment: alignB,
-            child: EnhancedFigureWidget(data: shapes[1], size: s),
+            child: fig(1),
           ),
         ],
       ),

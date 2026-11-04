@@ -14,6 +14,9 @@ class LineFigurePainter extends CustomPainter {
   static const Color _ink = Color(0xFF1E293B);
   static const Color _cellFill = Color(0xFFE2E8F0);
 
+  /// The answer explanation's green.
+  static const Color highlight = Color(0xFF16A34A);
+
   @override
   void paint(Canvas canvas, Size size) {
     final int w = data['w'] as int? ?? 1;
@@ -67,6 +70,11 @@ class LineFigurePainter extends CustomPainter {
     final ink = Paint()
       ..color = _ink
       ..style = PaintingStyle.fill;
+
+    // Answer explanation (Embedded): 'dim' 0..1 fades the drawing to a
+    // quarter so the hidden figure's lines ('highlight_segs') stand out.
+    final dim = ((data['dim'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0);
+    if (dim > 0) canvas.saveLayer(Offset.zero & size, Paint()..color = Color.fromRGBO(0, 0, 0, 1 - 0.75 * dim));
 
     // Filled cells first, so every line sits on top of them.
     // 'print': a printed paper is plain line art - filled cells white.
@@ -228,6 +236,15 @@ class LineFigurePainter extends CustomPainter {
       final ringR = max(unit * 0.17, size.shortestSide * 0.032); // as on a 4x4 figure, at least
       canvas.drawCircle(p(r[0], r[1]), ringR, ringFill);
       canvas.drawCircle(p(r[0], r[1]), ringR, ringPaint);
+    }
+    if (dim > 0) canvas.restore();
+    final lit = Paint()
+      ..color = highlight
+      ..strokeWidth = stroke.strokeWidth * (1 + dim)
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    for (final s in list('highlight_segs')) {
+      canvas.drawLine(p(s[0], s[1]), p(s[2], s[3]), lit);
     }
   }
 
