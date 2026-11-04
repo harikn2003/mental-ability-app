@@ -89,6 +89,10 @@ class LineFigurePainter extends CustomPainter {
     final turn = (data['turn'] as num?)?.toDouble() ?? 0;
     final flip = (data['flip'] as num?)?.toDouble() ?? 1;
     final moved = turn != 0 || flip != 1;
+    // A square frame (a series' box) looks the same turned or mirrored: it
+    // stays put, unzoomed, while what is inside it turns.
+    final stillFrame = data['frame'] == true && w == h;
+    if (stillFrame) canvas.drawRect(Rect.fromPoints(Offset(ox, oy), Offset(ox + w * unit, oy + h * unit)), stroke);
     if (moved) {
       canvas.save();
       canvas.translate(size.width / 2, size.height / 2);
@@ -167,7 +171,7 @@ class LineFigurePainter extends CustomPainter {
           ink);
     }
 
-    if (data['frame'] == true) {
+    if (data['frame'] == true && !stillFrame) {
       canvas.drawRect(Rect.fromPoints(p(0, 0), p(w, h)), stroke);
     }
     // 'fold': a paper-folding sheet's fold line [x1, y1, x2, y2], dashed,

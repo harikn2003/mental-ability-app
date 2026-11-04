@@ -117,4 +117,17 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  testWidgets('the "?" fades as a copy flies into it (no grey box under the copy)', (tester) async {
+    final scene = _turnScene();
+    Future<void> at(double p) => tester.pumpWidget(_host(SizedBox(width: 200, height: 80, child: ScenePlayer(scene: scene, progress: p))));
+    double shown() => tester
+        .widgetList<Opacity>(find.ancestor(of: find.text('?'), matching: find.byType(Opacity)))
+        .fold(1.0, (a, o) => a * o.opacity);
+    await at(0);
+    expect(shown(), 1.0, reason: 'before the copy sets off');
+    // The fly is the first step (weights 1 and 0.6 after a short lead-in): 90% of the way.
+    await at(ScenePlayer.leadIn + (1 - ScenePlayer.leadIn) * 0.9 / 1.6);
+    expect(shown(), lessThan(0.3), reason: 'the copy lands on a grey box');
+  });
 }

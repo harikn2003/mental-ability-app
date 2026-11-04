@@ -132,6 +132,32 @@ void main() {
       return out;
     }
 
+    testWidgets('a square frame stays put while what is in it turns', (tester) async {
+      // Halfway through a quarter turn: the box must not swing out into a diamond.
+      final f = LineFig(4, 4, segs: {...LineFig.line(1, 2, 3, 2)});
+      final key = GlobalKey();
+      await tester.pumpWidget(Center(
+        child: RepaintBoundary(
+          key: key,
+          child: ColoredBox(
+            color: Colors.white,
+            child: CustomPaint(size: Size.square(size.toDouble()), painter: LineFigurePainter({...f.toMap(), 'frame': true, 'turn': 0.5})),
+          ),
+        ),
+      ));
+      late Uint8List px;
+      await tester.runAsync(() async {
+        final img = await (key.currentContext!.findRenderObject() as RenderRepaintBoundary).toImage();
+        px = (await img.toByteData(format: ui.ImageByteFormat.rawRgba))!.buffer.asUint8List();
+        img.dispose();
+      });
+      bool dark(int x, int y) => px[(y * size + x) * 4] < 128;
+      // The frame's corners (12% padding) are inked; the corners of the canvas are not.
+      final c = (size * 0.12).round();
+      expect([dark(c, c), dark(size - 1 - c, c), dark(c, size - 1 - c), dark(size - 1 - c, size - 1 - c)], everyElement(isTrue));
+      expect(dark(1, size ~/ 2), isFalse, reason: 'the frame swings out');
+    });
+
     /// Dark pixel mask, so anti-aliasing differences don't count.
     List<bool> ink(Uint8List px) => [for (int i = 0; i < px.length; i += 4) px[i] < 128];
 

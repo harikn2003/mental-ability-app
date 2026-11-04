@@ -30,6 +30,7 @@ class ScenePlayer extends StatelessWidget {
     final borders = <int, Color>{};
     final ticks = <int, (int, int, Color)>{}; // slot -> (shown, of, colour)
     final flying = <Widget>[];
+    final arriving = <int, double>{}; // slot -> how far a copy flying into it has come
     var reveal = 0.0;
 
     void play(SceneStep step, double local, bool done) {
@@ -43,6 +44,7 @@ class ScenePlayer extends StatelessWidget {
             final size = a.size + (b.size - a.size) * e;
             final at = Offset.lerp(a.at, b.at, e)!;
             final fig = step.figure ?? contents[from];
+            arriving[to] = max(arriving[to] ?? 0, e);
             flying.add(Positioned(
               left: at.dx,
               top: at.dy,
@@ -85,7 +87,8 @@ class ScenePlayer extends StatelessWidget {
       final slot = scene.slots[i];
       Widget body = overrides[i] ??
           (contents[i] == null
-              ? (slot.question ? _qBox(slot.size) : SizedBox.square(dimension: slot.size))
+              // The "?" fades as a copy flies in, so it doesn't land on a grey box.
+              ? (slot.question ? Opacity(opacity: 1 - (arriving[i] ?? 0), child: _qBox(slot.size)) : SizedBox.square(dimension: slot.size))
               : _figure(contents[i], slot.size));
       final border = i == scene.answerSlot && reveal > 0 ? _green.withValues(alpha: reveal) : borders[i];
       if (border != null) {
@@ -162,11 +165,11 @@ class ScenePlayer extends StatelessWidget {
     }
   }
 
-  /// [a] fading into [b], with a green glow while it changes.
+  /// [a] fading into [b], with a faint green glow while it changes.
   static Widget _crossFade(Map<String, dynamic> a, Map<String, dynamic> b, double t, double size) => Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
-          boxShadow: [BoxShadow(color: _green.withValues(alpha: 0.35 * sin(pi * t)), blurRadius: 10, spreadRadius: 1)],
+          boxShadow: [BoxShadow(color: _green.withValues(alpha: 0.14 * sin(pi * t)), blurRadius: 6)],
         ),
         child: Stack(children: [
           Opacity(opacity: 1 - t, child: _figure(a, size)),

@@ -30,6 +30,9 @@ void main() {
       'series_rotation', 'series_inner', 'series_inner_easy', 'series_dots', 'series_dots_rot',
       'series_fill_toggle', 'series_alt_dual', 'series_rot_fill', 'series_morph', 'hard_series_sandia_3layer',
     }, rule: (q, scene) {
+      // Frames stay big on a 360 dp phone (a 320 dp panel): no shrinking.
+      expect(scene.extent.width, lessThanOrEqualTo(320), reason: '${q.type}: frames shrink to fit');
+      expect(scene.slots.map((s) => s.size).reduce((a, b) => a < b ? a : b), greaterThanOrEqualTo(68));
       final seq = q.puzzle['sequence'] as List;
       final flies = scene.steps.whereType<FlyStep>().toList();
       expect(flies, hasLength(seq.length), reason: 'one move per step of the series');

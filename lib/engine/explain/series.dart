@@ -32,10 +32,20 @@ Scene? seriesScene(ReasoningQuestion q) {
   final size = seq.first['type'] == 'line_fig' || seq.first['type'] == 'mirror_text' ? 80.0 : 68.0;
   const gap = 18.0;
   final n = frames.length;
+  // More than fits a phone in one row (3 frames at 80): read on in a second
+  // row, like a line of text, so the frames keep their size.
+  final perRow = (320 + gap) ~/ (size + gap) >= n ? n : (n + 1) ~/ 2;
+  final rows = (n + perRow - 1) ~/ perRow;
   return Scene(
-    extent: Size(n * size + (n - 1) * gap, size + 8),
+    extent: Size(perRow * size + (perRow - 1) * gap, rows * size + (rows - 1) * gap + 8),
     slots: [
-      for (int i = 0; i < n; i++) Slot(figure: i < seq.length ? seq[i] : null, at: Offset(i * (size + gap), 4), size: size, question: i == seq.length),
+      for (int i = 0; i < n; i++)
+        Slot(
+          figure: i < seq.length ? seq[i] : null,
+          at: Offset((i % perRow) * (size + gap), 4 + (i ~/ perRow) * (size + gap)),
+          size: size,
+          question: i == seq.length,
+        ),
     ],
     steps: [...steps, const RevealStep()],
     answerSlot: seq.length,
