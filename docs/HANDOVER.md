@@ -1,6 +1,6 @@
 # NplusPrep: Project Handover
 
-**For:** the incoming project manager
+**For:** the incoming project owner
 **From:** Hari (developer), November 2026
 **State at handover:** beta 8 (`v1.0.0-beta.8`), released 3 Nov 2026, all 247 automated tests passing
 
@@ -35,7 +35,7 @@ This document explains the whole project from the ground up: what it is, how to 
 |---|---|
 | Children (about 11 years old; Easy level is for grades 2-3) | Take quiz sessions on a phone or tablet |
 | Coordinators / teachers | Set up sessions on the config screen, read results, print papers |
-| Mentors (Amod, Shabana) | Test builds, report problems in the Notion tracker, review printed papers |
+| Mentors | Test builds, report problems in the Notion tracker, review printed papers |
 
 **Key facts.**
 
@@ -52,7 +52,7 @@ This document explains the whole project from the ground up: what it is, how to 
 |---|---|
 | Code | GitHub: https://github.com/harikn2003/mental-ability-app |
 | Releases (APK to install) | https://github.com/harikn2003/mental-ability-app/releases |
-| Bug / feature tracker | Notion: "Navodaya Mental Ability Issues DB" in Amod Joshi's space |
+| Bug / feature tracker | Notion: "Navodaya Mental Ability Issues DB" (shared Notion workspace) |
 | Package name (release app) | `com.nplusone.maa.mental_ability_app` |
 | Package name (debug app) | `com.nplusone.maa.mental_ability_app.debug` (installs beside the release app) |
 
@@ -488,16 +488,16 @@ The most common class of bug. It almost always had the same shape: two options t
 
 | Item | Held by now | Action |
 |---|---|---|
-| GitHub repository `harikn2003/mental-ability-app` | Hari's GitHub account | Add the manager as a collaborator with Admin, or transfer the repository to an organisation account |
+| GitHub repository `harikn2003/mental-ability-app` | The developer's GitHub account | Add the new owner as a collaborator with Admin, or transfer the repository to an organisation account |
 | GitHub Actions | Runs in the repository | No secrets are configured at present |
-| Notion tracker | Amod Joshi's Notion space | Ask Amod to share the database with the manager |
-| Test phone | Hari | Hand over or set up a new one (section 2.5) |
+| Notion tracker | The mentors' Notion workspace | Ask the workspace owner to share the database with the new owner |
+| Test phone | The developer | Hand over or set up a new one (section 2.5) |
 
 > **Note:** No passwords, keys or tokens are stored in the repository.
 
 ### 11.2 Local files that are not in the repository
 
-The project folder on Hari's PC also has these, which are **not** part of the code and should not be committed: `android.zip`, `lib.zip`, `commit-diff.txt`, the JNV PDFs in `docs/` and `docs/pyq/`, and assistant folders (`.claude/`, `.agents/`, `AGENTS.md`). The JNV guide books and model papers in `docs/` were used as references for question styles; hand them over separately if needed.
+The project folder on the developer's PC also has these, which are **not** part of the code and should not be committed: `android.zip`, `lib.zip`, `commit-diff.txt`, the JNV PDFs in `docs/` and `docs/pyq/`, and assistant folders (`.claude/`, `.agents/`, `AGENTS.md`). The JNV guide books and model papers in `docs/` were used as references for question styles; hand them over separately if needed.
 
 ### 11.3 Must fix: release signing (high priority)
 
