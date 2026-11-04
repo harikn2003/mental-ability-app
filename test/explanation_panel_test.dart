@@ -24,6 +24,15 @@ ReasoningQuestion _q(String cat, Difficulty d, [bool Function(ReasoningQuestion)
 Finder _showsAnswer(Map<String, dynamic> answer) => find.byWidgetPredicate((w) =>
     w is OptionRenderer && answer.entries.every((e) => jsonEncode(w.data[e.key]) == jsonEncode(e.value)));
 
+/// How visible the correct option is: its fade-in opacity, or for Embedded
+/// (always shown) how far the rest has faded and the hidden shape lit up.
+double _shown(WidgetTester tester, Map<String, dynamic> answer) {
+  final f = _showsAnswer(answer).first;
+  final data = tester.widget<OptionRenderer>(f).data;
+  if (data.containsKey('dim')) return (data['dim'] as num).toDouble();
+  return tester.widget<Opacity>(find.ancestor(of: f, matching: find.byType(Opacity)).first).opacity;
+}
+
 Widget _host(Widget child, {bool reduceMotion = false}) => MaterialApp(
       home: MediaQuery(
         data: MediaQueryData(disableAnimations: reduceMotion),
@@ -47,12 +56,15 @@ void main() {
   for (final MapEntry(key: name, value: q) in cases.entries) {
     testWidgets('$name: finishes once at ~3 s and ends on the correct option', (tester) async {
       var finished = 0;
+      final answer = q.options[q.correctIndex];
       await tester.pumpWidget(_host(ExplanationPanel(question: q, onFinished: () => finished++)));
-      await tester.pump(const Duration(milliseconds: 2500));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(_shown(tester, answer), 0, reason: 'answer shown before the explanation');
+      await tester.pump(const Duration(milliseconds: 2300));
       expect(finished, 0);
       await tester.pump(const Duration(milliseconds: 600));
       expect(finished, 1);
-      expect(_showsAnswer(q.options[q.correctIndex]), findsWidgets);
+      expect(_shown(tester, answer), 1, reason: 'the last frame is not the correct option');
       expect(tester.takeException(), isNull);
     });
   }
@@ -76,7 +88,8 @@ void main() {
     await tester.pumpWidget(_host(ExplanationPanel(question: q, onFinished: () => finished++), reduceMotion: true));
     await tester.pump();
     expect(finished, 1);
-    expect(_showsAnswer(q.options[q.correctIndex]), findsWidgets);
+    await tester.pump();
+    expect(_shown(tester, q.options[q.correctIndex]), 1, reason: 'reduce motion must show the end frame');
   });
 
   testWidgets('a topic without an explanation shows nothing', (tester) async {
