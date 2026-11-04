@@ -2,12 +2,16 @@
 // option, replays on demand, and respects "reduce motion".
 
 import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mental_ability_app/engine/difficulty.dart';
 import 'package:mental_ability_app/engine/question_generator.dart';
 import 'package:mental_ability_app/engine/reasoning_question.dart';
+import 'package:mental_ability_app/painters/line_figure_painter.dart';
 import 'package:mental_ability_app/widgets/explanation_panel.dart';
 import 'package:mental_ability_app/widgets/option_renderer.dart';
 
@@ -90,6 +94,55 @@ void main() {
     expect(finished, 1);
     await tester.pump();
     expect(_shown(tester, q.options[q.correctIndex]), 1, reason: 'reduce motion must show the end frame');
+  });
+
+  testWidgets('paper fold: the folded sheet ends where the answer appears (no sideways jump)', (tester) async {
+    final q = cases['paper fold']!;
+    final key = GlobalKey();
+    await tester.pumpWidget(_host(RepaintBoundary(key: key, child: SizedBox(width: 380, child: ExplanationPanel(question: q)))));
+    Future<(Uint8List, int)> grab() async {
+      late Uint8List bytes;
+      late int w;
+      await tester.runAsync(() async {
+        final img = await (key.currentContext!.findRenderObject() as RenderRepaintBoundary).toImage();
+        w = img.width;
+        bytes = (await img.toByteData(format: ui.ImageByteFormat.rawRgba))!.buffer.asUint8List();
+        img.dispose();
+      });
+      return (bytes, w);
+    }
+
+    // The 140 px figure box, inset past the green frame.
+    final box = tester.getRect(find.byWidgetPredicate((w) => w is CustomPaint && w.painter is LineFigurePainter).first);
+    final origin = tester.getTopLeft(find.byKey(key));
+    final crop = box.shift(-origin).deflate(6);
+    Set<int> ink((Uint8List, int) img) {
+      final (b, w) = img;
+      return {
+        for (int y = crop.top.ceil(); y < crop.bottom.floor(); y++)
+          for (int x = crop.left.ceil(); x < crop.right.floor(); x++)
+            if (b[(y * w + x) * 4 + 3] > 128 && b[(y * w + x) * 4] < 110) y * w + x,
+      };
+    }
+
+    await tester.pump(const Duration(milliseconds: 2400)); // folded, before the cross-fade
+    final folded = ink(await grab());
+    await tester.pump(const Duration(milliseconds: 700)); // the answer
+    final (ab, aw) = await grab();
+    final answer = ink((ab, aw));
+    bool near(int p) {
+      final x = p % aw, y = p ~/ aw;
+      for (int dy = -3; dy <= 3; dy++) {
+        for (int dx = -3; dx <= 3; dx++) {
+          if (folded.contains((y + dy) * aw + x + dx)) return true;
+        }
+      }
+      return false;
+    }
+
+    final missed = answer.where((p) => !near(p)).length;
+    expect(answer, isNotEmpty);
+    expect(missed / answer.length, lessThan(0.15), reason: '${(100 * missed / answer.length).round()}% of the answer has no folded line under it');
   });
 
   testWidgets('a topic without an explanation shows nothing', (tester) async {

@@ -192,24 +192,40 @@ class _ExplanationPanelState extends State<ExplanationPanel> with SingleTickerPr
           clipper: _HalfClip(left),
           child: CustomPaint(size: const Size.square(_box), painter: LineFigurePainter(e.sheet)),
         );
+    // The folded sheet slides to where the answer (the half sheet, drawn
+    // centred) will appear, so the cross-fade doesn't jump sideways.
+    final slide = _latticeLeft(e.answer) - _latticeLeft(e.sheet);
     return _withAnswer(
-      SizedBox.square(
-        dimension: _box,
-        child: Stack(
-          children: [
-            half(true),
-            // The right half swings over the fold line (the sheet's middle).
-            Transform(
-              transform: Matrix4.diagonal3Values(cos(pi * _motion), 1, 1),
-              origin: const Offset(_box / 2, 0),
-              child: half(false),
-            ),
-          ],
+      Transform.translate(
+        offset: Offset(slide * _motion, 0),
+        child: SizedBox.square(
+          dimension: _box,
+          child: Stack(
+            children: [
+              half(true),
+              // The right half swings over the fold line (the sheet's middle,
+              // the only fold the paper-folding generator makes).
+              Transform(
+                transform: Matrix4.diagonal3Values(cos(pi * _motion), 1, 1),
+                origin: const Offset(_box / 2, 0),
+                child: half(false),
+              ),
+            ],
+          ),
         ),
       ),
       e.answer,
       _box,
     );
+  }
+
+  /// Left edge of a line figure's lattice when [LineFigurePainter] draws it
+  /// in a [_box] square (same layout rule as the painter).
+  static double _latticeLeft(Map<String, dynamic> fig) {
+    final w = (fig['w'] as num).toDouble(), h = (fig['h'] as num).toDouble();
+    const pad = _box * 0.12;
+    final unit = min((_box - 2 * pad) / w, (_box - 2 * pad) / h);
+    return (_box - unit * w) / 2;
   }
 
   Widget _embedded(EmbeddedExplanation e) => Container(
