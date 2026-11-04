@@ -1,9 +1,10 @@
-// In the quiz: a wrong / skipped Mirror, Punch Hole or Embedded answer shows
-// the explanation under the result, and Next waits for it; a right answer
-// is unchanged.
+// In the quiz, every topic: a wrong / skipped answer shows the explanation
+// under the result, and Next waits for it to finish; a right answer is
+// unchanged. Run on a small phone (360x640) and on the A142.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mental_ability_app/engine/explanation.dart';
 import 'package:mental_ability_app/engine/question_generator.dart';
 import 'package:mental_ability_app/screens/quiz_screen.dart';
 import 'package:mental_ability_app/widgets/explanation_panel.dart';
@@ -12,9 +13,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 final _next = find.byWidgetPredicate((w) => w is FloatingActionButton && w.heroTag == 'next_btn');
 bool _nextEnabled(WidgetTester t) => t.widget<FloatingActionButton>(_next).onPressed != null;
 
-Future<void> _start(WidgetTester tester, String topic) async {
-  tester.view.physicalSize = const Size(1084, 2412); // the A142
-  tester.view.devicePixelRatio = 2.75;
+const _a142 = (Size(1084, 2412), 2.75);
+const _small = (Size(720, 1280), 2.0); // 360x640 dp
+
+Future<void> _start(WidgetTester tester, String topic, {(Size, double) screen = _a142}) async {
+  tester.view.physicalSize = screen.$1;
+  tester.view.devicePixelRatio = screen.$2;
   addTearDown(tester.view.reset);
   SharedPreferences.setMockInitialValues({});
   QuestionGenerator.seed(17);
@@ -30,34 +34,44 @@ Future<void> _end(WidgetTester tester) async {
 }
 
 void main() {
-  for (final topic in ['mirror_shape', 'mirror_text', 'punch_hole', 'embedded']) {
-    testWidgets('$topic: wrong answer explains, Next waits for it; right answer unchanged', (tester) async {
-      await _start(tester, topic);
-      var sawWrong = false, sawRight = false;
-      for (int q = 0; q < 8 && !(sawWrong && sawRight); q++) {
-        await tester.tap(find.text('A').first, warnIfMissed: false);
-        await tester.pump();
-        if (find.textContaining('Correct!').evaluate().isNotEmpty) {
-          sawRight = true;
-          expect(find.byType(ExplanationPanel), findsNothing);
-          expect(_nextEnabled(tester), isTrue);
-        } else {
-          sawWrong = true;
-          expect(find.byType(ExplanationPanel), findsOneWidget);
-          await tester.pump(const Duration(milliseconds: 1500));
-          expect(_nextEnabled(tester), isFalse, reason: 'Next unlocked before the explanation ended');
-          await tester.pump(const Duration(milliseconds: 1800));
-          expect(_nextEnabled(tester), isTrue, reason: 'Next still locked after the explanation');
+  const topics = [
+    'mirror_shape', 'mirror_text', 'punch_hole', 'embedded', 'figure_series', 'analogy',
+    'pattern', 'odd_man', 'figure_match', 'geo_completion', 'space_vis',
+  ];
+  for (final topic in topics) {
+    for (final (name, screen) in [('A142', _a142), ('360x640', _small)]) {
+      testWidgets('$topic on $name: wrong answer explains, Next waits for it; right answer unchanged', (tester) async {
+        await _start(tester, topic, screen: screen);
+        var sawWrong = false, sawRight = false;
+        for (int q = 0; q < 8 && !(sawWrong && sawRight); q++) {
+          await tester.tap(find.text('A').first, warnIfMissed: false);
+          await tester.pump();
+          if (find.textContaining('Correct!').evaluate().isNotEmpty) {
+            sawRight = true;
+            expect(find.byType(ExplanationPanel), findsNothing);
+            expect(_nextEnabled(tester), isTrue);
+          } else {
+            sawWrong = true;
+            expect(find.byType(ExplanationPanel), findsOneWidget);
+            final shown = tester.widget<ExplanationPanel>(find.byType(ExplanationPanel)).question;
+            final length = Explanation.of(shown)!.duration;
+            await tester.pump(const Duration(milliseconds: 1500));
+            expect(_nextEnabled(tester), isFalse, reason: 'Next unlocked before the explanation ended');
+            await tester.pump(length - const Duration(milliseconds: 1500) + const Duration(milliseconds: 300));
+            expect(_nextEnabled(tester), isTrue, reason: 'Next still locked after the explanation');
+            final view = tester.view.physicalSize / tester.view.devicePixelRatio;
+            expect(tester.getRect(find.byType(ExplanationPanel)).right, lessThanOrEqualTo(view.width), reason: 'explanation wider than the screen');
+          }
+          // Next straight away: the panel goes mid-replay-free, nothing throws.
+          await tester.tap(_next);
+          await tester.pump(const Duration(milliseconds: 300));
         }
-        // Next straight away: the panel goes mid-replay-free, nothing throws.
-        await tester.tap(_next);
-        await tester.pump(const Duration(milliseconds: 300));
-      }
-      expect(sawWrong, isTrue);
-      await tester.pump(const Duration(seconds: 3));
-      expect(tester.takeException(), isNull);
-      await _end(tester);
-    });
+        expect(sawWrong, isTrue);
+        await tester.pump(const Duration(seconds: 7));
+        expect(tester.takeException(), isNull);
+        await _end(tester);
+      });
+    }
   }
 
   testWidgets('skip: explanation shown, Next waits for it', (tester) async {
