@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'explain/analogy.dart';
 import 'explain/figure_match.dart';
 import 'explain/geo.dart';
+import 'explain/odd_man.dart';
 import 'explain/pattern.dart';
 import 'explain/series.dart';
 import 'line_figure.dart';
@@ -38,6 +39,7 @@ sealed class Explanation {
         'analogy' => _scene(analogyScene(q), answer),
         'figure_series' => _scene(seriesScene(q), answer),
         'pattern' => _scene(patternScene(q), answer),
+        'odd_man' => _scene(oddManScene(q), answer),
         _ => null,
       };
     } catch (_) {

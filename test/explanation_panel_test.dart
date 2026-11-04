@@ -146,8 +146,7 @@ void main() {
   });
 
   testWidgets('a topic without an explanation shows nothing', (tester) async {
-    QuestionGenerator.seed(3);
-    final q = QuestionGenerator.generate('odd_man');
+    final q = ReasoningQuestion(category: 'unknown_topic', type: 'unknown', puzzle: const {}, options: const [{}, {}, {}, {}], correctIndex: 0);
     var finished = 0;
     await tester.pumpWidget(_host(ExplanationPanel(question: q, onFinished: () => finished++)));
     await tester.pump(const Duration(seconds: 4));

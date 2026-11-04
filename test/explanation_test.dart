@@ -127,9 +127,9 @@ void main() {
         ]));
   });
 
-  test('other topics have no explanation', () {
-    QuestionGenerator.seed(5);
-    expect(Explanation.of(QuestionGenerator.generate('odd_man')), isNull);
+  test('a topic the app does not know has no explanation', () {
+    final q = ReasoningQuestion(category: 'unknown_topic', type: 'unknown', puzzle: const {}, options: const [{}, {}, {}, {}], correctIndex: 0);
+    expect(Explanation.of(q), isNull);
   });
 
   test('a malformed question gives no explanation instead of throwing', () {

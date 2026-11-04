@@ -71,23 +71,6 @@ void main() {
     await _end(tester);
   });
 
-  testWidgets('topic without explanations: wrong answer unlocks after 1.2 s as before', (tester) async {
-    await _start(tester, 'odd_man');
-    for (int q = 0; q < 8; q++) {
-      await tester.tap(find.text('A').first, warnIfMissed: false);
-      await tester.pump();
-      if (find.textContaining('Correct!').evaluate().isEmpty) {
-        expect(find.byType(ExplanationPanel), findsNothing);
-        await tester.pump(const Duration(milliseconds: 1300));
-        expect(_nextEnabled(tester), isTrue);
-        break;
-      }
-      await tester.tap(_next);
-      await tester.pump(const Duration(milliseconds: 300));
-    }
-    await _end(tester);
-  });
-
   testWidgets('punch hole hard: the explanation is on screen, above the buttons', (tester) async {
     tester.view.physicalSize = const Size(1084, 2412);
     tester.view.devicePixelRatio = 2.75;
