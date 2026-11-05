@@ -2,7 +2,7 @@
 
 **For:** the incoming project owner
 **From:** Hari (developer), November 2026
-**State at handover:** beta 8 (`v1.0.0-beta.8`), released 3 Nov 2026, all 247 automated tests passing
+**State at handover:** beta 9 (`v1.0.0-beta.9`), released 4 Nov 2026, all 365 automated tests passing
 
 This document explains the whole project from the ground up: what it is, how to set up a computer to work on it, how it is built, how we work, every major problem we hit and how it was fixed, and how to deal with problems in future. No earlier knowledge of Flutter or Android is assumed.
 
@@ -44,6 +44,7 @@ This document explains the whole project from the ground up: what it is, how to 
 - **3 levels:** Easy (grades 2-3, one change per question), Medium (midway), Hard (real exam level).
 - **3 languages:** English, Marathi, Hindi.
 - **Intelligent Bias:** a wrong answer makes that topic come up more often (+2 weight, up to 10); a right answer makes it less frequent (-1, down to 1).
+- **Answer explanations:** after a wrong, skipped or timed-out answer, a short wordless animation acts out the rule on the question's own figures and ends on the correct option framed in green (all 11 topics; section 5.4).
 - **Printed papers:** a coordinator picks a number of students and a language; the app makes a PDF with a differently shuffled 40-question paper per student (one A4 sheet, both sides) and a teacher's answer key.
 
 **Where things are.**
@@ -190,7 +191,7 @@ The app is tested on a real Android phone (a Nothing Phone (2a), model A142).
    ```
 5. Check: `adb devices` lists the phone, and `flutter devices` shows it.
 
-Wireless debugging switches itself off when the phone sleeps or changes network; if `adb devices` is empty, turn it back on (section 10.2).
+Wireless debugging switches itself off when the phone sleeps or changes network; if `adb devices` is empty, turn it back on (section 10.3).
 
 ---
 
@@ -204,7 +205,7 @@ All commands run in the project folder and are the same on Windows and Linux; on
 | Install a debug build without running from the PC | `flutter build apk --debug` then `adb install -r build\app\outputs\flutter-apk\app-debug.apk` | Installs as the **debug** app, beside the release app |
 | Open the installed debug app | `adb shell monkey -p com.nplusone.maa.mental_ability_app.debug -c android.intent.category.LAUNCHER 1` | |
 | Check code style and errors | `flutter analyze` | Must say "No issues found!" |
-| Run all tests | `flutter test` | About 1-3 minutes; must end "All tests passed!" (247 at handover) |
+| Run all tests | `flutter test` | About 1-3 minutes; must end "All tests passed!" (365 at handover) |
 | Run one test file | `flutter test test/series_test.dart` | |
 | Release build (local check only) | `flutter build apk --release` | Output in `build\app\outputs\flutter-apk\app-release.apk` |
 | Preview on a phone without installing | `dart run tool/phone_preview.dart` | Opens the app in the phone's browser via a QR code; see `docs/phone_preview.md` |
@@ -227,7 +228,7 @@ If `adb` lists the phone twice (once by IP, once by name), add `-s <name>` to ev
 | Fonts | **google_fonts** (Lexend for the app); letter questions use Roboto | Readability for children |
 | PDF papers | **pdf** + **printing** packages | Builds the A4 PDF and opens Android's print/share dialog |
 | State management | Plain `setState` | The app is small enough not to need a state library |
-| Android build | Gradle 8.14.3, Android Gradle Plugin 8.13.0, Kotlin 2.2.20, Java 17 | Pinned versions that work together (see 9.6) |
+| Android build | Gradle 8.14.3, Android Gradle Plugin 8.13.0, Kotlin 2.2.20, Java 17 | Pinned versions that work together (see 9.5) |
 | CI / releases | **GitHub Actions** (`.github/workflows/beta-release.yml`) | Builds and publishes the APK when a beta tag is pushed |
 
 ### 4.2 Screens and how a child moves through them
@@ -235,6 +236,7 @@ If `adb` lists the phone twice (once by IP, once by name), add `-s <name>` to ev
 ```
 SessionConfigScreen (home: topics, level, length, timer, language, Print paper button)
    ├─► QuizScreen (one question at a time, timer, bias weights updated after every answer)
+   │      ├─  ExplanationPanel (under the result after a wrong/skipped answer; Next waits until it ends)
    │      └─► SessionSummaryScreen (score, charts)
    │             ├─► SessionReviewScreen (every question with right/wrong highlighted)
    │             └─► StudentResultScreen / SessionDetailScreen (per-topic report)
@@ -248,7 +250,7 @@ Session lengths: 5, 10, 15, 20, 25, 30, 40 or 50 questions. Timer per question: 
 
 ### 4.3 Code map (`lib/`)
 
-About 19,000 lines of Dart. The biggest and most important files are in `engine/`.
+About 20,000 lines of Dart. The biggest and most important files are in `engine/`.
 
 | Folder / file | What it holds |
 |---|---|
@@ -265,9 +267,15 @@ About 19,000 lines of Dart. The biggest and most important files are in `engine/
 | `engine/line_figure.dart` | **`LineFig`**: figures as lines on a small grid. Exact turning, flipping, "is this hidden inside that", and `key` ("do these two look the same as drawn") |
 | `engine/test_paper.dart` | Builds a 40-question printed paper and per-student shuffled sets |
 | `engine/difficulty.dart` | `Difficulty { easy, medium, hard }` |
+| `engine/explanation.dart` | **Answer explanations.** `Explanation.of(question)` works out what to animate for any question (or `null`), once per question |
+| `engine/explain/` | One file per topic group (`pattern`, `series`, `analogy`, `odd_man`, `figure_match`, `geo`, `space_vis`) that turns a question into a `Scene` |
+| `engine/scene.dart` | The `Scene` model: slots (figures placed on a small stage) and steps (fly, morph, pulse, tick, reveal) |
+| `engine/morph.dart`, `morph_line.dart` | Work out the difference between two figures as "beats" (turn, flip, resize, move, swap) and draw any in-between frame |
+| `engine/paper_fold.dart` | Unfolds punched paper one fold at a time for the Punch Hole explanation |
 | `painters/` | Code that draws each figure type: `line_figure_painter` (LineFig), `sandia_painter` (shaded matrices), `figure_painter` (classic shapes), `mirror_text_painter`, `punch_painter`, `geo_piece_path` |
 | `widgets/question_renderer.dart` | Draws the question area for each puzzle type |
 | `widgets/option_renderer.dart` | Draws each answer option; picks the painter from the option's `type` |
+| `widgets/explanation_panel.dart`, `scene_player.dart` | Play an explanation: the panel runs the timer and Replay button; the scene player draws a `Scene` at any point of its timeline |
 | `paper/paper_pages.dart`, `paper_pdf.dart` | Layout and PDF output of printed papers |
 | `screens/` | The screens listed in 4.2 |
 
@@ -311,7 +319,36 @@ These rules came out of real bug reports (section 9). Keep them when adding ques
 3. Shuffle the options and record `correctIndex`.
 4. Add it to the router at a small share for the right levels.
 5. Write a test that solves the question from its data and checks exactly one option is right (see `test/book_generator_test.dart` for small examples).
-6. Run `flutter test`; the cross-topic tests (`no_hidden_detail_test`, `question_generator_test`, visual tests) will also check it.
+6. Run `flutter test`; the cross-topic tests (`no_hidden_detail_test`, `question_generator_test`, visual tests, `explanation_all_topics_test`) will also check it.
+7. Check the new type gets an explanation (5.4). Most `line_fig` and Sandia types are explained automatically; if `explanation_all_topics_test` lists the new type as unexplained, add it to the topic's file in `engine/explain/`.
+
+### 5.4 Answer explanations
+
+After a wrong, skipped or timed-out answer, an **ExplanationPanel** appears under the result. It plays a short animation (3-6.5 s) on the question's own figures, ending on the correct option framed in green. It has no words, so it works the same in all three languages. **Next** stays locked until it finishes; **Replay** plays it again. If the phone has "remove animations" switched on, the panel shows the final frame.
+
+Explanations are **worked out from the question data**, not stored with the question. That is why sessions saved before explanations existed have them too. `Explanation.of(q)` returns `null` for anything it can't explain; the quiz then simply shows no panel, so a gap is never a crash.
+
+| Topic | What the animation shows |
+|---|---|
+| Mirror Shape / Mirror Text | The figure flips over the mirror line onto the answer |
+| Punch Hole | The punched paper unfolds fold by fold (last fold first); paper folding: the sheet's half folds over |
+| Embedded | The hidden shape lights up inside the answer |
+| Figure Series | Each frame flies to the next, changing the same way every step; the last flies into the "?" (frames wrap onto two rows on small phones) |
+| Analogy | A copy of A flies onto B, changing on the way; a copy of C makes the same changes and lands in the "?" |
+| Pattern | The row/column rule is shown on two example cells, then applied in the gap. Sandia grids are built **layer by layer**, because each layer (and each part, e.g. shape vs shading) can follow its own line |
+| Odd Man Out | What the three alike options share is shown (turned copies fly onto each other until they match); the odd one is outlined in red |
+| Figure Match | A copy of the target flies onto the correct option, turning or flipping on the way, and covers it exactly |
+| Geo Completion | The correct piece turns the right way up and slides into the gap; the completed shape glows |
+| Space Visualisation | The answer is cut into regions; each given piece turns or flips to match its region and flies into place |
+
+How it fits together: `engine/explain/<topic>.dart` turns a question into a `Scene` (figures on a stage plus steps); `morph.dart` works out what changes between two figures (turn, flip, resize, move, swap); `ScenePlayer` draws any moment of the scene, so tests can check frames without running a real animation.
+
+**Tests.** `explain_<topic>_test.dart` generate hundreds of questions per type and check that each scene really ends on the correct option and that each step shows the real rule (for example, the example cells in a Pattern scene change by the same amount as the gap). `explanation_all_topics_test` checks every question type has an explanation.
+
+**Known limits (beta 9).**
+
+- A few Hard Pattern grids (2 in the test run) still show only the change, not a rule: one Sandia grid where the grid itself doesn't decide the answer (a generator flaw, see 11.4), and one dual-rule grid where the dots stop at 4.
+- A shape that spins and lands looking the same (a symmetric shape) still spins: the spin shows the rule's turn, and this was kept on purpose.
 
 ---
 
@@ -328,7 +365,7 @@ Coordinators open **Print paper** on the config screen, choose the number of stu
 | Drawing | Pages are drawn by the app's own painters at app size (80 px) then scaled down, so lines keep their proportions; converted to grayscale and compressed (`_grayPage`, about 0.3 s a page) |
 | Languages | `paperText(langs, key)`; with both languages the directions print English then Marathi |
 
-`paper_pdf.dart` uses one internal file of the `pdf` package (`package:pdf/src/pdf/format/num.dart`) to add pre-compressed images. If `pdf` is upgraded past 3.12 and this breaks, see 10.5.
+`paper_pdf.dart` uses one internal file of the `pdf` package (`package:pdf/src/pdf/format/num.dart`) to add pre-compressed images. If `pdf` is upgraded past 3.12 and this breaks, see 10.6.
 
 ---
 
@@ -336,7 +373,7 @@ Coordinators open **Print paper** on the config screen, choose the number of stu
 
 ### 7.1 Testing method
 
-The project relies on automated tests because a person can't check thousands of generated questions by eye. There are 31 test files and 247 tests. The main kinds:
+The project relies on automated tests because a person can't check thousands of generated questions by eye. There are 47 test files and 365 tests. The main kinds:
 
 | Kind | Example files | What they prove |
 |---|---|---|
@@ -346,6 +383,7 @@ The project relies on automated tests because a person can't check thousands of 
 | Engine diagnostics | `hard_generator_diagnostics_test` | Sandia engine: no crashes, no duplicates, no tiny features |
 | Screens | `quiz_layout_test`, `multi_topic_test`, `report_screens_test`, `print_paper_screen_test` | Screens build and behave at phone size |
 | Paper | `paper_pdf_test`, `test_paper_test`, `mentor_paper_review_test` | Every page fits A4 in all languages; PDF page counts; mentors' review points |
+| Explanations | `explain_*_test`, `explanation_test`, `morph_test`, `scene_player_test`, `explanation_panel_test`, `explanation_quiz_test` | Every animation ends on the correct option and shows the real rule; frames draw without errors; the quiz locks Next until it ends |
 
 > **Tip:** Every bug fix starts with a test that fails; the fix then makes it pass. This rule kept the same bugs from coming back.
 
@@ -362,8 +400,9 @@ Printed papers were reviewed the same way, by WhatsApp messages and PDF annotati
 | Branch | Role |
 |---|---|
 | `master` | Release line. Every beta is tagged on master. |
-| `hard-mode-exam-style` | Where all work since September 2026 was done; merged into master for each release |
-| `session-rework`, `generator-rework`, `generator-revamp`, ... | Older feature branches, already merged |
+| `hard-mode-exam-style` | Where all work since September 2026 was done, including answer explanations; merged into master for each release (last: beta 9) |
+| `session-rework` | Older main work branch. It does **not** have the work since beta 8 (explanations); treat master as the source of truth |
+| `generator-rework`, `generator-revamp`, ... | Older feature branches, already merged |
 | `release-check` | Local-only branch used to test the beta 8 merge; can be deleted |
 
 Work on a branch, run `flutter analyze` and `flutter test`, then merge into master for a release.
@@ -377,6 +416,8 @@ Version format: `pubspec.yaml` `version: 1.0.0-beta.N+N`, tag `v1.0.0-beta.N`. `
 3. The **pre-push hook** (`tools/git-hooks/pre-push`) asks "cut a new beta?" - in a dialog box on Windows, a zenity dialog on a Linux desktop, or as a question in the terminal otherwise. Click **Yes** and accept the suggested tag. It bumps both version files, commits, tags and pushes the tag. (If you made the version commit and tag yourself, click **No**.)
 4. Pushing the tag starts **GitHub Actions**: it checks the tag matches `pubspec.yaml`, runs analyze and tests, builds the APK and AAB, and publishes them as the **Latest** release (about 8 minutes). Watch it under the repo's **Actions** tab or with `gh run list`.
 5. Send testers the release link. They install `app-release.apk` (see 11.3 about signing).
+
+> **Tip:** Beta 9 was released the manual way, which avoids one quirk of the hook (its version commit is made after git has decided what to push, so master can end up one commit behind the tag until the next push). Manual steps: bump `pubspec.yaml` and `version.dart`, commit, `git tag -a v1.0.0-beta.N -m "..."`, `git push origin v1.0.0-beta.N`, then `git push origin master` and click **No** in the hook's dialog.
 
 > **Important:** Never delete or reuse a published tag. If something is wrong, fix it and release the next beta number (`docs/release_beta.md`).
 
@@ -393,6 +434,7 @@ Version format: `pubspec.yaml` `version: 1.0.0-beta.N+N`, tag `v1.0.0-beta.N`. `
 | Sep | Exam-style questions from real JNVST papers for every topic; Space Visualisation topic; LineFig drawing parts (arrows, hatching, arcs, symbols); multi-topic sessions; **Medium** level; beta 5-6 |
 | Oct | Medium reworked as a true midpoint; **printed test paper** (A4 PDF, per-student sets); guide-book question types; English/Marathi papers; many fixes from mentors' reviews; beta 7 |
 | 3 Nov | **Beta 8**: everything above plus all tracker fixes |
+| 4 Nov | **Beta 9**: answer explanations for all 11 topics (animated, wordless), Sandia Pattern grids explained layer by layer, series frames on two rows for small phones |
 
 The full list of commits is in `git log`; Hard Mode decisions are written up in detail in `docs/hard-mode-history.md`; `CHANGELOG.md` covers the early betas.
 
@@ -466,7 +508,19 @@ The most common class of bug. It almost always had the same shape: two options t
 | Releases didn't show on the GitHub repo page | Published as pre-releases | Published as Latest releases |
 | `INSTALL_FAILED_UPDATE_INCOMPATIBLE` on the phone | Release builds are signed with a CI-generated debug key that changes each run | Uninstall then install; permanent fix in 11.3 |
 
-### 9.6 Process problems
+### 9.6 Answer explanation problems
+
+| Problem | Cause | Fix |
+|---|---|---|
+| No explanation showed on the phone for any topic | The tester was running the beta (release) app, not the newly installed debug app; they sit side by side | Open the app whose package ends in `.debug` (section 3) |
+| Debug app showed an old version ("beta 5") | The work branch's `version.dart` hadn't been updated with master's releases | Keep `pubspec.yaml` and `version.dart` in step on the work branch too |
+| Hard Pattern explanations showed only the difference, not the rule, for almost every Sandia grid (94 in the test run) | Each Sandia layer, and each part of a layer, follows its own line through the grid; a single row/column rule doesn't exist | Explanations build the answer layer by layer, each from its own line, with a two-cell example first |
+| A shade change "by 0" counted as a change | Equal values were compared as different | Shade changes need different values; tests mirror the check |
+| The frame around an arrow swung into a diamond mid-turn | The whole figure, frame included, was turned | Square frames are drawn still; only what is inside turns |
+| The copy landed on a grey "?" box | The question box stayed visible under the flying figure | The "?" fades out as the copy arrives |
+| Series frames shrank to fit a 360 dp phone | All frames on one row | Two rows when one row would shrink them |
+
+### 9.7 Process problems
 
 | Problem | Cause | Fix |
 |---|---|---|
@@ -487,16 +541,25 @@ The most common class of bug. It almost always had the same shape: two options t
 5. **Fix in the generator** (reject such draws or change the wrong-option rule), not in the painter, unless the drawing itself is wrong.
 6. Run the full test suite, install a debug build, check on the phone.
 
-### 10.2 The phone isn't found
+### 10.2 An explanation is missing, wrong or looks odd
+
+1. **Check the app.** Explanations exist from beta 9. On a development phone, make sure you opened the `.debug` app if you installed a debug build.
+2. **Find the type.** No panel at all means `Explanation.of(q)` returned `null` for that question type (it never crashes; any error inside it also gives `null`). `explanation_all_topics_test` prints which types have no explanation.
+3. **Reproduce with a test.** In the topic's `test/explain_<topic>_test.dart`, generate that type and check the property that's wrong (wrong end frame, a step that doesn't match the rule).
+4. **Fix in `engine/explain/<topic>.dart`** (what the scene shows) or `morph.dart` (how two figures differ). Drawing glitches mid-animation are usually in `scene_player.dart` or a painter's in-between frame handling.
+5. If the explanation can't show a rule because the question doesn't have one, the bug is in the **generator**, not the explanation.
+
+### 10.3 The phone isn't found
 
 | Symptom | Fix |
 |---|---|
 | `adb devices` is empty | Turn **Wireless debugging** back on (it switches off on sleep / network change), or plug in the cable |
+| Installed fine but changes don't show | You opened the release (beta) app; the debug build installs as a second app (package ends in `.debug`) |
 | "more than one device/emulator" | The phone is listed twice; use `adb -s <one-of-the-names> ...` |
 | "unauthorized" | Accept the prompt on the phone; if none, revoke USB debugging authorisations in Developer options and reconnect |
 | `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | The installed app has a different signature: `adb uninstall <package>` then install (this deletes that app's local history) |
 
-### 10.3 Build fails
+### 10.4 Build fails
 
 | Symptom | Fix |
 |---|---|
@@ -506,18 +569,18 @@ The most common class of bug. It almost always had the same shape: two options t
 | CI fails at "Validate tag" | Tag and `pubspec.yaml` version differ; fix `pubspec.yaml`, release the next beta number |
 | CI fails at "Test" but tests pass locally | Look for tests depending on Windows paths or fonts; tests must not use `C:\...` |
 
-### 10.4 Tests fail after a change
+### 10.5 Tests fail after a change
 
 - Read the test's comment at the top of the file - it says what property it protects and often which report it came from.
 - If your change deliberately changes behaviour (e.g. a new question type in a mix), update the test's expectations and say why in the comment. If not, the test caught a real bug.
 - A sudden "too many failed draws" means a generator now rejects most random draws; loosen the new check or add retries.
 
-### 10.5 Library upgrades
+### 10.6 Library upgrades
 
 - Upgrade one package at a time (`flutter pub upgrade <name>`), then run all tests.
 - The `pdf` package is used through one internal file in `lib/paper/paper_pdf.dart`; after upgrading `pdf`, run `flutter test test/paper_pdf_test.dart`. If it fails, replace `_grayPage` with `pw.MemoryImage` of a PNG (slower but uses only the public API).
 
-### 10.6 Printing problems
+### 10.7 Printing problems
 
 | Symptom | Fix |
 |---|---|
@@ -566,9 +629,12 @@ Fix (about 1 hour):
 | Hard shaded Pattern | 13/84 questions still have an option pair differing only by one thin extra outline shape; if mentors flag it, stop overlapping white outline shapes in Hard | ~45 min |
 | CI notices | GitHub warns that Node 20 actions and `actions/setup-java@v4` are deprecated; bump to `setup-java@v5` and current action versions | ~15 min |
 | Exam-format mock test | 40 questions in exam order, 60 minutes, per-part score; deferred until the app is stable | 1-2 days |
-| Answer explanations | Requested earlier in the tracker; not started | 1-2 days |
-| Notion statuses | 2 bugs (Geo ambiguity, Reducing ambiguity) and 3 features (Mirror 3 modes, Medium section, Level setting) are fixed in beta 8; mentors to mark them Fixed | - |
-| Old local branches | `release-check`, `release-prep`, `ui-mock`, ... can be deleted after checking they're merged | - |
+| Sandia Pattern grids that don't decide the answer | In some Hard Sandia grids, the part that tells the options apart (often the shape) isn't fixed by the grid, so a child can only guess. Cause: in `hard_question_generator.dart` the missing cell (2,2) sits alone on its diagonal (bottom-left to top-right) line, so its shape there is random. Fix: reject such grids or fix that part from another line. Read `docs/hard-mode-history.md` first | ~1 h |
+| Other generator findings from the explanation work | Dual-rule Pattern dots stop at 4, so that rule can break; one Analogy type (`analogy_r4`) sometimes hides the inner-shape change | ~30 min each |
+| Hard/Medium Embedded wrong options | `_embeddedHard` (Hard, and 40% of Medium) still uses turned, flipped or opposite-fill copies of the shape as wrong options - the pattern testers objected to in 9.1. Decide whether to change its wrong options or lower its share (keep it in the mix: "add, never replace") | ~45 min |
+| Explanations without a rule | 2 Hard Pattern grids in the test run (5.4); goes away with the two generator items above | - |
+| Notion statuses | 2 bugs (Geo ambiguity, Reducing ambiguity) and 3 features (Mirror 3 modes, Medium section, Level setting) are fixed in beta 8; "Answer explanations" is done in beta 9; mentors to mark them Fixed | - |
+| Old local branches | `release-check`, `release-prep`, `ui-mock`, ... can be deleted after checking they're merged; `session-rework` is behind master (7.3) | - |
 
 ### 11.5 Key documents in the repository
 
@@ -601,3 +667,5 @@ Fix (about 1 hour):
 | **Debug / release build** | Debug: for development, installs as `...debug`; release: what testers install |
 | **adb** | Android Debug Bridge, the tool that talks to the phone from the PC |
 | **CI** | Continuous Integration: GitHub Actions building and publishing releases |
+| **Explanation / scene** | The animation after a wrong answer; a scene is its script: figures on a small stage and the steps that move and change them |
+| **Morph / beat** | The difference between two figures, as a list of beats (turn, flip, resize, move, swap) the animation plays |
