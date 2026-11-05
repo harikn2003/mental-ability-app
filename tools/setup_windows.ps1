@@ -129,10 +129,9 @@ if ($ProjectDir) {
   } else {
     Run "clone the project into $ProjectDir" { git clone $RepoUrl $ProjectDir }
   }
-  Run 'download packages and switch on the release hook' {
+  Run 'download packages' {
     Push-Location $ProjectDir
     flutter pub get
-    git config core.hooksPath tools/git-hooks
     Pop-Location
   }
 } else {

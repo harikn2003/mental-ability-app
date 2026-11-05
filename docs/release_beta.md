@@ -1,70 +1,48 @@
-# Beta Release Checklist
+# Beta Release
 
-Use this checklist when publishing a beta build to GitHub.
+One command, run from `master` when you want a release:
 
-## 1) Choose version and tag
-
-- Version format in `pubspec.yaml`: `x.y.z-beta.n+build`
-- Git tag format: `vx.y.z-beta.n`
-- Example: `version: 1.0.0-beta.1+2` and tag `v1.0.0-beta.1`
-
-## 2) Update app version
-
-Edit `pubspec.yaml`:
-
-```yaml
-version: 1.0.0-beta.1+2
+```bash
+dart run tool/release.dart
 ```
 
-## 3) Validate locally
+1. Merge your work into `master` (`git checkout master`, `git merge <branch>`).
+2. Run the command. It asks for the tag: press Enter for the next beta, or type
+   one (`vX.Y.Z-beta.N`, e.g. `v1.1.0-beta.1`).
+3. Check what it shows (version, build number, codename, commits going out) and
+   answer `y`.
+4. It runs `flutter analyze` and `flutter test`, updates `pubspec.yaml` and
+   `lib/config/version.dart` together, commits, tags, and pushes master and the
+   tag in one atomic push.
+5. GitHub Actions builds the APK and AAB and publishes the **Latest** release,
+   titled e.g. `v1.0.0-beta.10 (Date)` (about 8 minutes). The command prints
+   the links.
 
-```powershell
-flutter clean
-flutter pub get
-flutter analyze
-flutter test
-flutter build apk --release
-flutter build appbundle --release
+| Option | What it does |
+|---|---|
+| `--tag v1.0.0-beta.12` | Use this tag without asking |
+| `--dry-run` | Show what would happen; change nothing |
+| `--skip-tests` | Skip analyze/test locally (CI still runs them) |
+| `--yes` | No questions: the `--tag` given, or the next beta |
+| `--print-codename` | Print the current build's codename (used by CI) |
+
+## Rules
+
+- Version format: `pubspec.yaml` `version: 1.0.0-beta.N+B`, tag `v1.0.0-beta.N`.
+  The build number `B` goes up by one every release (Android needs it to rise).
+- The codename comes from the build number (`AppVersion.buildCodenames` in
+  `lib/config/version.dart`), so it moves on by itself. To skip a name, comment
+  it out in that list.
+- Never delete or reuse a published tag. If something is wrong, fix it and
+  release the next beta number.
+- CI checks the tag matches `pubspec.yaml`; `test/release_tool_test.dart`
+  checks the two version files agree.
+
+## Older clones
+
+Before beta 10 a pre-push hook offered to cut a release on every push to
+master. It has been removed. If your clone still has it switched on, run once:
+
+```bash
+git config --unset core.hooksPath
 ```
-
-## 4) Update changelog
-
-- Move relevant items from `[Unreleased]` to a new version section in `CHANGELOG.md`.
-- Ensure release date matches publish date.
-
-## 5) Commit and tag
-
-```powershell
-git add pubspec.yaml CHANGELOG.md
-git add .github/workflows/beta-release.yml docs/release_beta.md
-git commit -m "chore(release): beta v1.0.0-beta.1"
-git tag -a v1.0.0-beta.1 -m "Beta release v1.0.0-beta.1"
-```
-
-## 6) Push branch and tag
-
-```powershell
-git push origin main
-git push origin v1.0.0-beta.1
-```
-
-Pushing a matching beta tag triggers the GitHub Actions workflow.
-The workflow also verifies that the pushed tag (without `v`) matches
-`pubspec.yaml` build-name (value before `+`).
-
-## 7) Verify GitHub prerelease
-
-- Open GitHub -> Releases.
-- Confirm a prerelease is created for tag `v1.0.0-beta.1`.
-- Confirm artifacts are attached:
-    - `app-release.apk`
-    - `app-release.aab`
-
-## 8) Roll-forward strategy
-
-Do not delete/reuse a published tag. If an issue is found:
-
-1. Fix on branch.
-2. Bump beta number and build number.
-3. Tag a new beta release (`v1.0.0-beta.2`).
-

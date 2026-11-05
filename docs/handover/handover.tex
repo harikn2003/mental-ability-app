@@ -236,17 +236,16 @@ The project can be developed on \textbf{Windows 10/11} or \textbf{Linux} (Ubuntu
 
 \begin{tbl}{P{0.3\linewidth}LP{0.25\linewidth}}
 \thead{Tool} & \thead{Why} & \thead{From (Windows / Linux)} \\ \midrule
-\textbf{Git} & Version control; on Windows also gives \textbf{Git Bash}, used by the release hook & winget / apt or dnf \\
+\textbf{Git} & Version control & winget / apt or dnf \\
 \textbf{VS Code} + \textbf{Flutter extension} & Editor with code completion, run and debug buttons & winget / snap or Microsoft package \\
 \textbf{Java 17} (or any 17+) & Android builds run on Java & winget (Temurin) / apt or dnf \\
 \textbf{Flutter SDK} (stable) & The app framework; includes Dart & Git clone of the stable branch \\
 \textbf{Android SDK command-line tools}: platform-tools (\code{adb}), Android 36, build-tools 36, NDK 27 & Builds and installs the Android app & Google's download, then \code{sdkmanager} \\
-\textbf{zenity} (Linux only) & Dialog boxes for the release hook & apt or dnf \\
 \end{tbl}
 
 Install locations: Flutter in \code{C:\textbackslash{}src\textbackslash{}flutter} (Windows) or \code{\textasciitilde{}/development/flutter} (Linux); the Android SDK in \code{\%LOCALAPPDATA\%\textbackslash{}Android\textbackslash{}Sdk} (Windows) or \code{\textasciitilde{}/Android/Sdk} (Linux).
 
-Both setup scripts install only what is missing, set the paths, accept the Android licences, install the VS Code extension, can clone the project, switch on the release hook, and finish with \code{flutter doctor}. Both have a dry-run mode that shows what they would do without changing anything.
+Both setup scripts install only what is missing, set the paths, accept the Android licences, install the VS Code extension, can clone the project, and finish with \code{flutter doctor}. Both have a dry-run mode that shows what they would do without changing anything.
 
 \subsection{Windows: one-step setup}
 
@@ -299,7 +298,7 @@ code "$HOME\StudioProjects\mental_ability_app"     # Windows (PowerShell)
 \end{enumerate}
 
 \begin{important}
-The setup scripts switch on the project's \textbf{pre-push release hook} (\code{git config core.hooksPath tools/git-hooks}). If you clone the project another way, run that command once in the new folder (on Linux also \code{chmod +x tools/git-hooks/pre-push}). Without it, pushing master won't offer to make a beta, and the two version files can drift apart.
+Releases are made with one command, \code{dart run tool/release.dart} (section~\ref{sec:release}). There is no git hook to switch on: pushing master never asks anything. Clones made before beta 10 had a pre-push hook switched on; turn it off once with \code{git config --unset core.hooksPath}.
 \end{important}
 
 \subsection{Manual setup (if a script can't be used)}
@@ -321,7 +320,7 @@ winget install --id EclipseAdoptium.Temurin.17.JDK -e
 \item Install the tools:
 \begin{shell}
 sudo apt-get update
-sudo apt-get install -y git curl unzip xz-utils zip libglu1-mesa openjdk-17-jdk zenity
+sudo apt-get install -y git curl unzip xz-utils zip libglu1-mesa openjdk-17-jdk
 sudo snap install code --classic
 \end{shell}
 \item Flutter: \code{git clone https://github.com/flutter/flutter.git -b stable \textasciitilde{}/development/flutter}.
@@ -347,7 +346,6 @@ code --install-extension Dart-Code.flutter
 git clone https://github.com/harikn2003/mental-ability-app.git ~/projects/mental_ability_app
 cd ~/projects/mental_ability_app
 flutter pub get
-git config core.hooksPath tools/git-hooks
 \end{shell}
 \end{enumerate}
 
@@ -445,7 +443,7 @@ About 20,000 lines of Dart. The biggest and most important files are in \code{en
 \thead{Folder / file} & \thead{What it holds} \\ \midrule
 \code{main.dart} & App entry: starts Hive, sets the theme, opens the config screen \\
 \code{config/localization.dart} & Every on-screen string in English, Marathi and Hindi (\code{AppLocale.s('key')}); \code{AppLocale.topicName} gives one name per topic for every screen \\
-\code{config/version.dart} & Version and build number shown in the app (kept in step with \code{pubspec.yaml} by the release hook) \\
+\code{config/version.dart} & Version and build number shown in the app (kept in step with \code{pubspec.yaml} by the release command) \\
 \code{data/} & Hive storage of finished sessions (\code{hive_service.dart}, \code{session_record.dart}; \code{.g.dart} is generated code) \\
 \code{engine/question_generator.dart} & \textbf{The router.} \code{QuestionGenerator.generate(topic, difficulty:)} decides which generator makes each question; it also holds the original (``classic'') generators for every topic and stops repeats within a session \\
 \code{engine/hard_question_generator.dart} & The \textbf{Sandia engine}: multi-layer shaded matrix questions for Odd Man, Figure Match, Pattern (and Series/Analogy at Hard) \\
@@ -664,39 +662,57 @@ Printed papers were reviewed the same way, by WhatsApp messages and PDF annotati
 
 Work on a branch, run \code{flutter analyze} and \code{flutter test}, then merge into master for a release.
 
-\subsection{Making a beta release}
+\subsection{Making a beta release}\label{sec:release}
 
-Version format: \code{pubspec.yaml} \code{version: 1.0.0-beta.N+N}, tag \code{v1.0.0-beta.N}. \code{lib/config/version.dart} must match (\code{preRelease = 'beta.N'}, \code{buildNumber = N}).
+A release is one command, run on purpose when you want one. Pushing master on its own never asks anything and never releases.
+
+\begin{shell}
+dart run tool/release.dart
+\end{shell}
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[node distance=6mm]
-  \node[plain] (w) {Work branch\\[-1pt]{\scriptsize analyze + test}};
-  \node[box, right=of w] (m) {Merge into\\master};
-  \node[box, right=of m] (t) {Tests on\\the merge};
-  \node[box, right=of t] (v) {Bump version,\\tag \code{v1.0.0-beta.N}};
-  \node[box, right=of v] (p) {Push tag,\\then master};
-  \node[hot, below=10mm of p] (ci) {GitHub Actions\\[-1pt]{\scriptsize about 8 minutes}};
-  \node[hot, left=of ci] (r) {Latest release\\[-1pt]{\scriptsize APK + AAB}};
-  \draw[flow] (w) -- (m); \draw[flow] (m) -- (t); \draw[flow] (t) -- (v); \draw[flow] (v) -- (p);
-  \draw[flow] (p) -- node[lab, right] {tag push} (ci); \draw[flow] (ci) -- (r);
+\begin{tikzpicture}[node distance=5mm]
+  \node[plain] (w) {Work merged\\into master};
+  \node[box, right=of w] (c) {Checks: master,\\clean, up to date};
+  \node[box, right=of c] (a) {Asks for the tag\\[-1pt]{\scriptsize Enter = next beta}};
+  \node[box, right=of a] (s) {Shows version,\\codename, commits};
+  \node[box, below=9mm of s] (t) {analyze + test};
+  \node[box, left=of t] (b) {Bump both files,\\commit, tag};
+  \node[box, left=of b] (p) {Push master + tag\\[-1pt]{\scriptsize together}};
+  \node[hot, left=of p] (ci) {GitHub Actions\\[-1pt]{\scriptsize release ``vX (Codename)''}};
+  \draw[flow] (w) -- (c); \draw[flow] (c) -- (a); \draw[flow] (a) -- (s); \draw[flow] (s) -- (t);
+  \draw[flow] (t) -- (b); \draw[flow] (b) -- (p); \draw[flow] (p) -- (ci);
 \end{tikzpicture}
 \end{figure}
 
 \begin{enumerate}
-\item Merge the work branch into \code{master}; resolve conflicts; run \code{flutter analyze} and \code{flutter test} on the result.
-\item Push master: \code{git push origin master}.
-\item The \textbf{pre-push hook} (\code{tools/git-hooks/pre-push}) asks ``cut a new beta?'' -- in a dialog box on Windows, a zenity dialog on a Linux desktop, or as a question in the terminal otherwise. Click \textbf{Yes} and accept the suggested tag. It bumps both version files, commits, tags and pushes the tag. (If you made the version commit and tag yourself, click \textbf{No}.)
-\item Pushing the tag starts \textbf{GitHub Actions}: it checks the tag matches \code{pubspec.yaml}, runs analyze and tests, builds the APK and AAB, and publishes them as the \textbf{Latest} release (about 8 minutes). Watch it under the repo's \textbf{Actions} tab or with \code{gh run list}.
+\item Merge the work branch into \code{master} (\code{git checkout master}, \code{git merge <branch>}).
+\item Run \code{dart run tool/release.dart}. It:
+  \begin{itemize}
+  \item stops unless you're on \code{master} with nothing uncommitted and nothing newer on GitHub;
+  \item asks \textbf{``Tag for this release [v1.0.0-beta.N]''}: press \key{Enter} for the next beta, or type any \code{vX.Y.Z-beta.N} (e.g.\ \code{v1.1.0-beta.1} for a new minor version). A tag that already exists is refused;
+  \item shows the new version, the \textbf{build number} (always one up) and the \textbf{codename} that build will show in the app, plus the commits going out, and asks ``Release it?'';
+  \item runs \code{flutter analyze} and \code{flutter test};
+  \item updates \code{pubspec.yaml} and \code{lib/config/version.dart} together, commits \code{chore(release): beta 1.0.0-beta.N (Codename)}, tags, and pushes master and the tag in one atomic push (both or neither).
+  \end{itemize}
+\item The tag push starts \textbf{GitHub Actions}: it checks the tag matches \code{pubspec.yaml}, runs analyze and tests, builds the APK and AAB, and publishes them as the \textbf{Latest} release titled e.g.\ ``v1.0.0-beta.10 (Date)'' (about 8 minutes). The command prints the links.
 \item Send testers the release link. They install \code{app-release.apk} (see \ref{sec:signing} about signing).
 \end{enumerate}
 
-\begin{tip}
-Beta 9 was released the manual way, which avoids one quirk of the hook (its version commit is made after git has decided what to push, so master can end up one commit behind the tag until the next push). Manual steps: bump \code{pubspec.yaml} and \code{version.dart}, commit, \code{git tag -a v1.0.0-beta.N -m "..."}, \code{git push origin v1.0.0-beta.N}, then \code{git push origin master} and click \textbf{No} in the hook's dialog.
-\end{tip}
+\begin{tbl}{P{0.36\linewidth}L}
+\thead{Option} & \thead{What it does} \\ \midrule
+\code{--tag v1.0.0-beta.12} & Use this tag without asking \\
+\code{--dry-run} & Show the version, codename and commits; change nothing \\
+\code{--skip-tests} & Skip analyze and test locally (CI still runs them) \\
+\code{--yes} & No questions: the \code{--tag} given, or the next beta \\
+\code{--print-codename} & Print the current build's codename (CI uses it for the release title) \\
+\end{tbl}
+
+\textbf{Codenames.} Each build has a fruit codename shown in the app's version badge (e.g.\ ``v1.0.0-beta.9 Damson''). It comes from the build number, \code{AppVersion.buildCodenames[buildNumber \% length]} in \code{version.dart}, so it moves on by itself with every release; to skip a name, comment it out in that list. \code{test/release_tool_test.dart} checks the command and the app agree on it.
 
 \begin{important}
-Never delete or reuse a published tag. If something is wrong, fix it and release the next beta number (\code{docs/release_beta.md}).
+Never delete or reuse a published tag. If something is wrong, fix it and release the next beta number. If the push fails, the command prints how to retry it or undo the local commit and tag.
 \end{important}
 
 % ================================================================ 8
@@ -707,7 +723,7 @@ Never delete or reuse a published tag. If something is wrong, fix it and release
 Jan--Mar & Project started; quiz engine, sessions, review screen. Switched from static image questions to \textbf{generated questions} drawn by code. \\
 Mar--Apr & Intelligent Bias, weak-area practice, Hive history, Marathi then Hindi, session detail and student result screens \\
 May & First betas (beta 1--3); automated version tracking; Mirror Text overhaul; Java/Gradle CI fixes \\
-Jul--Aug & \textbf{Hard Mode} with the Sandia matrix engine (shaded multi-layer figures based on the Sandia Generated Matrix Tool); beta 4; pre-push release hook \\
+Jul--Aug & \textbf{Hard Mode} with the Sandia matrix engine (shaded multi-layer figures based on the Sandia Generated Matrix Tool); beta 4; release tooling \\
 Sep & Exam-style questions from real JNVST papers for every topic; Space Visualisation topic; LineFig drawing parts (arrows, hatching, arcs, symbols); multi-topic sessions; \textbf{Medium} level; beta 5--6 \\
 Oct & Medium reworked as a true midpoint; \textbf{printed test paper} (A4 PDF, per-student sets); guide-book question types; English/Marathi papers; many fixes from mentors' reviews; beta 7 \\
 3 Nov & \textbf{Beta 8}: everything above plus all tracker fixes \\
@@ -780,9 +796,10 @@ Shading may vanish on a photocopier & Light greys become white in pure black/whi
 CI failed with a Java toolchain error & Gradle daemon JVM settings pointed at a local Java & CI uses Temurin 17 and deletes \code{gradle-daemon-jvm.properties} before building \\
 Gradle / Android Gradle Plugin mismatch & Upgrading Gradle to 9.x broke the Flutter Gradle plugin & Pinned Gradle 8.14.3 with AGP 8.13.0 (Flutter doesn't support AGP 9 yet) \\
 Beta 6 CI failed & Tests depended on a Windows-only font & Tests no longer load Windows fonts \\
-pubspec version and in-app version drifted & Two files updated by hand & The pre-push hook updates both together \\
+pubspec version and in-app version drifted & Two files updated by hand & The release command (\code{tool/release.dart}) updates both together; a test checks they agree \\
 Hook suggested the wrong next beta & It didn't notice an untagged version & Fixed in the hook (Sep) \\
-Release hook blocked pushes on Linux & It called Windows-only \code{powershell.exe} & The hook picks Windows dialogs, zenity, or terminal prompts automatically (Nov) \\
+Release hook blocked pushes on Linux & It called Windows-only \code{powershell.exe} & The hook picked Windows dialogs, zenity, or terminal prompts automatically (Nov) \\
+The pre-push release hook was unreliable & It asked on every master push, made its version commit after git had decided what to push (so master lagged the tag), and needed dialog boxes & Replaced by \code{dart run tool/release.dart} (after beta 9): you run it when you want a release; it pushes master and the tag together \\
 Debug and release app couldn't both be installed & Same package name & Debug builds use the \code{.debug} suffix \\
 Releases didn't show on the GitHub repo page & Published as pre-releases & Published as Latest releases \\
 \code{INSTALL_FAILED_UPDATE_INCOMPATIBLE} on the phone & Release builds are signed with a CI-generated debug key that changes each run & Uninstall then install; permanent fix in \ref{sec:signing} \\

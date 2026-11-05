@@ -3,7 +3,7 @@
 # Sets up a Linux PC to build and run NplusPrep, without Android Studio.
 #
 # Installs (only what is missing):
-#   - git, curl, unzip, Java 17, zenity          via apt (Debian/Ubuntu) or dnf (Fedora)
+#   - git, curl, unzip, Java 17                  via apt (Debian/Ubuntu) or dnf (Fedora)
 #   - Visual Studio Code                         via snap (or the Microsoft .deb / .rpm)
 #   - Flutter SDK (stable)                       into ~/development/flutter
 #   - Android SDK command-line tools, platform-tools, Android 36,
@@ -54,11 +54,11 @@ else
   exit 1
 fi
 
-step "1/6  System packages: git, curl, unzip, Java 17, zenity"
+step "1/6  System packages: git, curl, unzip, Java 17"
 if [[ $PKG == apt ]]; then
-  run "apt install" sudo bash -c 'apt-get update -qq && apt-get install -y -qq git curl unzip xz-utils zip libglu1-mesa openjdk-17-jdk zenity'
+  run "apt install" sudo bash -c 'apt-get update -qq && apt-get install -y -qq git curl unzip xz-utils zip libglu1-mesa openjdk-17-jdk'
 else
-  run "dnf install" sudo dnf install -y -q git curl unzip xz zip mesa-libGLU java-17-openjdk-devel zenity
+  run "dnf install" sudo dnf install -y -q git curl unzip xz zip mesa-libGLU java-17-openjdk-devel
 fi
 
 step "2/6  Visual Studio Code"
@@ -128,7 +128,7 @@ if [[ -n "$PROJECT_DIR" ]]; then
   else
     run "clone the project into $PROJECT_DIR" git clone -q "$REPO_URL" "$PROJECT_DIR"
   fi
-  run "download packages and switch on the release hook" bash -c "cd '$PROJECT_DIR' && flutter pub get && git config core.hooksPath tools/git-hooks && chmod +x tools/git-hooks/pre-push"
+  run "download packages" bash -c "cd '$PROJECT_DIR' && flutter pub get"
 else
   echo "    no --project-dir given - skipping the clone"
 fi

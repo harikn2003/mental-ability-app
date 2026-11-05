@@ -41,6 +41,11 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      # The codename the app shows for this build, for the release title.
+      - name: Codename
+        id: codename
+        run: echo "name=$(dart run tool/release.dart --print-codename | tail -n 1)" >> "$GITHUB_OUTPUT"
+
       - name: Analyze
         run: flutter analyze
 
@@ -69,6 +74,7 @@ jobs:
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          name: ${{ github.ref_name }} (${{ steps.codename.outputs.name }})
           prerelease: false
           make_latest: true
           generate_release_notes: true
