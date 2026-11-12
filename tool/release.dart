@@ -39,7 +39,12 @@ bool tagExists(String tag) =>
 
 String ask(String question, String fallback) {
   stdout.write('$question [$fallback]: ');
-  final answer = stdin.readLineSync()?.trim() ?? '';
+  String answer;
+  try {
+    answer = stdin.readLineSync()?.trim() ?? '';
+  } on StdinException {
+    fail('This terminal can\'t take typed answers. Run it with --yes (and --tag vX.Y.Z-beta.N to pick the tag).');
+  }
   return answer.isEmpty ? fallback : answer;
 }
 
