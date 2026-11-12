@@ -891,17 +891,22 @@ The project folder on the developer's PC also has these, which are \textbf{not} 
 
 \subsection{Must fix: release signing (high priority)}\label{sec:signing}
 
-\code{android/app/build.gradle.kts} signs \textbf{release} builds with the \textbf{debug} key, and CI creates a new debug key on every run. Result: every new beta has a different signature, so Android refuses to update the old one (\code{INSTALL_FAILED_UPDATE_INCOMPATIBLE}) and testers must uninstall first, which \textbf{deletes their session history}. This also blocks any Play Store release.
+Until beta~10, release builds were signed with the \textbf{debug} key, and CI makes a new debug key on every run. Result: every new beta had a different signature, so Android refused to update the old one (\code{INSTALL_FAILED_UPDATE_INCOMPATIBLE}) and testers had to uninstall first, which \textbf{deletes their session history}. It also blocks any Play Store release.
 
-Fix (about 1 hour):
+\textbf{The code side is done.} \code{android/app/build.gradle.kts} signs release builds with the key named in \code{android/key.properties} (never committed) and falls back to the debug key, with a warning, when that file is missing. In CI, the ``Release signing key'' step in \code{beta-release.yml} writes that file from four repository secrets; without them it warns and the build stays debug-signed. Both paths were checked with a throwaway key.
+
+\textbf{Still to do, by the owner} (about 20 minutes; it involves passwords, so do it yourself):
 \begin{enumerate}
-\item Create a release keystore once:
+\item Create the release keystore once (it asks for a password):
 \begin{shell}
 keytool -genkey -v -keystore nplusprep-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias nplusprep
 \end{shell}
-\item Add a \code{release} signing config in \code{android/app/build.gradle.kts} reading the keystore path and passwords from \code{android/key.properties} (not committed).
-\item In GitHub: Settings $\rightarrow$ Secrets $\rightarrow$ add the keystore (base64) and passwords; in \code{beta-release.yml}, decode it and write \code{key.properties} before building.
-\item The first beta with the new key still needs one uninstall; after that, updates install over the top.
+\item Turn it into one line of base64 (PowerShell):
+\begin{shell}
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("nplusprep-release.jks")) | Set-Clipboard
+\end{shell}
+\item In GitHub: Settings $\rightarrow$ Secrets and variables $\rightarrow$ Actions $\rightarrow$ add \code{ANDROID_KEYSTORE_BASE64} (the clipboard), \code{ANDROID_KEYSTORE_PASSWORD}, \code{ANDROID_KEY_ALIAS} (\code{nplusprep}) and, if different from the store password, \code{ANDROID_KEY_PASSWORD}.
+\item Release the next beta. Testers uninstall one last time; after that, updates install over the top.
 \end{enumerate}
 
 \begin{warning}
@@ -912,7 +917,7 @@ Keep the keystore and its passwords safe and backed up in two places. If it is l
 
 \begin{tbl}{P{0.24\linewidth}LP{0.1\linewidth}}
 \thead{Item} & \thead{Detail} & \thead{Size} \\ \midrule
-Release signing & Section~\ref{sec:signing} & $\sim$1\,h \\ \hline
+Release signing & Code done; the owner creates the key and adds the GitHub secrets (Section~\ref{sec:signing}) & $\sim$20\,min \\ \hline
 Sandia Pattern grids that don't decide the answer & In some Hard Sandia grids, the part that tells the options apart (often the shape) isn't fixed by the grid, so a child can only guess. Cause: in \code{hard_question_generator.dart} the missing cell (2,2) sits alone on its diagonal (bottom-left to top-right) line, so its shape there is random. Fix: reject such grids or fix that part from another line. Read \code{docs/hard-mode-history.md} first & $\sim$1\,h \\ \hline
 Other generator findings from the explanation work & Dual-rule Pattern dots stop at 4, so that rule can break; one Analogy type (\code{analogy_r4}) sometimes hides the inner-shape change & $\sim$30\,min each \\ \hline
 Hard/Medium Embedded wrong options & \code{_embeddedHard} (Hard, and 40\% of Medium) still uses turned, flipped or opposite-fill copies of the shape as wrong options -- the pattern testers objected to (section~9.1). Decide whether to change its wrong options or lower its share (keep it in the mix: ``add, never replace'') & $\sim$45\,min \\ \hline
