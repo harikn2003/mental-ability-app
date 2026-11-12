@@ -1,84 +1,66 @@
-% NplusPrep project handover.
+% NplusPrep project handover report.
 % Build (XeLaTeX, TeX Live): latexmk -xelatex handover.tex
-% Fonts and packages: tlmgr install lexend sourceserif sourcesans sourcecodepro underscore fontawesome5 tcolorbox
-%   pdfcol tikzfill environ trimspaces enumitem titlesec fancyhdr caption
+% Packages: tlmgr install cm-unicode underscore tcolorbox pdfcol tikzfill environ
+%   trimspaces enumitem fancyhdr caption xltabular ltablex setspace
+% Fonts: Computer Modern (CMU Serif / Sans / Typewriter).
 % Screenshots in img/ are rendered from the app's own screens and painters
-% (see section "Updating the screenshots").
-\documentclass[11pt,a4paper]{article}
+% (see "Updating this document").
+\documentclass[12pt,a4paper,oneside]{report}
 
 % ---------------------------------------------------------------- fonts
 \usepackage{fontspec}
-\setmainfont{SourceSerif4}[
-  Extension=.otf, UprightFont=*-Regular, BoldFont=*-Semibold,
-  ItalicFont=*-RegularIt, BoldItalicFont=*-SemiboldIt, Numbers=Lining]
-\setsansfont{SourceSans3}[
-  Extension=.otf, UprightFont=*-Regular, BoldFont=*-Semibold,
-  ItalicFont=*-RegularIt, BoldItalicFont=*-SemiboldIt]
-\newfontfamily\lexend{LexendDeca}[Extension=.ttf, UprightFont=*-Regular]
-\setmonofont{SourceCodePro}[
-  Extension=.otf, UprightFont=*-Regular, BoldFont=*-Semibold, ItalicFont=*-RegularIt, Scale=0.86]
-\usepackage{fontawesome5}
+\setmainfont{cmun}[Extension=.otf, UprightFont=*rm, ItalicFont=*ti, BoldFont=*bx, BoldItalicFont=*bi]
+\setsansfont{cmun}[Extension=.otf, UprightFont=*ss, ItalicFont=*si, BoldFont=*sx, BoldItalicFont=*so]
+\setmonofont{cmun}[Extension=.otf, UprightFont=*tt, ItalicFont=*it, BoldFont=*tb, BoldItalicFont=*tx]
 
 % ---------------------------------------------------------------- layout
-\usepackage[a4paper,top=24mm,bottom=24mm,left=22mm,right=22mm,headheight=14pt]{geometry}
-\usepackage[table]{xcolor}
-\definecolor{brand}{HTML}{195DE6}
-\definecolor{ink}{HTML}{1E293B}
-\definecolor{subtle}{HTML}{64748B}
-\definecolor{rule}{HTML}{CBD5E1}
-\definecolor{wash}{HTML}{F1F5FB}
-\definecolor{okgreen}{HTML}{16A34A}
-\definecolor{amber}{HTML}{D97706}
-\definecolor{alert}{HTML}{DC2626}
-\color{ink}
+\usepackage[a4paper,top=25mm,bottom=25mm,left=30mm,right=25mm,headheight=15pt]{geometry}
+\usepackage{setspace}
+\setstretch{1.25}
+\usepackage{xcolor}
 \usepackage{microtype}
-\usepackage{parskip}
-\setlength{\parskip}{0.55em}
 \usepackage{graphicx}
 \graphicspath{{img/}}
 \usepackage{booktabs,tabularx,array,longtable,xltabular}
-\setlength{\LTpre}{0.4em}\setlength{\LTpost}{0.2em}
+\setlength{\LTpre}{0.6em}\setlength{\LTpost}{0.6em}
 \usepackage{enumitem}
-\setlist{itemsep=0.15em,topsep=0.3em}
+\setlist{itemsep=0.1em,topsep=0.3em}
 \usepackage{caption}
-\captionsetup{font={small,sf},labelfont={bf,color=brand},textfont={color=subtle},skip=6pt}
+\captionsetup{font=small,labelfont=bf,skip=6pt}
 \usepackage{float}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning,calc,shapes.geometric}
+\usetikzlibrary{arrows.meta,positioning,calc}
 \usepackage[most]{tcolorbox}
 \usepackage{listings}
-\usepackage{titlesec}
 \usepackage{fancyhdr}
-\PassOptionsToPackage{hyphens}{url}\usepackage[hidelinks]{hyperref}
-\hypersetup{colorlinks=true,linkcolor=brand,urlcolor=brand,
-  pdftitle={NplusPrep: Project Handover},pdfauthor={NplusPrep}}
+\PassOptionsToPackage{hyphens}{url}\usepackage{hyperref}
+\hypersetup{hidelinks,pdftitle={NplusPrep: Project Handover Report},pdfauthor={NplusPrep}}
 
-% ---------------------------------------------------------------- headings
-\titleformat{\section}{\sffamily\bfseries\LARGE\color{ink}}
-  {\colorbox{brand}{\makebox[1.6em]{\color{white}\thesection}}}{0.6em}{}
-  [\vspace{-0.4em}\color{rule}\rule{\linewidth}{0.6pt}]
-\titleformat{\subsection}{\sffamily\bfseries\Large\color{ink}}{\color{brand}\thesubsection}{0.7em}{}
-\titleformat{\subsubsection}{\sffamily\bfseries\large\color{ink}}{}{0em}{}
-\titlespacing*{\section}{0pt}{1.6em}{1em}
-\titlespacing*{\subsection}{0pt}{1.4em}{0.5em}
-\newcommand{\sectionbreak}{\clearpage}
-
+% ---------------------------------------------------------------- page style
 \pagestyle{fancy}
 \fancyhf{}
-\renewcommand{\headrulewidth}{0pt}
-\fancyhead[L]{\sffamily\footnotesize\color{subtle}NplusPrep \textbullet\ Project handover}
-\fancyhead[R]{\sffamily\footnotesize\color{subtle}\nouppercase{\leftmark}}
-\fancyfoot[C]{\sffamily\footnotesize\color{subtle}\thepage}
-\renewcommand{\sectionmark}[1]{\markboth{#1}{}}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancyhead[L]{\small\nouppercase{\leftmark}}
+\fancyhead[R]{\small\thepage}
+\renewcommand{\chaptermark}[1]{\markboth{\thechapter.\ #1}{}}
+\fancypagestyle{plain}{\fancyhf{}\renewcommand{\headrulewidth}{0pt}\fancyfoot[C]{\small\thepage}}
 
 % ---------------------------------------------------------------- tables
-\renewcommand{\arraystretch}{1.3}
+\renewcommand{\arraystretch}{1.25}
 \newcolumntype{L}{>{\raggedright\arraybackslash}X}
 \newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
-\newcommand{\thead}[1]{\sffamily\bfseries\small\color{brand}#1}
+\newcommand{\thead}[1]{\bfseries #1}
+% Start a new page when fewer than #1 lines are left, so a heading or a
+% table header never sits alone at the foot of a page.
+% (as needspace.sty: the \penalty-100 makes TeX measure the page first)
+\newcommand{\needlines}[1]{\par\penalty-100\begingroup\dimen0=\pagegoal\advance\dimen0-\pagetotal
+  \ifdim\dimen0<#1\baselineskip\ifdim\dimen0>0pt\vfil\fi\penalty-10000\fi\endgroup}
+\usepackage{etoolbox}
+\pretocmd{\section}{\needlines{8}}{}{}
+\pretocmd{\subsection}{\needlines{6}}{}{}
 % A table: \begin{tbl}{colspec} header row \\ \midrule rows \end{tbl}
 \newenvironment{tbl}[1]
-  {\par\small\rowcolors{2}{wash}{white}\xltabular{\linewidth}{@{}#1@{}}\toprule\rowcolor{white}}
+  {\needlines{5}\small\setstretch{1.05}\xltabular{\linewidth}{@{}#1@{}}\toprule}
   {\bottomrule\endxltabular\par}
 
 % ---------------------------------------------------------------- inline code
@@ -91,96 +73,96 @@
 \newcommand{\codebs}{\symbol{92}\penalty50\relax}
 \newcommand{\code}[1]{\texttt{\let\textbackslash\codebs\XeTeXinterchartokenstate=1 #1\XeTeXinterchartokenstate=0 }}
 \setlength{\emergencystretch}{2em}
-\newcommand{\key}[1]{\tikz[baseline=(k.base)]\node[draw=rule,fill=wash,rounded corners=2pt,inner sep=2pt,font=\sffamily\footnotesize](k){#1};}
+\newcommand{\key}[1]{\fbox{\footnotesize\ttfamily #1}}
+\setlength{\fboxsep}{1.5pt}
 
 % ---------------------------------------------------------------- code blocks
 \lstdefinestyle{shell}{
-  basicstyle=\ttfamily\small\color{ink}, columns=fullflexible, keepspaces=true,
-  backgroundcolor=\color{wash}, frame=leftline, framerule=2.5pt, rulecolor=\color{brand},
-  xleftmargin=8pt, framexleftmargin=8pt, aboveskip=0.8em, belowskip=0.8em,
-  commentstyle=\color{subtle}\itshape, comment=[l]{\#}, morecomment=[l]{//},
-  breaklines=true, postbreak=\mbox{\textcolor{subtle}{$\hookrightarrow$}\space},
+  basicstyle=\ttfamily\small\setstretch{1}, columns=fullflexible, keepspaces=true,
+  frame=lines, framerule=0.4pt, xleftmargin=4pt, xrightmargin=4pt, framexleftmargin=4pt,
+  aboveskip=0.9em, belowskip=0.9em,
+  commentstyle=\itshape, comment=[l]{\#}, morecomment=[l]{//},
+  breaklines=true, postbreak=\mbox{$\hookrightarrow$\space},
   showstringspaces=false, upquote=true}
 \lstnewenvironment{shell}{\lstset{style=shell}}{}
 
-% ---------------------------------------------------------------- callouts
-\newtcolorbox{callout}[3]{enhanced, breakable, colback=#1!6, colframe=#1,
-  boxrule=0pt, leftrule=3pt, arc=2pt, left=10pt, right=10pt, top=6pt, bottom=6pt,
-  fontupper=\small, before upper={{\sffamily\bfseries\color{#1}#2\enspace#3.}\enspace}}
-\newenvironment{note}{\begin{callout}{brand}{\faInfoCircle}{Note}}{\end{callout}}
-\newenvironment{tip}{\begin{callout}{okgreen}{\faLightbulb[regular]}{Tip}}{\end{callout}}
-\newenvironment{important}{\begin{callout}{amber}{\faExclamationCircle}{Important}}{\end{callout}}
-\newenvironment{warning}{\begin{callout}{alert}{\faExclamationTriangle}{Warning}}{\end{callout}}
+% ---------------------------------------------------------------- remarks
+% Plain framed remarks: Note, Tip, Important, Warning.
+\newtcolorbox{remark}[1]{breakable, colback=white, colframe=black, boxrule=0.4pt, arc=0pt,
+  left=8pt, right=8pt, top=5pt, bottom=5pt, fontupper=\small\setstretch{1.1},
+  before upper={\textbf{#1.}\enspace}}
+\newenvironment{note}{\begin{remark}{Note}}{\end{remark}}
+\newenvironment{tip}{\begin{remark}{Tip}}{\end{remark}}
+\newenvironment{important}{\begin{remark}{Important}}{\end{remark}}
+\newenvironment{warning}{\begin{remark}{Warning}}{\end{remark}}
 
 % ---------------------------------------------------------------- figures
 % A phone screenshot with a thin frame.
-\newcommand{\phone}[2][0.3]{\tikz[baseline]\node[draw=rule,line width=0.6pt,inner sep=0pt]{\includegraphics[width=#1\textwidth]{#2}};}
+\newcommand{\phone}[2][0.3]{\fcolorbox{black!60}{white}{\includegraphics[width=#1\textwidth]{#2}}}
 % Four moments of one explanation (start, two in-between, end), left to right.
 % The Replay button column is trimmed off the panel captures.
 \newcommand{\frameimg}[2]{\raisebox{-0.5\height}{\includegraphics[width=0.228\linewidth,trim=0 0 105 0,clip]{explain_#1_#2}}}
-\newcommand{\framearrow}{\hfill{\color{brand}\small\faAngleRight}\hfill}
+\newcommand{\framearrow}{\hfill$\rightarrow$\hfill}
 \newcommand{\filmstrip}[2]{%
-  \par\noindent\begin{minipage}{\linewidth}
-  {\sffamily\bfseries\small #2}\par\vspace{3pt}\noindent
+  \begin{figure}[H]\centering
   \frameimg{#1}{0}\framearrow\frameimg{#1}{1}\framearrow\frameimg{#1}{2}\framearrow\frameimg{#1}{4}%
-  \end{minipage}\par\medskip}
-% TikZ styles shared by the diagrams.
+  \caption{#2}\end{figure}}
+% TikZ styles shared by the diagrams (black and white).
 \tikzset{
-  box/.style={draw=brand, fill=wash, rounded corners=4pt, font=\sffamily\small,
-    align=center, inner sep=6pt, minimum height=2.2em},
-  plain/.style={draw=rule, fill=white, rounded corners=4pt, font=\sffamily\small,
-    align=center, inner sep=6pt, minimum height=2.2em},
-  hot/.style={draw=brand, fill=brand, text=white, rounded corners=4pt, font=\sffamily\small\bfseries,
-    align=center, inner sep=6pt, minimum height=2.2em},
-  flow/.style={-{Stealth[length=6pt]}, draw=subtle, line width=0.8pt},
-  lab/.style={font=\sffamily\scriptsize, text=subtle}}
+  box/.style={draw=black, fill=white, font=\footnotesize, align=center, inner sep=4pt, minimum height=2.2em},
+  plain/.style={draw=black, dashed, fill=white, font=\footnotesize, align=center, inner sep=4pt, minimum height=2.2em},
+  hot/.style={draw=black, fill=black!8, font=\footnotesize\bfseries, align=center, inner sep=4pt, minimum height=2.2em},
+  flow/.style={-{Stealth[length=5pt]}, draw=black, line width=0.6pt},
+  lab/.style={font=\scriptsize\itshape}}
 
 \begin{document}
 
-% ================================================================ cover
+% ================================================================ title page
 \begin{titlepage}
-\newgeometry{top=0mm,bottom=0mm,left=0mm,right=0mm}
-\begin{tikzpicture}[remember picture,overlay]
-  \fill[brand] (current page.north west) rectangle ([yshift=-108mm]current page.north east);
-  \node[anchor=north west, text=white, font=\lexend\fontsize{44}{48}\selectfont]
-    at ([xshift=22mm,yshift=-34mm]current page.north west) {NplusPrep};
-  \node[anchor=north west, text=white, font=\lexend\fontsize{20}{24}\selectfont]
-    at ([xshift=22mm,yshift=-52mm]current page.north west) {Project handover};
-  \node[anchor=north west, text=white!80!brand, font=\sffamily\small, text width=95mm]
-    at ([xshift=22mm,yshift=-68mm]current page.north west)
-    {An offline Android app that trains children for the Mental Ability Test of the JNVST.
-     Everything the next owner needs: setup, architecture, how we work, what went wrong and what is still open.};
-  \node[anchor=north east] at ([xshift=-22mm,yshift=-22mm]current page.north east)
-    {\tcbox[enhanced,colback=white,colframe=white,boxrule=0pt,arc=8pt,left=0pt,right=0pt,top=0pt,bottom=0pt,
-      drop fuzzy shadow]{\includegraphics[width=66mm]{screen_quiz_pattern_explained}}};
-  \node[anchor=north west, font=\sffamily\normalsize, text=ink, align=left]
-    at ([xshift=22mm,yshift=-175mm]current page.north west) {%
-    \begin{tabular}{@{}r@{\hspace{1em}}l@{}}
-      {\color{subtle}For}   & the incoming project owner \\
-      {\color{subtle}From}  & Hari (developer) \\
-      {\color{subtle}Date}  & 5 November 2026 \\
-      {\color{subtle}State} & beta 9 (\code{v1.0.0-beta.9}), released 4 Nov 2026 \\
-      {\color{subtle}Tests} & 365 automated tests, all passing
-    \end{tabular}};
-  \node[anchor=south west, text width=166mm, font=\sffamily\small, text=subtle] at ([xshift=22mm,yshift=24mm]current page.south west)
-    {\textbf{\color{ink}New in beta 9: answer explanations.} After a wrong answer, the rule is acted out on the question's own figures.\par\vspace{4pt}
-     \frameimg{series}{0}\framearrow\frameimg{series}{1}\framearrow\frameimg{series}{2}\framearrow\frameimg{series}{4}};
-\end{tikzpicture}
-\end{titlepage}
-\restoregeometry
-
-\setcounter{page}{2}
-{\sffamily\small\setlength{\parskip}{0.2em}
-\makeatletter\renewcommand{\@dotsep}{1000}\makeatother
-\renewcommand{\sectionbreak}{}\tableofcontents}
-
+\centering
+\setstretch{1}
+\vspace*{8mm}
+{\large\scshape Project Handover Report}\par
+\vspace{14mm}
+\rule{\linewidth}{0.8pt}\par\vspace{5mm}
+{\Huge\bfseries NplusPrep}\par\vspace{4mm}
+{\Large An Offline Mental Ability Trainer for the JNVST}\par\vspace{5mm}
+\rule{\linewidth}{0.8pt}\par
+\vspace{12mm}
+\fcolorbox{black!60}{white}{\includegraphics[width=0.3\textwidth]{screen_quiz_pattern_explained}}\par
+\vspace{4mm}
+{\small\itshape The app in beta 9: a Hard Pattern question explained after a wrong answer}\par
 \vfill
-\begin{note}
-This document explains the whole project from the ground up: what it is, how to set up a computer to work on it, how it is built, how we work, every major problem we hit and how it was fixed, and how to deal with problems in future. No earlier knowledge of Flutter or Android is assumed.
-\end{note}
+\begin{tabular}{@{}r@{\hspace{1.2em}}l@{}}
+  \textbf{Prepared for} & The incoming project owner \\
+  \textbf{Prepared by}  & Hari (developer) \\
+  \textbf{Version}      & Beta 9 (\texttt{v1.0.0-beta.9}), released 4 November 2026 \\
+  \textbf{Repository}   & \texttt{github.com/harikn2003/mental-ability-app} \\
+\end{tabular}\par
+\vspace{12mm}
+{\large November 2026}\par
+\end{titlepage}
 
+% ================================================================ front matter
+\pagenumbering{roman}
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+\thispagestyle{plain}
+
+NplusPrep is an Android application that prepares children of about eleven years of age for the Mental Ability Test of the Jawahar Navodaya Vidyalaya Selection Test (JNVST). It works fully offline: every question is generated and drawn on the device by code, in eleven topics and three levels of difficulty, in English, Marathi and Hindi. It adapts to each child's weak topics, explains wrong answers with short wordless animations, and prints exam-style papers for a whole class.
+
+This report hands the project over to its next owner. It explains, from the ground up, how to set up a computer to work on it (Chapters~2 and~3), how the app is built and how its questions and explanations are made (Chapters~4 and~5), the printed paper (Chapter~6), and how the project is tested and released (Chapter~7). It then records how the project grew (Chapter~8), every major problem met and how it was fixed (Chapter~9), a guide to future problems (Chapter~10), and the accounts, risks and open items that remain (Chapter~11). No earlier knowledge of Flutter or Android is assumed.
+
+At the time of writing the app is at beta~9 with 372 automated tests, all passing. The most important open item is release signing (Section~\ref{sec:signing}).
+
+{\setstretch{1.1}
+\tableofcontents
+\listoffigures}
+
+\clearpage
+\pagenumbering{arabic}
 % ================================================================ 1
-\section{The project in one page}
+\chapter{The project in one page}
 
 \textbf{What it is.} NplusPrep is an Android app that trains children for the Mental Ability Test of the JNVST, the entrance exam for Jawahar Navodaya Vidyalaya (class 6). The test is 40 picture-based reasoning questions in 10 parts. The app makes unlimited practice questions of the same kinds, checks answers, explains wrong answers with a short animation, adapts to each child's weak topics, and can print exam-style papers for a whole class.
 
@@ -192,7 +174,7 @@ This document explains the whole project from the ground up: what it is, how to 
 \caption{The app in beta 9. Left: the home (config) screen. Middle: a Hard Pattern question. Right: after a wrong answer, the explanation builds the missing cell and frames the correct option in green.}
 \end{figure}
 
-\textbf{Who uses it.}
+\needlines{6}\textbf{Who uses it.}
 
 \begin{tbl}{P{0.36\linewidth}L}
 \thead{Who} & \thead{What they do} \\ \midrule
@@ -201,7 +183,7 @@ Coordinators / teachers & Set up sessions on the config screen, read results, pr
 Mentors & Test builds, report problems in the Notion tracker, review printed papers \\
 \end{tbl}
 
-\textbf{Key facts.}
+\needlines{6}\textbf{Key facts.}
 \begin{itemize}
 \item \textbf{Fully offline.} No server, no login, no internet. Every question is generated on the device by code; there are no question images or question banks.
 \item \textbf{11 topics:} Odd Man Out, Figure Match, Pattern Completion, Figure Series, Analogy, Geo Completion, Mirror Shape, Mirror Text/Clock, Punch Hole, Space Visualisation, Embedded Figure. These match the JNVST parts (Mirror is split into shapes and text).
@@ -212,7 +194,7 @@ Mentors & Test builds, report problems in the Notion tracker, review printed pap
 \item \textbf{Printed papers:} a coordinator picks a number of students and a language; the app makes a PDF with a differently shuffled 40-question paper per student (one A4 sheet, both sides) and a teacher's answer key.
 \end{itemize}
 
-\textbf{Where things are.}
+\needlines{6}\textbf{Where things are.}
 
 \begin{tbl}{P{0.33\linewidth}L}
 \thead{Thing} & \thead{Location} \\ \midrule
@@ -224,7 +206,7 @@ Package name (debug app) & \code{com.nplusone.maa.mental_ability_app.debug} (ins
 \end{tbl}
 
 % ================================================================ 2
-\section{Setting up a computer from zero}
+\chapter{Setting up a computer from zero}
 
 The project can be developed on \textbf{Windows 10/11} or \textbf{Linux} (Ubuntu/Debian or Fedora). The setup is deliberately light: \textbf{Visual Studio Code} as the editor and Android's \textbf{command-line tools} instead of Android Studio. That is about 1.5\,GB of downloads and far less memory while working, compared with 3--4\,GB and a heavy IDE. Allow 30--60 minutes, mostly downloads.
 
@@ -232,7 +214,7 @@ The project can be developed on \textbf{Windows 10/11} or \textbf{Linux} (Ubuntu
 ``Visual Studio Code'' (VS Code) is the free, lightweight editor -- not ``Visual Studio'', the large Windows IDE, which is not needed at all.
 \end{note}
 
-\subsection{What gets installed}
+\section{What gets installed}
 
 \begin{tbl}{P{0.3\linewidth}LP{0.25\linewidth}}
 \thead{Tool} & \thead{Why} & \thead{From (Windows / Linux)} \\ \midrule
@@ -247,7 +229,7 @@ Install locations: Flutter in \code{C:\textbackslash{}src\textbackslash{}flutter
 
 Both setup scripts install only what is missing, set the paths, accept the Android licences, install the VS Code extension, can clone the project, and finish with \code{flutter doctor}. Both have a dry-run mode that shows what they would do without changing anything.
 
-\subsection{Windows: one-step setup}
+\section{Windows: one-step setup}
 
 Open \textbf{PowerShell} and run:
 \begin{shell}
@@ -263,7 +245,7 @@ powershell -ExecutionPolicy Bypass -File setup_windows.ps1 -ProjectDir "$HOME\St
 \item When it finishes, \textbf{close PowerShell and open a new one} so the new paths take effect, then run \code{flutter doctor}.
 \end{itemize}
 
-\subsection{Linux: one-step setup}
+\section{Linux: one-step setup}
 
 Open a terminal and run:
 \begin{shell}
@@ -284,7 +266,7 @@ bash setup_linux.sh --project-dir ~/projects/mental_ability_app
 On either system, \code{flutter doctor} should show green ticks for Flutter, the Android toolchain and VS Code. Warnings for ``Visual Studio'', ``Chrome'' or ``Linux toolchain'' can be ignored: those are only for desktop and web builds, which this project doesn't use. The first app build downloads a few more Android parts automatically; that is normal.
 \end{tip}
 
-\subsection{Open the project in VS Code}
+\section{Open the project in VS Code}
 
 \begin{shell}
 code ~/projects/mental_ability_app                 # Linux
@@ -292,7 +274,7 @@ code "$HOME\StudioProjects\mental_ability_app"     # Windows (PowerShell)
 \end{shell}
 \begin{enumerate}
 \item VS Code offers to install the \textbf{recommended extensions} (Flutter and Dart, listed in \code{.vscode/extensions.json}): click \textbf{Install}.
-\item Pick the device in the bottom-right status bar (your phone, once connected -- see \ref{sec:phone}).
+\item Pick the device in the bottom-right status bar (your phone, once connected -- see Section~\ref{sec:phone}).
 \item Open \code{lib/main.dart} and press \key{F5} to run with debugging, or \key{Ctrl}+\key{F5} to run without. Save a file to hot-reload.
 \item \key{Ctrl}+\key{Shift}+\key{P} $\rightarrow$ ``Flutter: Run Flutter Doctor'' checks the setup from inside VS Code.
 \end{enumerate}
@@ -301,9 +283,9 @@ code "$HOME\StudioProjects\mental_ability_app"     # Windows (PowerShell)
 Releases are made with one command, \code{dart run tool/release.dart} (section~\ref{sec:release}). There is no git hook to switch on: pushing master never asks anything. Clones made before beta 10 had a pre-push hook switched on; turn it off once with \code{git config --unset core.hooksPath}.
 \end{important}
 
-\subsection{Manual setup (if a script can't be used)}
+\section{Manual setup (if a script can't be used)}
 
-\subsubsection*{Windows}
+\subsection*{Windows}
 \begin{enumerate}
 \item Install the tools:
 \begin{shell}
@@ -315,7 +297,7 @@ winget install --id EclipseAdoptium.Temurin.17.JDK -e
 \item Android command-line tools: from \url{https://developer.android.com/studio#command-line-tools-only} download ``Command line tools only'' for Windows and unzip so that \code{\%LOCALAPPDATA\%\textbackslash{}Android\textbackslash{}Sdk\textbackslash{}cmdline-tools\textbackslash{}latest\textbackslash{}bin\textbackslash{}sdkmanager.bat} exists. Set the user variable \code{ANDROID_HOME} to \code{\%LOCALAPPDATA\%\textbackslash{}Android\textbackslash{}Sdk}, and add its \code{platform-tools} and \code{cmdline-tools\textbackslash{}latest\textbackslash{}bin} folders to \code{Path}.
 \end{enumerate}
 
-\subsubsection*{Linux (Ubuntu/Debian; use \texttt{dnf} and the Fedora package names on Fedora)}
+\subsection*{Linux (Ubuntu/Debian; use \texttt{dnf} and the Fedora package names on Fedora)}
 \begin{enumerate}
 \item Install the tools:
 \begin{shell}
@@ -332,7 +314,7 @@ export PATH="$HOME/development/flutter/bin:$ANDROID_HOME/platform-tools:$ANDROID
 \end{shell}
 \end{enumerate}
 
-\subsubsection*{Both systems, in a new terminal}
+\subsection*{Both systems, in a new terminal}
 \begin{enumerate}
 \item Android packages and licences:
 \begin{shell}
@@ -351,7 +333,7 @@ flutter pub get
 
 The project was last built with \textbf{Flutter 3.41.9 (stable)}. Optional: the \textbf{GitHub CLI} (\code{winget install --id GitHub.cli -e} on Windows, \code{sudo apt-get install gh} on Linux, then \code{gh auth login}) checks releases and CI from the terminal.
 
-\subsection{Connect a phone}\label{sec:phone}
+\section{Connect a phone}\label{sec:phone}
 
 The app is tested on a real Android phone (a Nothing Phone (2a), model A142).
 \begin{enumerate}
@@ -368,7 +350,7 @@ adb devices                      # the phone should be listed as "device"
 Wireless debugging switches itself off when the phone sleeps or changes network; if \code{adb devices} is empty, turn it back on (section~\ref{sec:nophone}).
 
 % ================================================================ 3
-\section{Daily tasks: run, test, build}
+\chapter{Daily tasks: run, test, build}
 
 All commands run in the project folder and are the same on Windows and Linux; only paths differ (\code{build\textbackslash{}app\textbackslash{}...} on Windows, \code{build/app/...} on Linux).
 
@@ -378,18 +360,18 @@ Run on the phone (debug, hot reload) & \code{flutter run} & Press \key{r} to rel
 Install a debug build without running from the PC & \code{flutter build apk --debug}, then \code{adb install -r build\textbackslash{}app\textbackslash{}outputs\textbackslash{}flutter-apk\textbackslash{}app-debug.apk} & Installs as the \textbf{debug} app, beside the release app \\
 Open the installed debug app & \code{adb shell monkey -p com.nplusone.maa.mental_ability_app.debug -c android.intent.category.LAUNCHER 1} & \\
 Check code style and errors & \code{flutter analyze} & Must say ``No issues found!'' \\
-Run all tests & \code{flutter test} & 1--3 minutes; must end ``All tests passed!'' (365 at handover) \\
+Run all tests & \code{flutter test} & 1--3 minutes; must end ``All tests passed!'' (372 at handover) \\
 Run one test file & \code{flutter test test/series_test.dart} & \\
 Release build (local check only) & \code{flutter build apk --release} & Output in \code{build\textbackslash{}app\textbackslash{}outputs\textbackslash{}flutter-apk\textbackslash{}app-release.apk} \\
 Preview on a phone without installing & \code{dart run tool/phone_preview.dart} & Opens the app in the phone's browser via a QR code; see \code{docs/phone_preview.md} \\
 \end{tbl}
 
-If \code{adb} lists the phone twice (once by IP, once by name), add \code{-s <name>} to every \code{adb} command, e.g.\ \code{adb -s adb-000553435000367-g9vzXa._adb-tls-connect._tcp install -r ...}.
+If \code{adb} lists the phone twice (once by IP, once by name), add \code{-s <name>} to every \code{adb} command.
 
 % ================================================================ 4
-\section{How the app is built}
+\chapter{How the app is built}
 
-\subsection{Technology}
+\section{Technology}
 
 \begin{tbl}{P{0.22\linewidth}P{0.3\linewidth}L}
 \thead{Layer} & \thead{Technology} & \thead{Why it was chosen} \\ \midrule
@@ -401,11 +383,11 @@ Charts & \textbf{fl\_chart} & Score and time charts on result screens \\
 Fonts & The theme names Lexend, but no font file ships, so phones show Roboto (Android's default); letter questions name Roboto & Readability for children \\
 PDF papers & \textbf{pdf} + \textbf{printing} packages & Builds the A4 PDF and opens Android's print/share dialog \\
 State management & Plain \code{setState} & The app is small enough not to need a state library \\
-Android build & Gradle 8.14.3, Android Gradle Plugin 8.13.0, Kotlin 2.2.20, Java 17 & Pinned versions that work together (see \ref{sec:buildproblems}) \\
+Android build & Gradle 8.14.3, Android Gradle Plugin 8.13.0, Kotlin 2.2.20, Java 17 & Pinned versions that work together (see Section~\ref{sec:buildproblems}) \\
 CI / releases & \textbf{GitHub Actions} (\code{.github/workflows/beta-release.yml}) & Builds and publishes the APK when a beta tag is pushed \\
 \end{tbl}
 
-\subsection{Screens and how a child moves through them}
+\section{Screens and how a child moves through them}
 
 \begin{figure}[H]
 \centering
@@ -435,7 +417,7 @@ CI / releases & \textbf{GitHub Actions} (\code{.github/workflows/beta-release.ym
 Read \code{docs/hard-mode-history.md} before changing \code{hard_question_generator.dart} or \code{sandia_painter.dart}. It records about 25 bugs found and fixed there; several look like new reports but had different causes.
 \end{important}
 
-\subsection{Code map (\texttt{lib/})}
+\section{Code map (\texttt{lib/})}
 
 About 20,000 lines of Dart. The biggest and most important files are in \code{engine/}.
 
@@ -467,11 +449,11 @@ About 20,000 lines of Dart. The biggest and most important files are in \code{en
 \code{screens/} & The screens shown above \\
 \end{tbl}
 
-\subsection{How a question is stored}
+\section{How a question is stored}
 
 Every question is a \code{ReasoningQuestion}: a topic, a type name (e.g.\ \code{geo_grid_cut}), a \code{puzzle} map describing the question figure, four \code{options} maps, and \code{correctIndex}. Maps are plain data, so they can be saved, compared, tested and drawn anywhere. The \code{type} inside each map tells the renderer which painter to use:
 
-\begin{tbl}{P{0.28\linewidth}P{0.3\linewidth}L}
+\begin{tbl}{P{0.24\linewidth}P{0.36\linewidth}L}
 \thead{\texttt{type}} & \thead{Drawn by} & \thead{Used for} \\ \midrule
 \code{line_fig} & \code{LineFigurePainter} & Most exam-style figures (grid of lines, black half-cells, dots, arrows, hatching, arcs, symbols) \\
 \code{sandia_cell} & \code{SandiaPainter} & Shaded multi-shape matrix cells (Hard engine) \\
@@ -482,15 +464,15 @@ Every question is a \code{ReasoningQuestion}: a topic, a type name (e.g.\ \code{
 \end{tbl}
 
 % ================================================================ 5
-\section{How questions are made}
+\chapter{How questions are made}
 
-\subsection{The routing rule}
+\section{The routing rule}
 
 \code{QuestionGenerator.generate(topic, difficulty:)} picks a generator by topic and level, often by a weighted coin toss. For example, Medium Figure Series is about 60\% exam-style series, 20\% guide-book series and 20\% classic series. The full mix is in \code{_generateMediumRaw} (Medium) and \code{_generateRaw} (Easy and Hard) in \code{question_generator.dart}.
 
-\subsection{Design rules every generator follows}
+\section{Design rules every generator follows}
 
-These rules came out of real bug reports (section~\ref{sec:problems}). Keep them when adding questions.
+These rules came out of real bug reports (Chapter~\ref{sec:problems}). Keep them when adding questions.
 
 \begin{enumerate}
 \item \textbf{Add, never replace.} New generators are added to a topic's mix; the old ones stay. The mentors asked for variety, and old generators are tested.
@@ -502,7 +484,7 @@ These rules came out of real bug reports (section~\ref{sec:problems}). Keep them
 \item \textbf{Level meaning.} Easy changes one thing per question (grades 2--3). Medium is a true midpoint, never Easy or Hard material. Hard is exam level.
 \end{enumerate}
 
-\subsection{Adding a new question type (recipe)}
+\section{Adding a new question type (recipe)}
 
 \begin{enumerate}
 \item Write a generator that returns \code{ReasoningQuestion?} (return \code{null} if a random draw fails a check; the router falls back).
@@ -511,25 +493,25 @@ These rules came out of real bug reports (section~\ref{sec:problems}). Keep them
 \item Add it to the router at a small share for the right levels.
 \item Write a test that solves the question from its data and checks exactly one option is right (see \code{test/book_generator_test.dart} for small examples).
 \item Run \code{flutter test}; the cross-topic tests (\code{no_hidden_detail_test}, \code{question_generator_test}, visual tests, \code{explanation_all_topics_test}) will also check it.
-\item Check the new type gets an explanation (\ref{sec:explanations}). Most \code{line_fig} and Sandia types are explained automatically; if \code{explanation_all_topics_test} lists the new type as unexplained, add it to the topic's file in \code{engine/explain/}.
+\item Check the new type gets an explanation (Section~\ref{sec:explanations}). Most \code{line_fig} and Sandia types are explained automatically; if \code{explanation_all_topics_test} lists the new type as unexplained, add it to the topic's file in \code{engine/explain/}.
 \end{enumerate}
 
-\subsection{Answer explanations}\label{sec:explanations}
+\section{Answer explanations}\label{sec:explanations}
 
-After a wrong, skipped or timed-out answer, an \textbf{ExplanationPanel} appears under the result. It plays a short animation (3--6.5\,s) on the question's own figures, ending on the correct option framed in green. It has no words, so it works the same in all three languages. \textbf{Next} stays locked until it finishes; \textbf{Replay} (\faRedo) plays it again. If the phone has ``remove animations'' switched on, the panel shows the final frame.
+After a wrong, skipped or timed-out answer, an \textbf{ExplanationPanel} appears under the result. It plays a short animation (3--6.5\,s) on the question's own figures, ending on the correct option framed in green. It has no words, so it works the same in all three languages. \textbf{Next} stays locked until it finishes; \textbf{Replay} plays it again. If the phone has ``remove animations'' switched on, the panel shows the final frame.
 
 Explanations are \textbf{worked out from the question data}, not stored with the question. That is why sessions saved before explanations existed have them too. \code{Explanation.of(q)} returns \code{null} for anything it can't explain; the quiz then simply shows no panel, so a gap is never a crash.
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[node distance=5mm and 7mm]
-  \node[plain] (q) {ReasoningQuestion\\[-1pt]{\scriptsize puzzle + options}};
+\begin{tikzpicture}[node distance=5mm and 5mm]
+  \node[plain] (q) {Reasoning-\\Question};
   \node[hot, right=of q] (of) {\code{Explanation.of(q)}};
-  \node[box, above right=2mm and 8mm of of] (direct) {Mirror, Punch Hole,\\Embedded\\[-1pt]{\scriptsize drawn by the panel itself}};
-  \node[box, below right=2mm and 8mm of of] (scene) {\code{engine/explain/<topic>}\\[-1pt]{\scriptsize builds a Scene}};
+  \node[box, above right=2mm and 5mm of of] (direct) {Mirror, Punch Hole,\\Embedded\\[-1pt]{\scriptsize drawn by the panel itself}};
+  \node[box, below right=2mm and 5mm of of] (scene) {\code{engine/explain/<topic>}\\[-1pt]{\scriptsize builds a Scene}};
   \node[plain, below=of scene] (morph) {\code{morph.dart}\\[-1pt]{\scriptsize what changes: turn, flip, move\dots}};
-  \node[box, right=8mm of scene] (player) {\code{ScenePlayer}\\[-1pt]{\scriptsize draws any moment}};
-  \node[hot, right=8mm of direct] (panel) {ExplanationPanel\\[-1pt]{\scriptsize timer, Replay, Next lock}};
+  \node[box, right=5mm of scene] (player) {\code{ScenePlayer}\\[-1pt]{\scriptsize draws any moment}};
+  \node[hot, right=5mm of direct] (panel) {ExplanationPanel\\[-1pt]{\scriptsize timer, Replay, Next lock}};
   \draw[flow] (q) -- (of);
   \draw[flow] (of) |- (direct);
   \draw[flow] (of) |- (scene);
@@ -541,7 +523,7 @@ Explanations are \textbf{worked out from the question data}, not stored with the
 \caption{How an explanation is made. \code{null} at any point means ``no panel''.}
 \end{figure}
 
-\subsubsection*{What each topic shows}
+\subsection*{What each topic shows}
 
 \begin{tbl}{P{0.24\linewidth}L}
 \thead{Topic} & \thead{What the animation shows} \\ \midrule
@@ -557,7 +539,7 @@ Geo Completion & The correct piece turns the right way up and slides into the ga
 Space Visualisation & The answer is cut into regions; each given piece turns or flips to match its region and flies into place \\
 \end{tbl}
 
-\subsubsection*{What they look like}
+\subsection*{What they look like}
 
 Each strip below is one real explanation from the app, captured at four moments: the start (left), two moments in between, and the end with the correct option framed in green (right).
 
@@ -570,25 +552,25 @@ Each strip below is one real explanation from the app, captured at four moments:
 \filmstrip{geo}{Geo Completion: the piece turns and slides into the gap}
 \filmstrip{space_vis}{Space Visualisation: each piece turns to fit its region}
 
-\subsubsection*{Tests}
+\subsection*{Tests}
 \code{explain_<topic>_test.dart} generate hundreds of questions per type and check that each scene really ends on the correct option and that each step shows the real rule (for example, the example cells in a Pattern scene change by the same amount as the gap). \code{explanation_all_topics_test} checks every question type has an explanation.
 
-\subsubsection*{Known limits (beta 9)}
+\subsection*{Known limits (beta 9)}
 \begin{itemize}
-\item A few Hard Pattern grids (2 in the test run) still show only the change, not a rule: one Sandia grid where the grid itself doesn't decide the answer (a generator flaw, see \ref{sec:open}), and one dual-rule grid where the dots stop at 4.
+\item A few Hard Pattern grids (2 in the test run) still show only the change, not a rule: one Sandia grid where the grid itself doesn't decide the answer (a generator flaw, see Section~\ref{sec:open}), and one dual-rule grid where the dots stop at 4.
 \item A shape that spins and lands looking the same (a symmetric shape) still spins: the spin shows the rule's turn, and this was kept on purpose.
 \end{itemize}
 
 % ================================================================ 6
-\section{The printed test paper}
+\chapter{The printed test paper}
 
-Coordinators open \textbf{Print paper} on the config screen (the \faPrint\ button), choose the number of students (1--60) and the \textbf{paper language} (English, Marathi, or both), and press \textbf{Make PDF}. Android's print/share dialog opens with the PDF.
+Coordinators open \textbf{Print paper} on the config screen (the printer button at the top), choose the number of students (1--60) and the \textbf{paper language} (English, Marathi, or both), and press \textbf{Make PDF}. Android's print/share dialog opens with the PDF.
 
 \begin{figure}[H]
 \centering
 \begin{minipage}[b]{0.27\linewidth}\centering\phone[0.26]{screen_print}\end{minipage}\hfill
 \begin{minipage}[b]{0.66\linewidth}\centering
-\tcbox[enhanced,colback=white,colframe=rule,boxrule=0.6pt,arc=2pt,left=0pt,right=0pt,top=0pt,bottom=0pt,drop fuzzy shadow]{\includegraphics[width=0.96\linewidth]{paper_side1}}
+\fcolorbox{black!60}{white}{\includegraphics[width=0.94\linewidth]{paper_side1}}
 \end{minipage}
 \caption{Left: the Print paper screen. Right: side 1 of a student's paper -- 20 questions in two columns, in JNVST part order.}
 \end{figure}
@@ -603,14 +585,14 @@ Drawing & Pages are drawn by the app's own painters at app size (80\,px) then sc
 Languages & \code{paperText(langs, key)}; with both languages the directions print English then Marathi \\
 \end{tbl}
 
-\code{paper_pdf.dart} uses one internal file of the \code{pdf} package (\code{package:pdf/src/pdf/format/num.dart}) to add pre-compressed images. If \code{pdf} is upgraded past 3.12 and this breaks, see \ref{sec:upgrades}.
+\code{paper_pdf.dart} uses one internal file of the \code{pdf} package (\code{package:pdf/src/pdf/format/num.dart}) to add pre-compressed images. If \code{pdf} is upgraded past 3.12 and this breaks, see Section~\ref{sec:upgrades}.
 
 % ================================================================ 7
-\section{How we work: testing, feedback, releases}
+\chapter{How we work: testing, feedback, releases}
 
-\subsection{Testing method}
+\section{Testing method}
 
-The project relies on automated tests because a person can't check thousands of generated questions by eye. There are 47 test files and 365 tests. The main kinds:
+The project relies on automated tests because a person can't check thousands of generated questions by eye. There are 48 test files and 372 tests. The main kinds:
 
 \begin{tbl}{P{0.18\linewidth}P{0.4\linewidth}L}
 \thead{Kind} & \thead{Example files} & \thead{What they prove} \\ \midrule
@@ -627,7 +609,7 @@ Explanations & \code{explain_*_test}, \code{explanation_test}, \code{morph_test}
 Every bug fix starts with a test that fails; the fix then makes it pass. This rule kept the same bugs from coming back.
 \end{tip}
 
-\subsection{Feedback loop}
+\section{Feedback loop}
 
 \begin{figure}[H]
 \centering
@@ -649,7 +631,7 @@ Every bug fix starts with a test that fails; the fix then makes it pass. This ru
 \end{enumerate}
 Printed papers were reviewed the same way, by WhatsApp messages and PDF annotations from the mentors.
 
-\subsection{Git branches}\label{sec:branches}
+\section{Git branches}\label{sec:branches}
 
 \begin{tbl}{P{0.3\linewidth}L}
 \thead{Branch} & \thead{Role} \\ \midrule
@@ -662,7 +644,7 @@ Printed papers were reviewed the same way, by WhatsApp messages and PDF annotati
 
 Work on a branch, run \code{flutter analyze} and \code{flutter test}, then merge into master for a release.
 
-\subsection{Making a beta release}\label{sec:release}
+\section{Making a beta release}\label{sec:release}
 
 A release is one command, run on purpose when you want one. Pushing master on its own never asks anything and never releases.
 
@@ -697,7 +679,7 @@ dart run tool/release.dart
   \item updates \code{pubspec.yaml} and \code{lib/config/version.dart} together, commits \code{chore(release): beta 1.0.0-beta.N (Codename)}, tags, and pushes master and the tag in one atomic push (both or neither).
   \end{itemize}
 \item The tag push starts \textbf{GitHub Actions}: it checks the tag matches \code{pubspec.yaml}, runs analyze and tests, builds the APK and AAB, and publishes them as the \textbf{Latest} release titled e.g.\ ``v1.0.0-beta.10 (Date)'' (about 8 minutes). The command prints the links.
-\item Send testers the release link. They install \code{app-release.apk} (see \ref{sec:signing} about signing).
+\item Send testers the release link. They install \code{app-release.apk} (see Section~\ref{sec:signing} about signing).
 \end{enumerate}
 
 \begin{tbl}{P{0.36\linewidth}L}
@@ -716,7 +698,7 @@ Never delete or reuse a published tag. If something is wrong, fix it and release
 \end{important}
 
 % ================================================================ 8
-\section{History: how the project grew}
+\chapter{History: how the project grew}
 
 \begin{tbl}{P{0.14\linewidth}L}
 \thead{When (2026)} & \thead{Milestone} \\ \midrule
@@ -733,14 +715,14 @@ Oct & Medium reworked as a true midpoint; \textbf{printed test paper} (A4 PDF, p
 The full list of commits is in \code{git log}; Hard Mode decisions are written up in detail in \code{docs/hard-mode-history.md}; \code{CHANGELOG.md} covers the early betas.
 
 % ================================================================ 9
-\section{Problems we hit and how we fixed them}\label{sec:problems}
+\chapter{Problems we hit and how we fixed them}\label{sec:problems}
 
-Grouped by area. For each: what went wrong, the real cause, and the fix. The same kinds of problems tend to come back, so section~\ref{sec:troubleshooting} turns these into a checklist.
+Grouped by area. For each: what went wrong, the real cause, and the fix. The same kinds of problems tend to come back, so Chapter~\ref{sec:troubleshooting} turns these into a checklist.
 
 \newcommand{\probhead}{\thead{Problem} & \thead{Cause} & \thead{Fix} \\ \midrule}
 \newcolumntype{Q}{P{0.3\linewidth}P{0.31\linewidth}L}
 
-\subsection{Questions with two right answers or look-alike options}
+\section{Questions with two right answers or look-alike options}
 
 The most common class of bug. It almost always had the same shape: two options that differ in the data but \textbf{look} the same on screen.
 
@@ -752,11 +734,11 @@ Figure Match duplicates (tracker, Oct) & A dot drawn on a diagonal line or a bla
 Geo Completion: two pieces fit (mentors, Oct) & A wrong piece was the answer \textbf{flipped over}; a paper piece can be turned over & Pieces are compared up to turning \textbf{and} flipping (\code{flipClass}); wrong pieces are one-cell changes only \\
 Embedded Figure: a wrong option ``contained'' the shape (testers) & Wrong options hid the shape turned or flipped, which children read as ``it's there'' & Wrong options hide a near-miss shape (one stroke moved) and never the shape in any orientation \\
 2$\times$2 Pattern: options differ only by a dot & The ``small change'' moved a dot one cell & The wrong option's change is the black half-cell flipping instead \\
-Odd Man (Sandia) rotations identical for rectangle/diamond & Shapes symmetric under 180° look the same at 0° and 180° & Comparison knows each shape's symmetry; orientations spread over 180° \\
-Series/Analogy duplicates from a cross background & The cross looks the same every 90° & Removed symmetric backgrounds from the pools \\
+Odd Man (Sandia) rotations identical for rectangle/diamond & Shapes symmetric under 180$^\circ$ look the same at 0° and 180$^\circ$ & Comparison knows each shape's symmetry; orientations spread over 180$^\circ$ \\
+Series/Analogy duplicates from a cross background & The cross looks the same every 90$^\circ$ & Removed symmetric backgrounds from the pools \\
 \end{tbl}
 
-\subsection{Questions that were too hard, too easy or unclear}
+\section{Questions that were too hard, too easy or unclear}
 
 \begin{tbl}{Q}\probhead
 Easy questions too hard for grades 2--3 & Easy reused Hard-style multi-change rules & Easy changes one thing per question in every topic; tests pin it \\
@@ -768,7 +750,7 @@ Mirror Text level mismatch (tracker) & One length for every level & Easy 1--2 ch
 Session title said ``Mirror image'' for both mirror topics (tracker) & Separate, older title strings & One \code{AppLocale.topicName} for config and session \\
 \end{tbl}
 
-\subsection{Drawing problems}
+\section{Drawing problems}
 
 \begin{tbl}{Q}\probhead
 Question figure looked different from its own correct option & Question area used an older painter & The question area draws with the same code as the options \\
@@ -779,7 +761,7 @@ Letters showed as black blocks in test renders & Flutter tests use a block font 
 L shape's mirror and turn looked alike & Foot and upright too similar in length & Foot 1.1 vs upright 1.7 units; pixel test \\
 \end{tbl}
 
-\subsection{Printed paper problems}
+\section{Printed paper problems}
 
 \begin{tbl}{Q}\probhead
 Too few questions per page (coordinator wanted 20 a side) & One question per row & Two columns, exam style, flow down then across \\
@@ -787,10 +769,10 @@ Figures dense on paper (lines swamp details) & Painters use fixed 2--3\,px lines
 Dots touching the box & Classic figures put dots near the bottom edge & Small margin around classic figures in print \\
 PDF slow (1.3--2\,s a page) & PNG encode/decode in Dart & Grayscale + zlib compression directly (0.3\,s a page) \\
 Marathi wanted & English only & Language picker: English, Marathi, both \\
-Shading may vanish on a photocopier & Light greys become white in pure black/white copies & Not changed yet -- see \ref{sec:open} \\
+Shading may vanish on a photocopier & Light greys become white in pure black/white copies & Not changed yet -- see Section~\ref{sec:open} \\
 \end{tbl}
 
-\subsection{Build, CI and tooling problems}\label{sec:buildproblems}
+\section{Build, CI and tooling problems}\label{sec:buildproblems}
 
 \begin{tbl}{Q}\probhead
 CI failed with a Java toolchain error & Gradle daemon JVM settings pointed at a local Java & CI uses Temurin 17 and deletes \code{gradle-daemon-jvm.properties} before building \\
@@ -802,10 +784,10 @@ Release hook blocked pushes on Linux & It called Windows-only \code{powershell.e
 The pre-push release hook was unreliable & It asked on every master push, made its version commit after git had decided what to push (so master lagged the tag), and needed dialog boxes & Replaced by \code{dart run tool/release.dart} (after beta 9): you run it when you want a release; it pushes master and the tag together \\
 Debug and release app couldn't both be installed & Same package name & Debug builds use the \code{.debug} suffix \\
 Releases didn't show on the GitHub repo page & Published as pre-releases & Published as Latest releases \\
-\code{INSTALL_FAILED_UPDATE_INCOMPATIBLE} on the phone & Release builds are signed with a CI-generated debug key that changes each run & Uninstall then install; permanent fix in \ref{sec:signing} \\
+\code{INSTALL_FAILED_UPDATE_INCOMPATIBLE} on the phone & Release builds are signed with a CI-generated debug key that changes each run & Uninstall then install; permanent fix in Section~\ref{sec:signing} \\
 \end{tbl}
 
-\subsection{Answer explanation problems}
+\section{Answer explanation problems}
 
 \begin{tbl}{Q}\probhead
 No explanation showed on the phone for any topic & The tester was running the beta (release) app, not the newly installed debug app; they sit side by side & Open the app whose package ends in \code{.debug} (section 3) \\
@@ -817,7 +799,7 @@ The copy landed on a grey ``?'' box & The question box stayed visible under the 
 Series frames shrank to fit a 360\,dp phone & All frames on one row & Two rows when one row would shrink them \\
 \end{tbl}
 
-\subsection{Process problems}
+\section{Process problems}
 
 \begin{tbl}{Q}\probhead
 A whole feature (Medium) had to be reverted before beta 6, then restored for beta 7 & It wasn't ready when the release was cut & Release only from a branch that passes all tests; trial-merge first \\
@@ -826,9 +808,9 @@ Testers kept reporting bugs that were already fixed & Their phones ran the old b
 \end{tbl}
 
 % ================================================================ 10
-\section{Troubleshooting future problems}\label{sec:troubleshooting}
+\chapter{Troubleshooting future problems}\label{sec:troubleshooting}
 
-\subsection{A tester reports ``two options look the same'' or ``two answers fit''}
+\section{A tester reports ``two options look the same'' or ``two answers fit''}
 
 \begin{enumerate}
 \item \textbf{Find the build.} Ask which beta they run (the version badge on the home screen shows it, e.g.\ ``v1.0.0-beta.9 Damson''). If it's older than the latest, ask them to update first.
@@ -839,7 +821,7 @@ Testers kept reporting bugs that were already fixed & Their phones ran the old b
 \item Run the full test suite, install a debug build, check on the phone.
 \end{enumerate}
 
-\subsection{An explanation is missing, wrong or looks odd}
+\section{An explanation is missing, wrong or looks odd}
 
 \begin{enumerate}
 \item \textbf{Check the app.} Explanations exist from beta 9. On a development phone, make sure you opened the \code{.debug} app if you installed a debug build.
@@ -849,7 +831,7 @@ Testers kept reporting bugs that were already fixed & Their phones ran the old b
 \item If the explanation can't show a rule because the question doesn't have one, the bug is in the \textbf{generator}, not the explanation.
 \end{enumerate}
 
-\subsection{The phone isn't found}\label{sec:nophone}
+\section{The phone isn't found}\label{sec:nophone}
 
 \begin{tbl}{P{0.36\linewidth}L}
 \thead{Symptom} & \thead{Fix} \\ \midrule
@@ -860,7 +842,7 @@ Installed fine but changes don't show & You opened the release (beta) app; the d
 \code{INSTALL_FAILED_UPDATE_INCOMPATIBLE} & The installed app has a different signature: \code{adb uninstall <package>} then install (this deletes that app's local history) \\
 \end{tbl}
 
-\subsection{Build fails}
+\section{Build fails}
 
 \begin{tbl}{P{0.36\linewidth}L}
 \thead{Symptom} & \thead{Fix} \\ \midrule
@@ -871,7 +853,7 @@ CI fails at ``Validate tag'' & Tag and \code{pubspec.yaml} version differ; fix \
 CI fails at ``Test'' but tests pass locally & Look for tests depending on Windows paths or fonts; tests must not use \code{C:\textbackslash{}...} \\
 \end{tbl}
 
-\subsection{Tests fail after a change}
+\section{Tests fail after a change}
 
 \begin{itemize}
 \item Read the test's comment at the top of the file -- it says what property it protects and often which report it came from.
@@ -879,44 +861,44 @@ CI fails at ``Test'' but tests pass locally & Look for tests depending on Window
 \item A sudden ``too many failed draws'' means a generator now rejects most random draws; loosen the new check or add retries.
 \end{itemize}
 
-\subsection{Library upgrades}\label{sec:upgrades}
+\section{Library upgrades}\label{sec:upgrades}
 
 \begin{itemize}
 \item Upgrade one package at a time (\code{flutter pub upgrade <name>}), then run all tests.
 \item The \code{pdf} package is used through one internal file in \code{lib/paper/paper_pdf.dart}; after upgrading \code{pdf}, run \code{flutter test test/paper_pdf_test.dart}. If it fails, replace \code{_grayPage} with \code{pw.MemoryImage} of a PNG (slower but uses only the public API).
 \end{itemize}
 
-\subsection{Printing problems}
+\section{Printing problems}
 
 \begin{tbl}{P{0.36\linewidth}L}
 \thead{Symptom} & \thead{Fix} \\ \midrule
 Text overflow / page doesn't fit & Run \code{flutter test test/paper_pdf_test.dart} (checks all languages); shorten the string in \code{localization.dart} or adjust \code{_dirHeight} \\
 Figures too small & Fewer two-line questions per side, or fewer questions per side (\code{questionsPerSide}) \\
-Shading lost on photocopies & See \ref{sec:open} \\
+Shading lost on photocopies & See Section~\ref{sec:open} \\
 \end{tbl}
 
 % ================================================================ 11
-\section{Access, accounts and loose ends}
+\chapter{Access, accounts and loose ends}
 
-\subsection{Accounts to transfer}
+\section{Accounts to transfer}
 
 \begin{tbl}{P{0.3\linewidth}P{0.28\linewidth}L}
 \thead{Item} & \thead{Held by now} & \thead{Action} \\ \midrule
 GitHub repository \code{harikn2003/mental-ability-app} & The developer's GitHub account & Add the new owner as a collaborator with Admin, or transfer the repository to an organisation account \\
 GitHub Actions & Runs in the repository & No secrets are configured at present \\
 Notion tracker & The mentors' Notion workspace & Ask the workspace owner to share the database with the new owner \\
-Test phone & The developer & Hand over or set up a new one (\ref{sec:phone}) \\
+Test phone & The developer & Hand over or set up a new one (Section~\ref{sec:phone}) \\
 \end{tbl}
 
 \begin{note}
 No passwords, keys or tokens are stored in the repository.
 \end{note}
 
-\subsection{Local files that are not in the repository}
+\section{Local files that are not in the repository}
 
 The project folder on the developer's PC also has these, which are \textbf{not} part of the code and should not be committed: \code{android.zip}, \code{lib.zip}, \code{commit-diff.txt}, the JNV PDFs in \code{docs/} and \code{docs/pyq/}, and assistant folders (\code{.claude/}, \code{.agents/}, \code{AGENTS.md}). The JNV guide books and model papers in \code{docs/} were used as references for question styles; hand them over separately if needed.
 
-\subsection{Must fix: release signing (high priority)}\label{sec:signing}
+\section{Must fix: release signing (high priority)}\label{sec:signing}
 
 \code{android/app/build.gradle.kts} signs \textbf{release} builds with the \textbf{debug} key, and CI creates a new debug key on every run. Result: every new beta has a different signature, so Android refuses to update the old one (\code{INSTALL_FAILED_UPDATE_INCOMPATIBLE}) and testers must uninstall first, which \textbf{deletes their session history}. This also blocks any Play Store release.
 
@@ -935,11 +917,11 @@ keytool -genkey -v -keystore nplusprep-release.jks -keyalg RSA -keysize 2048 -va
 Keep the keystore and its passwords safe and backed up in two places. If it is lost, the app can never again be updated under the same name.
 \end{warning}
 
-\subsection{Open items}\label{sec:open}
+\section{Open items}\label{sec:open}
 
 \begin{tbl}{P{0.24\linewidth}LP{0.1\linewidth}}
 \thead{Item} & \thead{Detail} & \thead{Size} \\ \midrule
-Release signing & \ref{sec:signing} & $\sim$1\,h \\
+Release signing & Section~\ref{sec:signing} & $\sim$1\,h \\
 Sandia Pattern grids that don't decide the answer & In some Hard Sandia grids, the part that tells the options apart (often the shape) isn't fixed by the grid, so a child can only guess. Cause: in \code{hard_question_generator.dart} the missing cell (2,2) sits alone on its diagonal (bottom-left to top-right) line, so its shape there is random. Fix: reject such grids or fix that part from another line. Read \code{docs/hard-mode-history.md} first & $\sim$1\,h \\
 Other generator findings from the explanation work & Dual-rule Pattern dots stop at 4, so that rule can break; one Analogy type (\code{analogy_r4}) sometimes hides the inner-shape change & $\sim$30\,min each \\
 Hard/Medium Embedded wrong options & \code{_embeddedHard} (Hard, and 40\% of Medium) still uses turned, flipped or opposite-fill copies of the shape as wrong options -- the pattern testers objected to (section~9.1). Decide whether to change its wrong options or lower its share (keep it in the mix: ``add, never replace'') & $\sim$45\,min \\
@@ -947,12 +929,12 @@ Photocopy-safe papers & Light greys vanish on pure black/white photocopies. Opti
 Hard shaded Pattern & 13/84 questions still have an option pair differing only by one thin extra outline shape; if mentors flag it, stop overlapping white outline shapes in Hard & $\sim$45\,min \\
 CI notices & GitHub warns that Node 20 actions and \code{actions/setup-java@v4} are deprecated; bump to \code{setup-java@v5} and current action versions & $\sim$15\,min \\
 Exam-format mock test & 40 questions in exam order, 60 minutes, per-part score; deferred until the app is stable & 1--2 days \\
-Explanations without a rule & 2 Hard Pattern grids in the test run (\ref{sec:explanations}); goes away with the two generator items above & -- \\
+Explanations without a rule & 2 Hard Pattern grids in the test run (Section~\ref{sec:explanations}); goes away with the two generator items above & -- \\
 Notion statuses & 2 bugs (Geo ambiguity, Reducing ambiguity) and 3 features (Mirror 3 modes, Medium section, Level setting) are fixed in beta 8; ``Answer explanations'' is done in beta 9; mentors to mark them Fixed & -- \\
-Old local branches & \code{release-check}, \code{release-prep}, \code{ui-mock}, \dots\ can be deleted after checking they're merged; \code{session-rework} is behind master (\ref{sec:branches}) & -- \\
+Old local branches & \code{release-check}, \code{release-prep}, \code{ui-mock}, \dots\ can be deleted after checking they're merged; \code{session-rework} is behind master (Section~\ref{sec:branches}) & -- \\
 \end{tbl}
 
-\subsection{Key documents in the repository}
+\section{Key documents in the repository}
 
 \begin{tbl}{P{0.34\linewidth}L}
 \thead{File} & \thead{Contents} \\ \midrule
@@ -964,7 +946,7 @@ Old local branches & \code{release-check}, \code{release-prep}, \code{ui-mock}, 
 \code{CHANGELOG.md} & Early beta notes \\
 \end{tbl}
 
-\subsection{Updating this document}
+\section{Updating this document}
 
 \begin{itemize}
 \item Build: in \code{docs/handover}, run \code{latexmk -xelatex handover.tex} (TeX Live; the packages are listed at the top of \code{handover.tex}).
@@ -972,7 +954,7 @@ Old local branches & \code{release-check}, \code{release-prep}, \code{ui-mock}, 
 \end{itemize}
 
 % ================================================================ 12
-\section{Glossary}
+\chapter{Glossary}
 
 \begin{tbl}{P{0.26\linewidth}L}
 \thead{Term} & \thead{Meaning} \\ \midrule
