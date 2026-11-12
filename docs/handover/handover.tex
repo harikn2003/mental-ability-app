@@ -59,10 +59,15 @@
 \pretocmd{\section}{\clearpage}{}{}
 \pretocmd{\subsubsection}{\needlines{5}}{}{}
 \pretocmd{\subsection}{\needlines{6}}{}{}
-% A table: \begin{tbl}{colspec} header row \\ \midrule rows \end{tbl}
+% A table: \begin{tbl}{colspec} header row \\ \midrule rows \\ \hline \end{tbl}
+% Fully ruled grid: every column ends in a vertical line, every row in \hline.
 \newenvironment{tbl}[1]
-  {\needlines{5}\small\setstretch{1.05}\xltabular{\linewidth}{@{}#1@{}}\toprule}
-  {\bottomrule\endxltabular\par}
+  {\needlines{5}\small\setstretch{1.05}%
+   \newcolumntype{L}{>{\raggedright\arraybackslash}X|}%
+   \newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{##1}|}%
+   \let\midrule\hline
+   \xltabular{\linewidth}{|#1}\hline}
+  {\endxltabular\par}
 
 % ---------------------------------------------------------------- inline code
 \usepackage[strings]{underscore}
@@ -164,9 +169,9 @@
 
 \begin{tbl}{P{0.36\linewidth}L}
 \thead{Who} & \thead{What they do} \\ \midrule
-Children (about 11 years old; Easy level is for grades 2--3) & Take quiz sessions on a phone or tablet \\
-Coordinators / teachers & Set up sessions on the config screen, read results, print papers \\
-Mentors & Test builds, report problems in the Notion tracker, review printed papers \\
+Children (about 11 years old; Easy level is for grades 2--3) & Take quiz sessions on a phone or tablet \\ \hline
+Coordinators / teachers & Set up sessions on the config screen, read results, print papers \\ \hline
+Mentors & Test builds, report problems in the Notion tracker, review printed papers \\ \hline
 \end{tbl}
 
 \needlines{6}\textbf{Key facts.}
@@ -184,11 +189,11 @@ Mentors & Test builds, report problems in the Notion tracker, review printed pap
 
 \begin{tbl}{P{0.33\linewidth}L}
 \thead{Thing} & \thead{Location} \\ \midrule
-Code & \url{https://github.com/harikn2003/mental-ability-app} \\
-Releases (APK to install) & \url{https://github.com/harikn2003/mental-ability-app/releases} \\
-Bug / feature tracker & Notion: ``Navodaya Mental Ability Issues DB'' (shared Notion workspace) \\
-Package name (release app) & \code{com.nplusone.maa.mental_ability_app} \\
-Package name (debug app) & \code{com.nplusone.maa.mental_ability_app.debug} (installs beside the release app) \\
+Code & \url{https://github.com/harikn2003/mental-ability-app} \\ \hline
+Releases (APK to install) & \url{https://github.com/harikn2003/mental-ability-app/releases} \\ \hline
+Bug / feature tracker & Notion: ``Navodaya Mental Ability Issues DB'' (shared Notion workspace) \\ \hline
+Package name (release app) & \code{com.nplusone.maa.mental_ability_app} \\ \hline
+Package name (debug app) & \code{com.nplusone.maa.mental_ability_app.debug} (installs beside the release app) \\ \hline
 \end{tbl}
 
 % ================================================================ 2
@@ -204,11 +209,11 @@ The project can be developed on \textbf{Windows 10/11} or \textbf{Linux} (Ubuntu
 
 \begin{tbl}{P{0.3\linewidth}LP{0.25\linewidth}}
 \thead{Tool} & \thead{Why} & \thead{From (Windows / Linux)} \\ \midrule
-\textbf{Git} & Version control & winget / apt or dnf \\
-\textbf{VS Code} + \textbf{Flutter extension} & Editor with code completion, run and debug buttons & winget / snap or Microsoft package \\
-\textbf{Java 17} (or any 17+) & Android builds run on Java & winget (Temurin) / apt or dnf \\
-\textbf{Flutter SDK} (stable) & The app framework; includes Dart & Git clone of the stable branch \\
-\textbf{Android SDK command-line tools}: platform-tools (\code{adb}), Android 36, build-tools 36, NDK 27 & Builds and installs the Android app & Google's download, then \code{sdkmanager} \\
+\textbf{Git} & Version control & winget / apt or dnf \\ \hline
+\textbf{VS Code} + \textbf{Flutter extension} & Editor with code completion, run and debug buttons & winget / snap or Microsoft package \\ \hline
+\textbf{Java 17} (or any 17+) & Android builds run on Java & winget (Temurin) / apt or dnf \\ \hline
+\textbf{Flutter SDK} (stable) & The app framework; includes Dart & Git clone of the stable branch \\ \hline
+\textbf{Android SDK command-line tools}: platform-tools (\code{adb}), Android 36, build-tools 36, NDK 27 & Builds and installs the Android app & Google's download, then \code{sdkmanager} \\ \hline
 \end{tbl}
 
 Install locations: Flutter in \code{C:\textbackslash{}src\textbackslash{}flutter} (Windows) or \code{\textasciitilde{}/development/flutter} (Linux); the Android SDK in \code{\%LOCALAPPDATA\%\textbackslash{}Android\textbackslash{}Sdk} (Windows) or \code{\textasciitilde{}/Android/Sdk} (Linux).
@@ -342,14 +347,14 @@ All commands run in the project folder and are the same on Windows and Linux; on
 
 \begin{tbl}{P{0.27\linewidth}P{0.36\linewidth}L}
 \thead{Task} & \thead{Command} & \thead{Notes} \\ \midrule
-Run on the phone (debug, hot reload) & \code{flutter run} & Press \key{r} to reload, \key{R} to restart, \key{q} to quit \\
-Install a debug build without running from the PC & \code{flutter build apk --debug}, then \code{adb install -r build\textbackslash{}app\textbackslash{}outputs\textbackslash{}flutter-apk\textbackslash{}app-debug.apk} & Installs as the \textbf{debug} app, beside the release app \\
-Open the installed debug app & \code{adb shell monkey -p com.nplusone.maa.mental_ability_app.debug -c android.intent.category.LAUNCHER 1} & \\
-Check code style and errors & \code{flutter analyze} & Must say ``No issues found!'' \\
-Run all tests & \code{flutter test} & 1--3 minutes; must end ``All tests passed!'' (372 at handover) \\
-Run one test file & \code{flutter test test/series_test.dart} & \\
-Release build (local check only) & \code{flutter build apk --release} & Output in \code{build\textbackslash{}app\textbackslash{}outputs\textbackslash{}flutter-apk\textbackslash{}app-release.apk} \\
-Preview on a phone without installing & \code{dart run tool/phone_preview.dart} & Opens the app in the phone's browser via a QR code; see \code{docs/phone_preview.md} \\
+Run on the phone (debug, hot reload) & \code{flutter run} & Press \key{r} to reload, \key{R} to restart, \key{q} to quit \\ \hline
+Install a debug build without running from the PC & \code{flutter build apk --debug}, then \code{adb install -r build\textbackslash{}app\textbackslash{}outputs\textbackslash{}flutter-apk\textbackslash{}app-debug.apk} & Installs as the \textbf{debug} app, beside the release app \\ \hline
+Open the installed debug app & \code{adb shell monkey -p com.nplusone.maa.mental_ability_app.debug -c android.intent.category.LAUNCHER 1} & \\ \hline
+Check code style and errors & \code{flutter analyze} & Must say ``No issues found!'' \\ \hline
+Run all tests & \code{flutter test} & 1--3 minutes; must end ``All tests passed!'' (372 at handover) \\ \hline
+Run one test file & \code{flutter test test/series_test.dart} & \\ \hline
+Release build (local check only) & \code{flutter build apk --release} & Output in \code{build\textbackslash{}app\textbackslash{}outputs\textbackslash{}flutter-apk\textbackslash{}app-release.apk} \\ \hline
+Preview on a phone without installing & \code{dart run tool/phone_preview.dart} & Opens the app in the phone's browser via a QR code; see \code{docs/phone_preview.md} \\ \hline
 \end{tbl}
 
 If \code{adb} lists the phone twice (once by IP, once by name), add \code{-s <name>} to every \code{adb} command.
@@ -361,16 +366,16 @@ If \code{adb} lists the phone twice (once by IP, once by name), add \code{-s <na
 
 \begin{tbl}{P{0.22\linewidth}P{0.3\linewidth}L}
 \thead{Layer} & \thead{Technology} & \thead{Why it was chosen} \\ \midrule
-Language / framework & \textbf{Dart 3.8 + Flutter} & One codebase; fast 2D canvas drawing, which matters because every figure is drawn by code \\
-Drawing & Flutter \textbf{\code{CustomPainter}} classes & All question figures are generated and drawn programmatically: no image assets, works offline \\
-Session history & \textbf{Hive} (local database) & Stores the last 30 finished sessions on the device \\
-Settings and bias weights & \textbf{shared\_preferences} & Small key-value store: last setup (\code{last_setup_*}), topic weights (\code{bias_weights_*}) \\
-Charts & \textbf{fl\_chart} & Score and time charts on result screens \\
-Fonts & The theme names Lexend, but no font file ships, so phones show Roboto (Android's default); letter questions name Roboto & Readability for children \\
-PDF papers & \textbf{pdf} + \textbf{printing} packages & Builds the A4 PDF and opens Android's print/share dialog \\
-State management & Plain \code{setState} & The app is small enough not to need a state library \\
-Android build & Gradle 8.14.3, Android Gradle Plugin 8.13.0, Kotlin 2.2.20, Java 17 & Pinned versions that work together (see Section~\ref{sec:buildproblems}) \\
-CI / releases & \textbf{GitHub Actions} (\code{.github/workflows/beta-release.yml}) & Builds and publishes the APK when a beta tag is pushed \\
+Language / framework & \textbf{Dart 3.8 + Flutter} & One codebase; fast 2D canvas drawing, which matters because every figure is drawn by code \\ \hline
+Drawing & Flutter \textbf{\code{CustomPainter}} classes & All question figures are generated and drawn programmatically: no image assets, works offline \\ \hline
+Session history & \textbf{Hive} (local database) & Stores the last 30 finished sessions on the device \\ \hline
+Settings and bias weights & \textbf{shared\_preferences} & Small key-value store: last setup (\code{last_setup_*}), topic weights (\code{bias_weights_*}) \\ \hline
+Charts & \textbf{fl\_chart} & Score and time charts on result screens \\ \hline
+Fonts & The theme names Lexend, but no font file ships, so phones show Roboto (Android's default); letter questions name Roboto & Readability for children \\ \hline
+PDF papers & \textbf{pdf} + \textbf{printing} packages & Builds the A4 PDF and opens Android's print/share dialog \\ \hline
+State management & Plain \code{setState} & The app is small enough not to need a state library \\ \hline
+Android build & Gradle 8.14.3, Android Gradle Plugin 8.13.0, Kotlin 2.2.20, Java 17 & Pinned versions that work together (see Section~\ref{sec:buildproblems}) \\ \hline
+CI / releases & \textbf{GitHub Actions} (\code{.github/workflows/beta-release.yml}) & Builds and publishes the APK when a beta tag is pushed \\ \hline
 \end{tbl}
 
 \subsection{Screens and how a child moves through them}
@@ -409,30 +414,30 @@ About 20,000 lines of Dart. The biggest and most important files are in \code{en
 
 \begin{tbl}{P{0.36\linewidth}L}
 \thead{Folder / file} & \thead{What it holds} \\ \midrule
-\code{main.dart} & App entry: starts Hive, sets the theme, opens the config screen \\
-\code{config/localization.dart} & Every on-screen string in English, Marathi and Hindi (\code{AppLocale.s('key')}); \code{AppLocale.topicName} gives one name per topic for every screen \\
-\code{config/version.dart} & Version and build number shown in the app (kept in step with \code{pubspec.yaml} by the release command) \\
-\code{data/} & Hive storage of finished sessions (\code{hive_service.dart}, \code{session_record.dart}; \code{.g.dart} is generated code) \\
-\code{engine/question_generator.dart} & \textbf{The router.} \code{QuestionGenerator.generate(topic, difficulty:)} decides which generator makes each question; it also holds the original (``classic'') generators for every topic and stops repeats within a session \\
-\code{engine/hard_question_generator.dart} & The \textbf{Sandia engine}: multi-layer shaded matrix questions for Odd Man, Figure Match, Pattern (and Series/Analogy at Hard) \\
-\code{engine/exam_style_generator.dart} & Exam-style items copied from real JNVST papers: Geo grid cut, Embedded line drawings, 2$\times$2 Pattern quarters, Figure Match, mirror-image Odd Man, Punch Hole fold sequences, Mirror line figures \\
-\code{engine/series_generator.dart}, \code{analogy_generator.dart} & Exam-style Figure Series and Analogy rule families \\
-\code{engine/space_vis_generator.dart} & Space Visualisation (which figure the pieces make) \\
-\code{engine/book_generator.dart} & Types from the Arihant JNV guide book: letter-word odd man, symbol counting, shifting letters, symbols round a box, paper folding \\
-\code{engine/line_figure.dart} & \textbf{\code{LineFig}}: figures as lines on a small grid. Exact turning, flipping, ``is this hidden inside that'', and \code{key} (``do these two look the same as drawn'') \\
-\code{engine/test_paper.dart} & Builds a 40-question printed paper and per-student shuffled sets \\
-\code{engine/difficulty.dart} & \code{Difficulty \{ easy, medium, hard \}} \\
-\code{engine/explanation.dart} & \textbf{Answer explanations.} \code{Explanation.of(question)} works out what to animate for any question (or \code{null}), once per question \\
-\code{engine/explain/} & One file per topic group (\code{pattern}, \code{series}, \code{analogy}, \code{odd_man}, \code{figure_match}, \code{geo}, \code{space_vis}) that turns a question into a \code{Scene} \\
-\code{engine/scene.dart} & The \code{Scene} model: slots (figures placed on a small stage) and steps (fly, morph, pulse, tick, reveal) \\
-\code{engine/morph.dart}, \code{morph_line.dart} & Work out the difference between two figures as ``beats'' (turn, flip, resize, move, swap) and draw any in-between frame \\
-\code{engine/paper_fold.dart} & Unfolds punched paper one fold at a time for the Punch Hole explanation \\
-\code{painters/} & Code that draws each figure type: \code{line_figure_painter} (LineFig), \code{sandia_painter} (shaded matrices), \code{figure_painter} (classic shapes), \code{mirror_text_painter}, \code{punch_painter}, \code{geo_piece_path} \\
-\code{widgets/question_renderer.dart} & Draws the question area for each puzzle type \\
-\code{widgets/option_renderer.dart} & Draws each answer option; picks the painter from the option's \code{type} \\
-\code{widgets/explanation_panel.dart}, \code{scene_player.dart} & Play an explanation: the panel runs the timer and Replay button; the scene player draws a \code{Scene} at any point of its timeline \\
-\code{paper/paper_pages.dart}, \code{paper_pdf.dart} & Layout and PDF output of printed papers \\
-\code{screens/} & The screens shown above \\
+\code{main.dart} & App entry: starts Hive, sets the theme, opens the config screen \\ \hline
+\code{config/localization.dart} & Every on-screen string in English, Marathi and Hindi (\code{AppLocale.s('key')}); \code{AppLocale.topicName} gives one name per topic for every screen \\ \hline
+\code{config/version.dart} & Version and build number shown in the app (kept in step with \code{pubspec.yaml} by the release command) \\ \hline
+\code{data/} & Hive storage of finished sessions (\code{hive_service.dart}, \code{session_record.dart}; \code{.g.dart} is generated code) \\ \hline
+\code{engine/question_generator.dart} & \textbf{The router.} \code{QuestionGenerator.generate(topic, difficulty:)} decides which generator makes each question; it also holds the original (``classic'') generators for every topic and stops repeats within a session \\ \hline
+\code{engine/hard_question_generator.dart} & The \textbf{Sandia engine}: multi-layer shaded matrix questions for Odd Man, Figure Match, Pattern (and Series/Analogy at Hard) \\ \hline
+\code{engine/exam_style_generator.dart} & Exam-style items copied from real JNVST papers: Geo grid cut, Embedded line drawings, 2$\times$2 Pattern quarters, Figure Match, mirror-image Odd Man, Punch Hole fold sequences, Mirror line figures \\ \hline
+\code{engine/series_generator.dart}, \code{analogy_generator.dart} & Exam-style Figure Series and Analogy rule families \\ \hline
+\code{engine/space_vis_generator.dart} & Space Visualisation (which figure the pieces make) \\ \hline
+\code{engine/book_generator.dart} & Types from the Arihant JNV guide book: letter-word odd man, symbol counting, shifting letters, symbols round a box, paper folding \\ \hline
+\code{engine/line_figure.dart} & \textbf{\code{LineFig}}: figures as lines on a small grid. Exact turning, flipping, ``is this hidden inside that'', and \code{key} (``do these two look the same as drawn'') \\ \hline
+\code{engine/test_paper.dart} & Builds a 40-question printed paper and per-student shuffled sets \\ \hline
+\code{engine/difficulty.dart} & \code{Difficulty \{ easy, medium, hard \}} \\ \hline
+\code{engine/explanation.dart} & \textbf{Answer explanations.} \code{Explanation.of(question)} works out what to animate for any question (or \code{null}), once per question \\ \hline
+\code{engine/explain/} & One file per topic group (\code{pattern}, \code{series}, \code{analogy}, \code{odd_man}, \code{figure_match}, \code{geo}, \code{space_vis}) that turns a question into a \code{Scene} \\ \hline
+\code{engine/scene.dart} & The \code{Scene} model: slots (figures placed on a small stage) and steps (fly, morph, pulse, tick, reveal) \\ \hline
+\code{engine/morph.dart}, \code{morph_line.dart} & Work out the difference between two figures as ``beats'' (turn, flip, resize, move, swap) and draw any in-between frame \\ \hline
+\code{engine/paper_fold.dart} & Unfolds punched paper one fold at a time for the Punch Hole explanation \\ \hline
+\code{painters/} & Code that draws each figure type: \code{line_figure_painter} (LineFig), \code{sandia_painter} (shaded matrices), \code{figure_painter} (classic shapes), \code{mirror_text_painter}, \code{punch_painter}, \code{geo_piece_path} \\ \hline
+\code{widgets/question_renderer.dart} & Draws the question area for each puzzle type \\ \hline
+\code{widgets/option_renderer.dart} & Draws each answer option; picks the painter from the option's \code{type} \\ \hline
+\code{widgets/explanation_panel.dart}, \code{scene_player.dart} & Play an explanation: the panel runs the timer and Replay button; the scene player draws a \code{Scene} at any point of its timeline \\ \hline
+\code{paper/paper_pages.dart}, \code{paper_pdf.dart} & Layout and PDF output of printed papers \\ \hline
+\code{screens/} & The screens shown above \\ \hline
 \end{tbl}
 
 \subsection{How a question is stored}
@@ -441,12 +446,12 @@ Every question is a \code{ReasoningQuestion}: a topic, a type name (e.g.\ \code{
 
 \begin{tbl}{P{0.24\linewidth}P{0.36\linewidth}L}
 \thead{\texttt{type}} & \thead{Drawn by} & \thead{Used for} \\ \midrule
-\code{line_fig} & \code{LineFigurePainter} & Most exam-style figures (grid of lines, black half-cells, dots, arrows, hatching, arcs, symbols) \\
-\code{sandia_cell} & \code{SandiaPainter} & Shaded multi-shape matrix cells (Hard engine) \\
-(no type: \code{shape}, \code{rotation}, \code{dots}\dots) & \code{EnhancedFigurePainter} & Classic single-shape figures \\
-\code{mirror_text} & \code{EnhancedMirrorTextPainter} / \code{MirrorTextPainter} & Letters, digits, clocks \\
-\code{punch_hole} & \code{PunchPainter} & Punched paper \\
-\code{geo_piece} & geometry piece painters & Classic Geo Completion \\
+\code{line_fig} & \code{LineFigurePainter} & Most exam-style figures (grid of lines, black half-cells, dots, arrows, hatching, arcs, symbols) \\ \hline
+\code{sandia_cell} & \code{SandiaPainter} & Shaded multi-shape matrix cells (Hard engine) \\ \hline
+(no type: \code{shape}, \code{rotation}, \code{dots}\dots) & \code{EnhancedFigurePainter} & Classic single-shape figures \\ \hline
+\code{mirror_text} & \code{EnhancedMirrorTextPainter} / \code{MirrorTextPainter} & Letters, digits, clocks \\ \hline
+\code{punch_hole} & \code{PunchPainter} & Punched paper \\ \hline
+\code{geo_piece} & geometry piece painters & Classic Geo Completion \\ \hline
 \end{tbl}
 
 % ================================================================ 5
@@ -513,16 +518,16 @@ Explanations are \textbf{worked out from the question data}, not stored with the
 
 \begin{tbl}{P{0.24\linewidth}L}
 \thead{Topic} & \thead{What the animation shows} \\ \midrule
-Mirror Shape / Text & The figure flips over the mirror line onto the answer \\
-Punch Hole & The punched paper unfolds fold by fold (last fold first); paper folding: the sheet's half folds over \\
-Embedded & The hidden shape lights up inside the answer \\
-Figure Series & Each frame flies to the next, changing the same way every step; the last flies into the ``?'' (frames wrap onto two rows on small phones) \\
-Analogy & A copy of A flies onto B, changing on the way; a copy of C makes the same changes and lands in the ``?'' \\
-Pattern & The row/column rule is shown on two example cells, then applied in the gap. Sandia grids are built \textbf{layer by layer}, because each layer (and each part, e.g.\ shape vs shading) can follow its own line \\
-Odd Man Out & What the three alike options share is shown (turned copies fly onto each other until they match); the odd one is outlined in red \\
-Figure Match & A copy of the target flies onto the correct option, turning or flipping on the way, and covers it exactly \\
-Geo Completion & The correct piece turns the right way up and slides into the gap; the completed shape glows \\
-Space Visualisation & The answer is cut into regions; each given piece turns or flips to match its region and flies into place \\
+Mirror Shape / Text & The figure flips over the mirror line onto the answer \\ \hline
+Punch Hole & The punched paper unfolds fold by fold (last fold first); paper folding: the sheet's half folds over \\ \hline
+Embedded & The hidden shape lights up inside the answer \\ \hline
+Figure Series & Each frame flies to the next, changing the same way every step; the last flies into the ``?'' (frames wrap onto two rows on small phones) \\ \hline
+Analogy & A copy of A flies onto B, changing on the way; a copy of C makes the same changes and lands in the ``?'' \\ \hline
+Pattern & The row/column rule is shown on two example cells, then applied in the gap. Sandia grids are built \textbf{layer by layer}, because each layer (and each part, e.g.\ shape vs shading) can follow its own line \\ \hline
+Odd Man Out & What the three alike options share is shown (turned copies fly onto each other until they match); the odd one is outlined in red \\ \hline
+Figure Match & A copy of the target flies onto the correct option, turning or flipping on the way, and covers it exactly \\ \hline
+Geo Completion & The correct piece turns the right way up and slides into the gap; the completed shape glows \\ \hline
+Space Visualisation & The answer is cut into regions; each given piece turns or flips to match its region and flies into place \\ \hline
 \end{tbl}
 
 \subsubsection*{What they look like}
@@ -563,12 +568,12 @@ Coordinators open \textbf{Print paper} on the config screen (the printer button 
 
 \begin{tbl}{P{0.22\linewidth}L}
 \thead{Feature} & \thead{How it works} \\ \midrule
-Content & 10 parts $\times$ 4 questions in JNVST order (\code{TestPaper.partIds}) \\
-Difficulty per part & \code{TestPaper.partLevels}: mostly 1 Easy, 2 Medium, 1 Hard; Odd Man, Figure Match, Geo have no Easy; Analogy 3 Medium + 1 Hard (mentors' request) \\
-Per-student sets & Same 40 questions, shuffled within equal-difficulty runs, options shuffled; teacher key on the last page \\
-Layout & A4, 20 questions a side in two columns, exam style: single-figure questions on one line, series/analogy/folding on two lines. Figures 10--14\,mm, 3$\times$3 grids 1.4$\times$ bigger \\
-Drawing & Pages are drawn by the app's own painters at app size (80\,px) then scaled down, so lines keep their proportions; converted to grayscale and compressed (\code{_grayPage}, about 0.3\,s a page) \\
-Languages & \code{paperText(langs, key)}; with both languages the directions print English then Marathi \\
+Content & 10 parts $\times$ 4 questions in JNVST order (\code{TestPaper.partIds}) \\ \hline
+Difficulty per part & \code{TestPaper.partLevels}: mostly 1 Easy, 2 Medium, 1 Hard; Odd Man, Figure Match, Geo have no Easy; Analogy 3 Medium + 1 Hard (mentors' request) \\ \hline
+Per-student sets & Same 40 questions, shuffled within equal-difficulty runs, options shuffled; teacher key on the last page \\ \hline
+Layout & A4, 20 questions a side in two columns, exam style: single-figure questions on one line, series/analogy/folding on two lines. Figures 10--14\,mm, 3$\times$3 grids 1.4$\times$ bigger \\ \hline
+Drawing & Pages are drawn by the app's own painters at app size (80\,px) then scaled down, so lines keep their proportions; converted to grayscale and compressed (\code{_grayPage}, about 0.3\,s a page) \\ \hline
+Languages & \code{paperText(langs, key)}; with both languages the directions print English then Marathi \\ \hline
 \end{tbl}
 
 \code{paper_pdf.dart} uses one internal file of the \code{pdf} package (\code{package:pdf/src/pdf/format/num.dart}) to add pre-compressed images. If \code{pdf} is upgraded past 3.12 and this breaks, see Section~\ref{sec:upgrades}.
@@ -582,13 +587,13 @@ The project relies on automated tests because a person can't check thousands of 
 
 \begin{tbl}{P{0.18\linewidth}P{0.4\linewidth}L}
 \thead{Kind} & \thead{Example files} & \thead{What they prove} \\ \midrule
-Solve-from-data & \code{series_test}, \code{analogy_test}, \code{space_vis_test}, \code{book_generator_test}, \code{exam_style_test} & Hundreds of questions per type; each is solved from its drawings and exactly one option is right \\
-Level properties & \code{easy_level_test}, \code{medium_level_test} & Easy changes one thing; Medium is between Easy and Hard \\
-Look-alike / visibility & \code{line_figure_key_test}, \code{no_hidden_detail_test}, \code{question_generator_visual_dedup_test}, \code{hard_generator_visual_test}, \code{sandia_outline_test} & No two options look the same when drawn; nothing hidden \\
-Engine diagnostics & \code{hard_generator_diagnostics_test} & Sandia engine: no crashes, no duplicates, no tiny features \\
-Screens & \code{quiz_layout_test}, \code{multi_topic_test}, \code{report_screens_test}, \code{print_paper_screen_test} & Screens build and behave at phone size \\
-Paper & \code{paper_pdf_test}, \code{test_paper_test}, \code{mentor_paper_review_test} & Every page fits A4 in all languages; PDF page counts; mentors' review points \\
-Explanations & \code{explain_*_test}, \code{explanation_test}, \code{morph_test}, \code{scene_player_test}, \code{explanation_panel_test}, \code{explanation_quiz_test} & Every animation ends on the correct option and shows the real rule; frames draw without errors; the quiz locks Next until it ends \\
+Solve-from-data & \code{series_test}, \code{analogy_test}, \code{space_vis_test}, \code{book_generator_test}, \code{exam_style_test} & Hundreds of questions per type; each is solved from its drawings and exactly one option is right \\ \hline
+Level properties & \code{easy_level_test}, \code{medium_level_test} & Easy changes one thing; Medium is between Easy and Hard \\ \hline
+Look-alike / visibility & \code{line_figure_key_test}, \code{no_hidden_detail_test}, \code{question_generator_visual_dedup_test}, \code{hard_generator_visual_test}, \code{sandia_outline_test} & No two options look the same when drawn; nothing hidden \\ \hline
+Engine diagnostics & \code{hard_generator_diagnostics_test} & Sandia engine: no crashes, no duplicates, no tiny features \\ \hline
+Screens & \code{quiz_layout_test}, \code{multi_topic_test}, \code{report_screens_test}, \code{print_paper_screen_test} & Screens build and behave at phone size \\ \hline
+Paper & \code{paper_pdf_test}, \code{test_paper_test}, \code{mentor_paper_review_test} & Every page fits A4 in all languages; PDF page counts; mentors' review points \\ \hline
+Explanations & \code{explain_*_test}, \code{explanation_test}, \code{morph_test}, \code{scene_player_test}, \code{explanation_panel_test}, \code{explanation_quiz_test} & Every animation ends on the correct option and shows the real rule; frames draw without errors; the quiz locks Next until it ends \\ \hline
 \end{tbl}
 
 \begin{tip}
@@ -621,11 +626,11 @@ Printed papers were reviewed the same way, by WhatsApp messages and PDF annotati
 
 \begin{tbl}{P{0.3\linewidth}L}
 \thead{Branch} & \thead{Role} \\ \midrule
-\code{master} & Release line. Every beta is tagged on master. \\
-\code{hard-mode-exam-style} & Where all work since September 2026 was done, including answer explanations; merged into master for each release (last: beta 9) \\
-\code{session-rework} & Older main work branch. It does \textbf{not} have the work since beta 8 (explanations); treat master as the source of truth \\
-\code{generator-rework}, \code{generator-revamp}, \dots & Older feature branches, already merged \\
-\code{release-check} & Local-only branch used to test the beta 8 merge; can be deleted \\
+\code{master} & Release line. Every beta is tagged on master. \\ \hline
+\code{hard-mode-exam-style} & Where all work since September 2026 was done, including answer explanations; merged into master for each release (last: beta 9) \\ \hline
+\code{session-rework} & Older main work branch. It does \textbf{not} have the work since beta 8 (explanations); treat master as the source of truth \\ \hline
+\code{generator-rework}, \code{generator-revamp}, \dots & Older feature branches, already merged \\ \hline
+\code{release-check} & Local-only branch used to test the beta 8 merge; can be deleted \\ \hline
 \end{tbl}
 
 Work on a branch, run \code{flutter analyze} and \code{flutter test}, then merge into master for a release.
@@ -670,11 +675,11 @@ dart run tool/release.dart
 
 \begin{tbl}{P{0.36\linewidth}L}
 \thead{Option} & \thead{What it does} \\ \midrule
-\code{--tag v1.0.0-beta.12} & Use this tag without asking \\
-\code{--dry-run} & Show the version, codename and commits; change nothing \\
-\code{--skip-tests} & Skip analyze and test locally (CI still runs them) \\
-\code{--yes} & No questions: the \code{--tag} given, or the next beta \\
-\code{--print-codename} & Print the current build's codename (CI uses it for the release title) \\
+\code{--tag v1.0.0-beta.12} & Use this tag without asking \\ \hline
+\code{--dry-run} & Show the version, codename and commits; change nothing \\ \hline
+\code{--skip-tests} & Skip analyze and test locally (CI still runs them) \\ \hline
+\code{--yes} & No questions: the \code{--tag} given, or the next beta \\ \hline
+\code{--print-codename} & Print the current build's codename (CI uses it for the release title) \\ \hline
 \end{tbl}
 
 \textbf{Codenames.} Each build has a fruit codename shown in the app's version badge (e.g.\ ``v1.0.0-beta.9 Damson''). It comes from the build number, \code{AppVersion.buildCodenames[buildNumber \% length]} in \code{version.dart}, so it moves on by itself with every release; to skip a name, comment it out in that list. \code{test/release_tool_test.dart} checks the command and the app agree on it.
@@ -688,14 +693,14 @@ Never delete or reuse a published tag. If something is wrong, fix it and release
 
 \begin{tbl}{P{0.14\linewidth}L}
 \thead{When (2026)} & \thead{Milestone} \\ \midrule
-Jan--Mar & Project started; quiz engine, sessions, review screen. Switched from static image questions to \textbf{generated questions} drawn by code. \\
-Mar--Apr & Intelligent Bias, weak-area practice, Hive history, Marathi then Hindi, session detail and student result screens \\
-May & First betas (beta 1--3); automated version tracking; Mirror Text overhaul; Java/Gradle CI fixes \\
-Jul--Aug & \textbf{Hard Mode} with the Sandia matrix engine (shaded multi-layer figures based on the Sandia Generated Matrix Tool); beta 4; release tooling \\
-Sep & Exam-style questions from real JNVST papers for every topic; Space Visualisation topic; LineFig drawing parts (arrows, hatching, arcs, symbols); multi-topic sessions; \textbf{Medium} level; beta 5--6 \\
-Oct & Medium reworked as a true midpoint; \textbf{printed test paper} (A4 PDF, per-student sets); guide-book question types; English/Marathi papers; many fixes from mentors' reviews; beta 7 \\
-3 Nov & \textbf{Beta 8}: everything above plus all tracker fixes \\
-4 Nov & \textbf{Beta 9}: answer explanations for all 11 topics (animated, wordless), Sandia Pattern grids explained layer by layer, series frames on two rows for small phones \\
+Jan--Mar & Project started; quiz engine, sessions, review screen. Switched from static image questions to \textbf{generated questions} drawn by code. \\ \hline
+Mar--Apr & Intelligent Bias, weak-area practice, Hive history, Marathi then Hindi, session detail and student result screens \\ \hline
+May & First betas (beta 1--3); automated version tracking; Mirror Text overhaul; Java/Gradle CI fixes \\ \hline
+Jul--Aug & \textbf{Hard Mode} with the Sandia matrix engine (shaded multi-layer figures based on the Sandia Generated Matrix Tool); beta 4; release tooling \\ \hline
+Sep & Exam-style questions from real JNVST papers for every topic; Space Visualisation topic; LineFig drawing parts (arrows, hatching, arcs, symbols); multi-topic sessions; \textbf{Medium} level; beta 5--6 \\ \hline
+Oct & Medium reworked as a true midpoint; \textbf{printed test paper} (A4 PDF, per-student sets); guide-book question types; English/Marathi papers; many fixes from mentors' reviews; beta 7 \\ \hline
+3 Nov & \textbf{Beta 8}: everything above plus all tracker fixes \\ \hline
+4 Nov & \textbf{Beta 9}: answer explanations for all 11 topics (animated, wordless), Sandia Pattern grids explained layer by layer, series frames on two rows for small phones \\ \hline
 \end{tbl}
 
 The full list of commits is in \code{git log}; Hard Mode decisions are written up in detail in \code{docs/hard-mode-history.md}; \code{CHANGELOG.md} covers the early betas.
@@ -713,84 +718,84 @@ Grouped by area. For each: what went wrong, the real cause, and the fix. The sam
 The most common class of bug. It almost always had the same shape: two options that differ in the data but \textbf{look} the same on screen.
 
 \begin{tbl}{Q}\probhead
-Hard Pattern/Odd Man options came in ``two identical pairs'' & Wrong options are built from two changes in every combination; if one change was invisible, options paired up & Every Sandia question is rendered on a 64$\times$64 grid and rejected if any two options differ too little (\code{_hasNearDuplicateOptions}, hard-mode-history \#14--17) \\
-Shaded options still looked alike to testers (Oct 2026) & The visibility bar (2\% of the cell, 30/255) let dark-on-dark changes through & Raised to 5\% of the cell and 50/255 (\#25). Near-twin pairs in Figure Match Hard went from 32/84 to 0 \\
-Pattern 2$\times$2 options A and C identical & A changed line ran exactly along a black triangle's edge, so it couldn't be seen & \code{LineFig.key} treats lines on black edges and on the frame as invisible \\
-Figure Match duplicates (tracker, Oct) & A dot drawn on a diagonal line or a black half-cell disappears & \code{key} ignores hidden dots; generators reject any figure with a hidden dot (\code{hasHiddenDetail}) \\
-Geo Completion: two pieces fit (mentors, Oct) & A wrong piece was the answer \textbf{flipped over}; a paper piece can be turned over & Pieces are compared up to turning \textbf{and} flipping (\code{flipClass}); wrong pieces are one-cell changes only \\
-Embedded Figure: a wrong option ``contained'' the shape (testers) & Wrong options hid the shape turned or flipped, which children read as ``it's there'' & Wrong options hide a near-miss shape (one stroke moved) and never the shape in any orientation \\
-2$\times$2 Pattern: options differ only by a dot & The ``small change'' moved a dot one cell & The wrong option's change is the black half-cell flipping instead \\
-Odd Man (Sandia) rotations identical for rectangle/diamond & Shapes symmetric under 180$^\circ$ look the same at 0° and 180$^\circ$ & Comparison knows each shape's symmetry; orientations spread over 180$^\circ$ \\
-Series/Analogy duplicates from a cross background & The cross looks the same every 90$^\circ$ & Removed symmetric backgrounds from the pools \\
+Hard Pattern/Odd Man options came in ``two identical pairs'' & Wrong options are built from two changes in every combination; if one change was invisible, options paired up & Every Sandia question is rendered on a 64$\times$64 grid and rejected if any two options differ too little (\code{_hasNearDuplicateOptions}, hard-mode-history \#14--17) \\ \hline
+Shaded options still looked alike to testers (Oct 2026) & The visibility bar (2\% of the cell, 30/255) let dark-on-dark changes through & Raised to 5\% of the cell and 50/255 (\#25). Near-twin pairs in Figure Match Hard went from 32/84 to 0 \\ \hline
+Pattern 2$\times$2 options A and C identical & A changed line ran exactly along a black triangle's edge, so it couldn't be seen & \code{LineFig.key} treats lines on black edges and on the frame as invisible \\ \hline
+Figure Match duplicates (tracker, Oct) & A dot drawn on a diagonal line or a black half-cell disappears & \code{key} ignores hidden dots; generators reject any figure with a hidden dot (\code{hasHiddenDetail}) \\ \hline
+Geo Completion: two pieces fit (mentors, Oct) & A wrong piece was the answer \textbf{flipped over}; a paper piece can be turned over & Pieces are compared up to turning \textbf{and} flipping (\code{flipClass}); wrong pieces are one-cell changes only \\ \hline
+Embedded Figure: a wrong option ``contained'' the shape (testers) & Wrong options hid the shape turned or flipped, which children read as ``it's there'' & Wrong options hide a near-miss shape (one stroke moved) and never the shape in any orientation \\ \hline
+2$\times$2 Pattern: options differ only by a dot & The ``small change'' moved a dot one cell & The wrong option's change is the black half-cell flipping instead \\ \hline
+Odd Man (Sandia) rotations identical for rectangle/diamond & Shapes symmetric under 180$^\circ$ look the same at 0° and 180$^\circ$ & Comparison knows each shape's symmetry; orientations spread over 180$^\circ$ \\ \hline
+Series/Analogy duplicates from a cross background & The cross looks the same every 90$^\circ$ & Removed symmetric backgrounds from the pools \\ \hline
 \end{tbl}
 
 \subsection{Questions that were too hard, too easy or unclear}
 
 \begin{tbl}{Q}\probhead
-Easy questions too hard for grades 2--3 & Easy reused Hard-style multi-change rules & Easy changes one thing per question in every topic; tests pin it \\
-Medium was ``Easy or Hard by coin toss'' & First Medium version mixed the two & Medium got its own router with lite settings of each generator \\
-Mentors: paper questions 1--6, 8, 17, 21--23 too easy (facilitators also sit it) & Paper used Easy/Easy/Medium/Medium & Per-topic mix with Hard questions \\
-Series showed 4 figures before the ``?'' & One series type (\code{series_alt_dual}) used 4 frames & Every series shows 3 figures then ``?'' \\
-Punch Hole folds unclear on paper & No direction shown & Fold arrows on every fold panel \\
-Mirror Text level mismatch (tracker) & One length for every level & Easy 1--2 characters, Medium 2--3, Hard 4 \\
-Session title said ``Mirror image'' for both mirror topics (tracker) & Separate, older title strings & One \code{AppLocale.topicName} for config and session \\
+Easy questions too hard for grades 2--3 & Easy reused Hard-style multi-change rules & Easy changes one thing per question in every topic; tests pin it \\ \hline
+Medium was ``Easy or Hard by coin toss'' & First Medium version mixed the two & Medium got its own router with lite settings of each generator \\ \hline
+Mentors: paper questions 1--6, 8, 17, 21--23 too easy (facilitators also sit it) & Paper used Easy/Easy/Medium/Medium & Per-topic mix with Hard questions \\ \hline
+Series showed 4 figures before the ``?'' & One series type (\code{series_alt_dual}) used 4 frames & Every series shows 3 figures then ``?'' \\ \hline
+Punch Hole folds unclear on paper & No direction shown & Fold arrows on every fold panel \\ \hline
+Mirror Text level mismatch (tracker) & One length for every level & Easy 1--2 characters, Medium 2--3, Hard 4 \\ \hline
+Session title said ``Mirror image'' for both mirror topics (tracker) & Separate, older title strings & One \code{AppLocale.topicName} for config and session \\ \hline
 \end{tbl}
 
 \subsection{Drawing problems}
 
 \begin{tbl}{Q}\probhead
-Question figure looked different from its own correct option & Question area used an older painter & The question area draws with the same code as the options \\
-Detail on filled shapes vanished & Dark details on dark fills & White details with a navy outline \\
-White diamond on a black rectangle invisible & Dark outline on dark fill & Outlines drawn after a dark shape get a white edge \\
-Mirror Text distorted / numbers mirrored wrongly & Text mirrored on the canvas directly & Text drawn to a picture first, then mirrored \\
-Letters showed as black blocks in test renders & Flutter tests use a block font unless a font is named & Letter painters name Roboto (Android's default) \\
-L shape's mirror and turn looked alike & Foot and upright too similar in length & Foot 1.1 vs upright 1.7 units; pixel test \\
+Question figure looked different from its own correct option & Question area used an older painter & The question area draws with the same code as the options \\ \hline
+Detail on filled shapes vanished & Dark details on dark fills & White details with a navy outline \\ \hline
+White diamond on a black rectangle invisible & Dark outline on dark fill & Outlines drawn after a dark shape get a white edge \\ \hline
+Mirror Text distorted / numbers mirrored wrongly & Text mirrored on the canvas directly & Text drawn to a picture first, then mirrored \\ \hline
+Letters showed as black blocks in test renders & Flutter tests use a block font unless a font is named & Letter painters name Roboto (Android's default) \\ \hline
+L shape's mirror and turn looked alike & Foot and upright too similar in length & Foot 1.1 vs upright 1.7 units; pixel test \\ \hline
 \end{tbl}
 
 \subsection{Printed paper problems}
 
 \begin{tbl}{Q}\probhead
-Too few questions per page (coordinator wanted 20 a side) & One question per row & Two columns, exam style, flow down then across \\
-Figures dense on paper (lines swamp details) & Painters use fixed 2--3\,px lines tuned for 80\,px figures; paper boxes are 13\,mm & Draw at 80\,px and scale down; no inner Sandia frame in print \\
-Dots touching the box & Classic figures put dots near the bottom edge & Small margin around classic figures in print \\
-PDF slow (1.3--2\,s a page) & PNG encode/decode in Dart & Grayscale + zlib compression directly (0.3\,s a page) \\
-Marathi wanted & English only & Language picker: English, Marathi, both \\
-Shading may vanish on a photocopier & Light greys become white in pure black/white copies & Not changed yet -- see Section~\ref{sec:open} \\
+Too few questions per page (coordinator wanted 20 a side) & One question per row & Two columns, exam style, flow down then across \\ \hline
+Figures dense on paper (lines swamp details) & Painters use fixed 2--3\,px lines tuned for 80\,px figures; paper boxes are 13\,mm & Draw at 80\,px and scale down; no inner Sandia frame in print \\ \hline
+Dots touching the box & Classic figures put dots near the bottom edge & Small margin around classic figures in print \\ \hline
+PDF slow (1.3--2\,s a page) & PNG encode/decode in Dart & Grayscale + zlib compression directly (0.3\,s a page) \\ \hline
+Marathi wanted & English only & Language picker: English, Marathi, both \\ \hline
+Shading may vanish on a photocopier & Light greys become white in pure black/white copies & Not changed yet -- see Section~\ref{sec:open} \\ \hline
 \end{tbl}
 
 \subsection{Build, CI and tooling problems}\label{sec:buildproblems}
 
 \begin{tbl}{Q}\probhead
-CI failed with a Java toolchain error & Gradle daemon JVM settings pointed at a local Java & CI uses Temurin 17 and deletes \code{gradle-daemon-jvm.properties} before building \\
-Gradle / Android Gradle Plugin mismatch & Upgrading Gradle to 9.x broke the Flutter Gradle plugin & Pinned Gradle 8.14.3 with AGP 8.13.0 (Flutter doesn't support AGP 9 yet) \\
-Beta 6 CI failed & Tests depended on a Windows-only font & Tests no longer load Windows fonts \\
-pubspec version and in-app version drifted & Two files updated by hand & The release command (\code{tool/release.dart}) updates both together; a test checks they agree \\
-Hook suggested the wrong next beta & It didn't notice an untagged version & Fixed in the hook (Sep) \\
-Release hook blocked pushes on Linux & It called Windows-only \code{powershell.exe} & The hook picked Windows dialogs, zenity, or terminal prompts automatically (Nov) \\
-The pre-push release hook was unreliable & It asked on every master push, made its version commit after git had decided what to push (so master lagged the tag), and needed dialog boxes & Replaced by \code{dart run tool/release.dart} (after beta 9): you run it when you want a release; it pushes master and the tag together \\
-Debug and release app couldn't both be installed & Same package name & Debug builds use the \code{.debug} suffix \\
-Releases didn't show on the GitHub repo page & Published as pre-releases & Published as Latest releases \\
-\code{INSTALL_FAILED_UPDATE_INCOMPATIBLE} on the phone & Release builds are signed with a CI-generated debug key that changes each run & Uninstall then install; permanent fix in Section~\ref{sec:signing} \\
+CI failed with a Java toolchain error & Gradle daemon JVM settings pointed at a local Java & CI uses Temurin 17 and deletes \code{gradle-daemon-jvm.properties} before building \\ \hline
+Gradle / Android Gradle Plugin mismatch & Upgrading Gradle to 9.x broke the Flutter Gradle plugin & Pinned Gradle 8.14.3 with AGP 8.13.0 (Flutter doesn't support AGP 9 yet) \\ \hline
+Beta 6 CI failed & Tests depended on a Windows-only font & Tests no longer load Windows fonts \\ \hline
+pubspec version and in-app version drifted & Two files updated by hand & The release command (\code{tool/release.dart}) updates both together; a test checks they agree \\ \hline
+Hook suggested the wrong next beta & It didn't notice an untagged version & Fixed in the hook (Sep) \\ \hline
+Release hook blocked pushes on Linux & It called Windows-only \code{powershell.exe} & The hook picked Windows dialogs, zenity, or terminal prompts automatically (Nov) \\ \hline
+The pre-push release hook was unreliable & It asked on every master push, made its version commit after git had decided what to push (so master lagged the tag), and needed dialog boxes & Replaced by \code{dart run tool/release.dart} (after beta 9): you run it when you want a release; it pushes master and the tag together \\ \hline
+Debug and release app couldn't both be installed & Same package name & Debug builds use the \code{.debug} suffix \\ \hline
+Releases didn't show on the GitHub repo page & Published as pre-releases & Published as Latest releases \\ \hline
+\code{INSTALL_FAILED_UPDATE_INCOMPATIBLE} on the phone & Release builds are signed with a CI-generated debug key that changes each run & Uninstall then install; permanent fix in Section~\ref{sec:signing} \\ \hline
 \end{tbl}
 
 \subsection{Answer explanation problems}
 
 \begin{tbl}{Q}\probhead
-No explanation showed on the phone for any topic & The tester was running the beta (release) app, not the newly installed debug app; they sit side by side & Open the app whose package ends in \code{.debug} (section 3) \\
-Debug app showed an old version (``beta 5'') & The work branch's \code{version.dart} hadn't been updated with master's releases & Keep \code{pubspec.yaml} and \code{version.dart} in step on the work branch too \\
-Hard Pattern explanations showed only the difference, not the rule, for almost every Sandia grid (94 in the test run) & Each Sandia layer, and each part of a layer, follows its own line through the grid; a single row/column rule doesn't exist & Explanations build the answer layer by layer, each from its own line, with a two-cell example first \\
-A shade change ``by 0'' counted as a change & Equal values were compared as different & Shade changes need different values; tests mirror the check \\
-The frame around an arrow swung into a diamond mid-turn & The whole figure, frame included, was turned & Square frames are drawn still; only what is inside turns \\
-The copy landed on a grey ``?'' box & The question box stayed visible under the flying figure & The ``?'' fades out as the copy arrives \\
-Series frames shrank to fit a 360\,dp phone & All frames on one row & Two rows when one row would shrink them \\
+No explanation showed on the phone for any topic & The tester was running the beta (release) app, not the newly installed debug app; they sit side by side & Open the app whose package ends in \code{.debug} (section 3) \\ \hline
+Debug app showed an old version (``beta 5'') & The work branch's \code{version.dart} hadn't been updated with master's releases & Keep \code{pubspec.yaml} and \code{version.dart} in step on the work branch too \\ \hline
+Hard Pattern explanations showed only the difference, not the rule, for almost every Sandia grid (94 in the test run) & Each Sandia layer, and each part of a layer, follows its own line through the grid; a single row/column rule doesn't exist & Explanations build the answer layer by layer, each from its own line, with a two-cell example first \\ \hline
+A shade change ``by 0'' counted as a change & Equal values were compared as different & Shade changes need different values; tests mirror the check \\ \hline
+The frame around an arrow swung into a diamond mid-turn & The whole figure, frame included, was turned & Square frames are drawn still; only what is inside turns \\ \hline
+The copy landed on a grey ``?'' box & The question box stayed visible under the flying figure & The ``?'' fades out as the copy arrives \\ \hline
+Series frames shrank to fit a 360\,dp phone & All frames on one row & Two rows when one row would shrink them \\ \hline
 \end{tbl}
 
 \subsection{Process problems}
 
 \begin{tbl}{Q}\probhead
-A whole feature (Medium) had to be reverted before beta 6, then restored for beta 7 & It wasn't ready when the release was cut & Release only from a branch that passes all tests; trial-merge first \\
-A history doc once described fixes that weren't in the code & Notes written from memory & Every fix now has a test; trust tests over notes \\
-Testers kept reporting bugs that were already fixed & Their phones ran the old beta & Release more often; check which beta a screenshot comes from \\
+A whole feature (Medium) had to be reverted before beta 6, then restored for beta 7 & It wasn't ready when the release was cut & Release only from a branch that passes all tests; trial-merge first \\ \hline
+A history doc once described fixes that weren't in the code & Notes written from memory & Every fix now has a test; trust tests over notes \\ \hline
+Testers kept reporting bugs that were already fixed & Their phones ran the old beta & Release more often; check which beta a screenshot comes from \\ \hline
 \end{tbl}
 
 % ================================================================ 10
@@ -821,22 +826,22 @@ Testers kept reporting bugs that were already fixed & Their phones ran the old b
 
 \begin{tbl}{P{0.36\linewidth}L}
 \thead{Symptom} & \thead{Fix} \\ \midrule
-\code{adb devices} is empty & Turn \textbf{Wireless debugging} back on (it switches off on sleep / network change), or plug in the cable \\
-Installed fine but changes don't show & You opened the release (beta) app; the debug build installs as a second app (package ends in \code{.debug}) \\
-``more than one device/emulator'' & The phone is listed twice; use \code{adb -s <one-of-the-names> ...} \\
-``unauthorized'' & Accept the prompt on the phone; if none, revoke USB debugging authorisations in Developer options and reconnect \\
-\code{INSTALL_FAILED_UPDATE_INCOMPATIBLE} & The installed app has a different signature: \code{adb uninstall <package>} then install (this deletes that app's local history) \\
+\code{adb devices} is empty & Turn \textbf{Wireless debugging} back on (it switches off on sleep / network change), or plug in the cable \\ \hline
+Installed fine but changes don't show & You opened the release (beta) app; the debug build installs as a second app (package ends in \code{.debug}) \\ \hline
+``more than one device/emulator'' & The phone is listed twice; use \code{adb -s <one-of-the-names> ...} \\ \hline
+``unauthorized'' & Accept the prompt on the phone; if none, revoke USB debugging authorisations in Developer options and reconnect \\ \hline
+\code{INSTALL_FAILED_UPDATE_INCOMPATIBLE} & The installed app has a different signature: \code{adb uninstall <package>} then install (this deletes that app's local history) \\ \hline
 \end{tbl}
 
 \subsection{Build fails}
 
 \begin{tbl}{P{0.36\linewidth}L}
 \thead{Symptom} & \thead{Fix} \\ \midrule
-Dependency errors after \code{git pull} & \code{flutter clean} then \code{flutter pub get} \\
-Gradle/AGP version errors & Keep Gradle 8.14.3 and AGP 8.13.0 (\code{android/gradle/wrapper/gradle-wrapper.properties}, \code{android/settings.gradle.kts}); don't upgrade AGP to 9.x until Flutter supports it \\
-Java errors & Use Java 17 or newer; \code{flutter doctor -v} shows which one Flutter uses. To point Flutter at a specific JDK: \code{flutter config --jdk-dir "<path to JDK>"} \\
-CI fails at ``Validate tag'' & Tag and \code{pubspec.yaml} version differ; fix \code{pubspec.yaml}, release the next beta number \\
-CI fails at ``Test'' but tests pass locally & Look for tests depending on Windows paths or fonts; tests must not use \code{C:\textbackslash{}...} \\
+Dependency errors after \code{git pull} & \code{flutter clean} then \code{flutter pub get} \\ \hline
+Gradle/AGP version errors & Keep Gradle 8.14.3 and AGP 8.13.0 (\code{android/gradle/wrapper/gradle-wrapper.properties}, \code{android/settings.gradle.kts}); don't upgrade AGP to 9.x until Flutter supports it \\ \hline
+Java errors & Use Java 17 or newer; \code{flutter doctor -v} shows which one Flutter uses. To point Flutter at a specific JDK: \code{flutter config --jdk-dir "<path to JDK>"} \\ \hline
+CI fails at ``Validate tag'' & Tag and \code{pubspec.yaml} version differ; fix \code{pubspec.yaml}, release the next beta number \\ \hline
+CI fails at ``Test'' but tests pass locally & Look for tests depending on Windows paths or fonts; tests must not use \code{C:\textbackslash{}...} \\ \hline
 \end{tbl}
 
 \subsection{Tests fail after a change}
@@ -858,9 +863,9 @@ CI fails at ``Test'' but tests pass locally & Look for tests depending on Window
 
 \begin{tbl}{P{0.36\linewidth}L}
 \thead{Symptom} & \thead{Fix} \\ \midrule
-Text overflow / page doesn't fit & Run \code{flutter test test/paper_pdf_test.dart} (checks all languages); shorten the string in \code{localization.dart} or adjust \code{_dirHeight} \\
-Figures too small & Fewer two-line questions per side, or fewer questions per side (\code{questionsPerSide}) \\
-Shading lost on photocopies & See Section~\ref{sec:open} \\
+Text overflow / page doesn't fit & Run \code{flutter test test/paper_pdf_test.dart} (checks all languages); shorten the string in \code{localization.dart} or adjust \code{_dirHeight} \\ \hline
+Figures too small & Fewer two-line questions per side, or fewer questions per side (\code{questionsPerSide}) \\ \hline
+Shading lost on photocopies & See Section~\ref{sec:open} \\ \hline
 \end{tbl}
 
 % ================================================================ 11
@@ -870,10 +875,10 @@ Shading lost on photocopies & See Section~\ref{sec:open} \\
 
 \begin{tbl}{P{0.3\linewidth}P{0.28\linewidth}L}
 \thead{Item} & \thead{Held by now} & \thead{Action} \\ \midrule
-GitHub repository \code{harikn2003/mental-ability-app} & The developer's GitHub account & Add the new owner as a collaborator with Admin, or transfer the repository to an organisation account \\
-GitHub Actions & Runs in the repository & No secrets are configured at present \\
-Notion tracker & The mentors' Notion workspace & Ask the workspace owner to share the database with the new owner \\
-Test phone & The developer & Hand over or set up a new one (Section~\ref{sec:phone}) \\
+GitHub repository \code{harikn2003/mental-ability-app} & The developer's GitHub account & Add the new owner as a collaborator with Admin, or transfer the repository to an organisation account \\ \hline
+GitHub Actions & Runs in the repository & No secrets are configured at present \\ \hline
+Notion tracker & The mentors' Notion workspace & Ask the workspace owner to share the database with the new owner \\ \hline
+Test phone & The developer & Hand over or set up a new one (Section~\ref{sec:phone}) \\ \hline
 \end{tbl}
 
 \begin{note}
@@ -907,29 +912,29 @@ Keep the keystore and its passwords safe and backed up in two places. If it is l
 
 \begin{tbl}{P{0.24\linewidth}LP{0.1\linewidth}}
 \thead{Item} & \thead{Detail} & \thead{Size} \\ \midrule
-Release signing & Section~\ref{sec:signing} & $\sim$1\,h \\
-Sandia Pattern grids that don't decide the answer & In some Hard Sandia grids, the part that tells the options apart (often the shape) isn't fixed by the grid, so a child can only guess. Cause: in \code{hard_question_generator.dart} the missing cell (2,2) sits alone on its diagonal (bottom-left to top-right) line, so its shape there is random. Fix: reject such grids or fix that part from another line. Read \code{docs/hard-mode-history.md} first & $\sim$1\,h \\
-Other generator findings from the explanation work & Dual-rule Pattern dots stop at 4, so that rule can break; one Analogy type (\code{analogy_r4}) sometimes hides the inner-shape change & $\sim$30\,min each \\
-Hard/Medium Embedded wrong options & \code{_embeddedHard} (Hard, and 40\% of Medium) still uses turned, flipped or opposite-fill copies of the shape as wrong options -- the pattern testers objected to (section~9.1). Decide whether to change its wrong options or lower its share (keep it in the mix: ``add, never replace'') & $\sim$45\,min \\
-Photocopy-safe papers & Light greys vanish on pure black/white photocopies. Option: print grey levels as dot / line / cross-hatch patterns & $\sim$30\,min \\
-Hard shaded Pattern & 13/84 questions still have an option pair differing only by one thin extra outline shape; if mentors flag it, stop overlapping white outline shapes in Hard & $\sim$45\,min \\
-CI notices & GitHub warns that Node 20 actions and \code{actions/setup-java@v4} are deprecated; bump to \code{setup-java@v5} and current action versions & $\sim$15\,min \\
-Exam-format mock test & 40 questions in exam order, 60 minutes, per-part score; deferred until the app is stable & 1--2 days \\
-Explanations without a rule & 2 Hard Pattern grids in the test run (Section~\ref{sec:explanations}); goes away with the two generator items above & -- \\
-Notion statuses & 2 bugs (Geo ambiguity, Reducing ambiguity) and 3 features (Mirror 3 modes, Medium section, Level setting) are fixed in beta 8; ``Answer explanations'' is done in beta 9; mentors to mark them Fixed & -- \\
-Old local branches & \code{release-check}, \code{release-prep}, \code{ui-mock}, \dots\ can be deleted after checking they're merged; \code{session-rework} is behind master (Section~\ref{sec:branches}) & -- \\
+Release signing & Section~\ref{sec:signing} & $\sim$1\,h \\ \hline
+Sandia Pattern grids that don't decide the answer & In some Hard Sandia grids, the part that tells the options apart (often the shape) isn't fixed by the grid, so a child can only guess. Cause: in \code{hard_question_generator.dart} the missing cell (2,2) sits alone on its diagonal (bottom-left to top-right) line, so its shape there is random. Fix: reject such grids or fix that part from another line. Read \code{docs/hard-mode-history.md} first & $\sim$1\,h \\ \hline
+Other generator findings from the explanation work & Dual-rule Pattern dots stop at 4, so that rule can break; one Analogy type (\code{analogy_r4}) sometimes hides the inner-shape change & $\sim$30\,min each \\ \hline
+Hard/Medium Embedded wrong options & \code{_embeddedHard} (Hard, and 40\% of Medium) still uses turned, flipped or opposite-fill copies of the shape as wrong options -- the pattern testers objected to (section~9.1). Decide whether to change its wrong options or lower its share (keep it in the mix: ``add, never replace'') & $\sim$45\,min \\ \hline
+Photocopy-safe papers & Light greys vanish on pure black/white photocopies. Option: print grey levels as dot / line / cross-hatch patterns & $\sim$30\,min \\ \hline
+Hard shaded Pattern & 13/84 questions still have an option pair differing only by one thin extra outline shape; if mentors flag it, stop overlapping white outline shapes in Hard & $\sim$45\,min \\ \hline
+CI notices & GitHub warns that Node 20 actions and \code{actions/setup-java@v4} are deprecated; bump to \code{setup-java@v5} and current action versions & $\sim$15\,min \\ \hline
+Exam-format mock test & 40 questions in exam order, 60 minutes, per-part score; deferred until the app is stable & 1--2 days \\ \hline
+Explanations without a rule & 2 Hard Pattern grids in the test run (Section~\ref{sec:explanations}); goes away with the two generator items above & -- \\ \hline
+Notion statuses & 2 bugs (Geo ambiguity, Reducing ambiguity) and 3 features (Mirror 3 modes, Medium section, Level setting) are fixed in beta 8; ``Answer explanations'' is done in beta 9; mentors to mark them Fixed & -- \\ \hline
+Old local branches & \code{release-check}, \code{release-prep}, \code{ui-mock}, \dots\ can be deleted after checking they're merged; \code{session-rework} is behind master (Section~\ref{sec:branches}) & -- \\ \hline
 \end{tbl}
 
 \subsection{Key documents in the repository}
 
 \begin{tbl}{P{0.34\linewidth}L}
 \thead{File} & \thead{Contents} \\ \midrule
-\code{docs/handover/handover.pdf} & This document (source: \code{handover.tex} in the same folder) \\
-\code{CLAUDE.md} / \code{README.md} & Short architecture notes (README's feature list predates Hindi, Medium, printing and explanations) \\
-\code{docs/hard-mode-history.md} & Every Hard Mode bug and decision in detail (\#1--\#25); read before changing \code{hard_question_generator.dart} or \code{sandia_painter.dart} \\
-\code{docs/release_beta.md} & Manual release checklist \\
-\code{docs/phone_preview.md} & Preview on a phone through the browser \\
-\code{CHANGELOG.md} & Early beta notes \\
+\code{docs/handover/handover.pdf} & This document (source: \code{handover.tex} in the same folder) \\ \hline
+\code{CLAUDE.md} / \code{README.md} & Short architecture notes (README's feature list predates Hindi, Medium, printing and explanations) \\ \hline
+\code{docs/hard-mode-history.md} & Every Hard Mode bug and decision in detail (\#1--\#25); read before changing \code{hard_question_generator.dart} or \code{sandia_painter.dart} \\ \hline
+\code{docs/release_beta.md} & Manual release checklist \\ \hline
+\code{docs/phone_preview.md} & Preview on a phone through the browser \\ \hline
+\code{CHANGELOG.md} & Early beta notes \\ \hline
 \end{tbl}
 
 \subsection{Updating this document}
@@ -944,22 +949,22 @@ Old local branches & \code{release-check}, \code{release-prep}, \code{ui-mock}, 
 
 \begin{tbl}{P{0.26\linewidth}L}
 \thead{Term} & \thead{Meaning} \\ \midrule
-\textbf{JNVST} & Jawahar Navodaya Vidyalaya Selection Test; its Mental Ability Test is what the app trains for \\
-\textbf{Topic / category} & One of the 11 question kinds (internal names like \code{odd_man}, \code{geo_completion}) \\
-\textbf{Generator} & Code that makes a question of one kind \\
-\textbf{Distractor} & A wrong option \\
-\textbf{Balanced answer set} & Wrong options built so the right answer can't be spotted by elimination \\
-\textbf{Sandia engine} & The Hard Mode generator for shaded multi-layer matrices, modelled on the Sandia Generated Matrix Tool \\
-\textbf{LineFig} & Our figure format: lines and marks on a small grid, which makes ``same'', ``turned'', ``flipped'' and ``hidden inside'' exact \\
-\textbf{Classic generators} & The original generators from early 2026, kept in the mix \\
-\textbf{Exam-style generators} & Generators copied from real JNVST paper items \\
-\textbf{Intelligent Bias} & Per-topic weights that make weak topics come up more often \\
-\textbf{Explanation / scene} & The animation after a wrong answer; a scene is its script: figures on a small stage and the steps that move and change them \\
-\textbf{Morph / beat} & The difference between two figures, as a list of beats (turn, flip, resize, move, swap) the animation plays \\
-\textbf{Beta} & A test release published on GitHub for the mentors and testers \\
-\textbf{Debug / release build} & Debug: for development, installs as \code{...debug}; release: what testers install \\
-\textbf{adb} & Android Debug Bridge, the tool that talks to the phone from the PC \\
-\textbf{CI} & Continuous Integration: GitHub Actions building and publishing releases \\
+\textbf{JNVST} & Jawahar Navodaya Vidyalaya Selection Test; its Mental Ability Test is what the app trains for \\ \hline
+\textbf{Topic / category} & One of the 11 question kinds (internal names like \code{odd_man}, \code{geo_completion}) \\ \hline
+\textbf{Generator} & Code that makes a question of one kind \\ \hline
+\textbf{Distractor} & A wrong option \\ \hline
+\textbf{Balanced answer set} & Wrong options built so the right answer can't be spotted by elimination \\ \hline
+\textbf{Sandia engine} & The Hard Mode generator for shaded multi-layer matrices, modelled on the Sandia Generated Matrix Tool \\ \hline
+\textbf{LineFig} & Our figure format: lines and marks on a small grid, which makes ``same'', ``turned'', ``flipped'' and ``hidden inside'' exact \\ \hline
+\textbf{Classic generators} & The original generators from early 2026, kept in the mix \\ \hline
+\textbf{Exam-style generators} & Generators copied from real JNVST paper items \\ \hline
+\textbf{Intelligent Bias} & Per-topic weights that make weak topics come up more often \\ \hline
+\textbf{Explanation / scene} & The animation after a wrong answer; a scene is its script: figures on a small stage and the steps that move and change them \\ \hline
+\textbf{Morph / beat} & The difference between two figures, as a list of beats (turn, flip, resize, move, swap) the animation plays \\ \hline
+\textbf{Beta} & A test release published on GitHub for the mentors and testers \\ \hline
+\textbf{Debug / release build} & Debug: for development, installs as \code{...debug}; release: what testers install \\ \hline
+\textbf{adb} & Android Debug Bridge, the tool that talks to the phone from the PC \\ \hline
+\textbf{CI} & Continuous Integration: GitHub Actions building and publishing releases \\ \hline
 \end{tbl}
 
 \end{document}
