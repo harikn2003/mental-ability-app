@@ -49,9 +49,9 @@ function Add-UserPath($dir) {
   }
   if (($env:Path -split ';') -notcontains $dir) { $env:Path = "$env:Path;$dir" }
 }
-function Winget($id, $name, $command) {
+function Install-WithWinget($id, $name, $command) {
   if ($command -and (Has $command)) { Write-Host "    $name already installed"; return }
-  Run "install $name" { winget install --id $id --exact --silent --accept-package-agreements --accept-source-agreements }
+  Run "install $name" { winget.exe install --id $id --exact --silent --accept-package-agreements --accept-source-agreements }
 }
 
 if (-not (Has 'winget')) {
@@ -59,15 +59,15 @@ if (-not (Has 'winget')) {
 }
 
 Step '1/6  Git, Visual Studio Code, Java 17'
-Winget 'Git.Git' 'Git' 'git'
-Winget 'Microsoft.VisualStudioCode' 'Visual Studio Code' 'code'
+Install-WithWinget 'Git.Git' 'Git' 'git'
+Install-WithWinget 'Microsoft.VisualStudioCode' 'Visual Studio Code' 'code'
 # Java 17 or newer (Gradle 8.14 runs on 17-24). `java -version` prints to stderr, so ask cmd for it.
 $javaMajor = 0
 if (Has 'java') {
   $v = cmd /c 'java -version 2>&1' | Out-String
   if ($v -match 'version "(\d+)') { $javaMajor = [int]$Matches[1] }
 }
-if ($javaMajor -ge 17) { Write-Host "    Java $javaMajor already installed" } else { Winget 'EclipseAdoptium.Temurin.17.JDK' 'Java 17 (Temurin)' $null }
+if ($javaMajor -ge 17) { Write-Host "    Java $javaMajor already installed" } else { Install-WithWinget 'EclipseAdoptium.Temurin.17.JDK' 'Java 17 (Temurin)' $null }
 # winget installs update PATH for new terminals; pick them up in this one too.
 $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
 
