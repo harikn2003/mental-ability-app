@@ -31,6 +31,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell's download progress bar slows Invoke-WebRequest badly
+# (the command-line tools took 18 minutes with it on).
+$ProgressPreference = 'SilentlyContinue'
 $FlutterDir = 'C:\src\flutter'
 $SdkDir = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
 $RepoUrl = 'https://github.com/harikn2003/mental-ability-app.git'
@@ -109,10 +112,19 @@ Add-UserPath (Join-Path $SdkDir 'cmdline-tools\latest\bin')
 
 Step '4/6  Android SDK packages and licences'
 Run "install $($SdkPackages -join ', ')" {
-  # Answer "y" to every licence prompt.
-  $yes = ('y' + [Environment]::NewLine) * 30
-  $yes | & $sdkManager --licenses | Out-Null
-  & $sdkManager --install @SdkPackages
+  $androidCli = Join-Path $SdkDir 'cmdline-tools\latest\bin\android.exe'
+  if (Test-Path $androidCli) {
+    # Newer command-line tools: sdkmanager is a deprecated wrapper around this.
+    foreach ($p in $SdkPackages) { & $androidCli sdk install "--sdk=$SdkDir" ($p -replace ';', '/') }
+  } else {
+    # Answer "y" to every licence prompt. sdkmanager is a .bat, and cmd splits
+    # arguments at ';', so each package name goes in double quotes.
+    $yes = ('y' + [Environment]::NewLine) * 30
+    $yes | & $sdkManager --licenses | Out-Null
+    & $sdkManager --install ($SdkPackages | ForEach-Object { "`"$_`"" })
+  }
+  $missing = $SdkPackages | Where-Object { -not (Test-Path (Join-Path $SdkDir ($_ -replace ';', '\'))) }
+  if ($missing) { throw "Android SDK packages still missing after the install: $($missing -join ', ')" }
 }
 Run 'point Flutter at the SDK and accept its licences' {
   flutter config --android-sdk $SdkDir | Out-Null

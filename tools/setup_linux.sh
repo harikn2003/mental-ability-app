@@ -99,6 +99,11 @@ fi
 export ANDROID_HOME="$SDK_DIR"
 export PATH="$SDK_DIR/platform-tools:$SDK_DIR/cmdline-tools/latest/bin:$PATH"
 run "accept licences and install ${SDK_PACKAGES[*]}" bash -c "yes | '$SDKMANAGER' --licenses >/dev/null && '$SDKMANAGER' --install $(printf "'%s' " "${SDK_PACKAGES[@]}")"
+if ! $DRY_RUN; then
+  for p in "${SDK_PACKAGES[@]}"; do
+    [[ -d "$SDK_DIR/${p//;//}" ]] || { echo "Android SDK package still missing after the install: $p" >&2; exit 1; }
+  done
+fi
 run "point Flutter at the SDK and accept its licences" bash -c "flutter config --android-sdk '$SDK_DIR' >/dev/null && (yes | flutter doctor --android-licenses >/dev/null)"
 
 PROFILE_LINES="
