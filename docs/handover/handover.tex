@@ -83,14 +83,18 @@
 \setlength{\fboxsep}{1.5pt}
 
 % ---------------------------------------------------------------- code blocks
+% Copy-safe: each block is one shaded box that never splits across pages
+% (a page break put the running header into copied text) and never wraps
+% (the wrap marker and line break got copied too). Long commands are split
+% in the source with the shell's own continuation (` or \), so what you
+% copy is what you run. A too-long line shows as an overfull box.
 \lstdefinestyle{shell}{
-  basicstyle=\ttfamily\small\setstretch{1}, columns=fullflexible, keepspaces=true,
-  frame=lines, framerule=0.4pt, xleftmargin=4pt, xrightmargin=4pt, framexleftmargin=4pt,
-  aboveskip=0.9em, belowskip=0.9em,
-  commentstyle=\itshape, comment=[l]{\#}, morecomment=[l]{//},
-  breaklines=true, postbreak=\mbox{$\hookrightarrow$\space},
-  showstringspaces=false, upquote=true}
-\lstnewenvironment{shell}{\lstset{style=shell}}{}
+  basicstyle=\ttfamily\scriptsize\setstretch{1.05}, columns=fullflexible, keepspaces=true,
+  commentstyle=\itshape, comment=[l]{\#},
+  breaklines=false, showstringspaces=false, upquote=true}
+\newtcblisting{shell}{listing only, unbreakable, colback=black!4, colframe=black!35,
+  boxrule=0.4pt, arc=0pt, left=5pt, right=5pt, top=3pt, bottom=3pt,
+  before skip=0.8em, after skip=0.8em, listing options={style=shell}}
 
 % ---------------------------------------------------------------- remarks
 % Plain framed remarks: Note, Tip, Important, Warning.
@@ -225,10 +229,12 @@ Both setup scripts install only what is missing, set the paths, accept the Andro
 Open \textbf{PowerShell} and run:
 \begin{shell}
 # 1. Get the script (or copy tools\setup_windows.ps1 from the repository)
-Invoke-WebRequest https://raw.githubusercontent.com/harikn2003/mental-ability-app/master/tools/setup_windows.ps1 -OutFile setup_windows.ps1
+$u = "https://raw.githubusercontent.com/harikn2003/mental-ability-app/master/tools/setup_windows.ps1"
+Invoke-WebRequest $u -OutFile setup_windows.ps1
 
 # 2. Run it; it also clones the project into the folder you give
-powershell -ExecutionPolicy Bypass -File setup_windows.ps1 -ProjectDir "$HOME\StudioProjects\mental_ability_app"
+powershell -ExecutionPolicy Bypass -File setup_windows.ps1 `
+  -ProjectDir "$HOME\StudioProjects\mental_ability_app"
 \end{shell}
 \begin{itemize}
 \item Windows may ask for permission while installing Git, VS Code and Java: click \textbf{Yes}.
@@ -241,7 +247,8 @@ powershell -ExecutionPolicy Bypass -File setup_windows.ps1 -ProjectDir "$HOME\St
 Open a terminal and run:
 \begin{shell}
 # 1. Get the script (or copy tools/setup_linux.sh from the repository)
-curl -fsSLO https://raw.githubusercontent.com/harikn2003/mental-ability-app/master/tools/setup_linux.sh
+curl -fsSLO \
+  https://raw.githubusercontent.com/harikn2003/mental-ability-app/master/tools/setup_linux.sh
 
 # 2. Run it; it also clones the project into the folder you give
 bash setup_linux.sh --project-dir ~/projects/mental_ability_app
@@ -301,7 +308,8 @@ sudo snap install code --classic
 \item Add to \code{\textasciitilde{}/.bashrc}, then open a new terminal:
 \begin{shell}
 export ANDROID_HOME="$HOME/Android/Sdk"
-export PATH="$HOME/development/flutter/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+export PATH="$HOME/development/flutter/bin:$PATH"
+export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
 \end{shell}
 \end{enumerate}
 
@@ -901,7 +909,8 @@ Until beta~10, release builds were signed with the \textbf{debug} key, and CI ma
 \begin{enumerate}
 \item Create the release keystore once (it asks for a password):
 \begin{shell}
-keytool -genkey -v -keystore nplusprep-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias nplusprep
+keytool -genkey -v -keystore nplusprep-release.jks -alias nplusprep `
+  -keyalg RSA -keysize 2048 -validity 10000
 \end{shell}
 \item Turn it into one line of base64 (PowerShell):
 \begin{shell}
