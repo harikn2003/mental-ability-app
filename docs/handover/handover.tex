@@ -374,7 +374,7 @@ Charts & \textbf{fl\_chart} & Score and time charts on result screens \\ \hline
 Fonts & The theme names Lexend, but no font file ships, so phones show Roboto (Android's default); letter questions name Roboto & Readability for children \\ \hline
 PDF papers & \textbf{pdf} + \textbf{printing} packages & Builds the A4 PDF and opens Android's print/share dialog \\ \hline
 State management & Plain \code{setState} & The app is small enough not to need a state library \\ \hline
-Android build & Gradle 8.14.3, Android Gradle Plugin 8.13.0, Kotlin 2.2.20, Java 17 & Pinned versions that work together (see Section~\ref{sec:buildproblems}) \\ \hline
+Android build & Gradle 9.5.0, Android Gradle Plugin 9.3.1, Kotlin 2.4.20, Java 17 (Flutter 3.50) & Pinned versions that work together (see Section~\ref{sec:buildproblems}) \\ \hline
 CI / releases & \textbf{GitHub Actions} (\code{.github/workflows/beta-release.yml}) & Builds and publishes the APK when a beta tag is pushed \\ \hline
 \end{tbl}
 
@@ -767,7 +767,9 @@ Shading may vanish on a photocopier & Light greys become white in pure black/whi
 
 \begin{tbl}{Q}\probhead
 CI failed with a Java toolchain error & Gradle daemon JVM settings pointed at a local Java & CI uses Temurin 17 and deletes \code{gradle-daemon-jvm.properties} before building \\ \hline
-Gradle / Android Gradle Plugin mismatch & Upgrading Gradle to 9.x broke the Flutter Gradle plugin & Pinned Gradle 8.14.3 with AGP 8.13.0 (Flutter doesn't support AGP 9 yet) \\ \hline
+Gradle / Android Gradle Plugin mismatch & Upgrading Gradle to 9.x broke the Flutter Gradle plugin & Pinned Gradle 8.14.3 with AGP 8.13.0 until Flutter supported AGP 9; with Flutter 3.50 (Nov 2026) moved to Gradle 9.5.0 / AGP 9.3.1, Java 17 target, \code{resValues} switched on \\ \hline
+Build asked for Oracle Java 23 on a new PC & \code{android/gradle/gradle-daemon-jvm.properties} pinned the old PC's JDK & File removed; Gradle uses \code{JAVA_HOME} (Java 17) \\ \hline
+Android SDK in the user folder failed & The Windows user name has a space; the NDK can't handle spaces & SDK moved to \code{C:\codebs Android\codebs Sdk} \\ \hline
 Beta 6 CI failed & Tests depended on a Windows-only font & Tests no longer load Windows fonts \\ \hline
 pubspec version and in-app version drifted & Two files updated by hand & The release command (\code{tool/release.dart}) updates both together; a test checks they agree \\ \hline
 Hook suggested the wrong next beta & It didn't notice an untagged version & Fixed in the hook (Sep) \\ \hline
@@ -838,7 +840,7 @@ Installed fine but changes don't show & You opened the release (beta) app; the d
 \begin{tbl}{P{0.36\linewidth}L}
 \thead{Symptom} & \thead{Fix} \\ \midrule
 Dependency errors after \code{git pull} & \code{flutter clean} then \code{flutter pub get} \\ \hline
-Gradle/AGP version errors & Keep Gradle 8.14.3 and AGP 8.13.0 (\code{android/gradle/wrapper/gradle-wrapper.properties}, \code{android/settings.gradle.kts}); don't upgrade AGP to 9.x until Flutter supports it \\ \hline
+Gradle/AGP version errors & Match Gradle and AGP to the Flutter version in use (Flutter 3.50: Gradle 9.5.0, AGP 9.3.1, Kotlin 2.4.20; the minimum is printed in the error). Files: \code{android/gradle/wrapper/gradle-wrapper.properties}, \code{android/settings.gradle.kts} \\ \hline
 Java errors & Use Java 17 or newer; \code{flutter doctor -v} shows which one Flutter uses. To point Flutter at a specific JDK: \code{flutter config --jdk-dir "<path to JDK>"} \\ \hline
 CI fails at ``Validate tag'' & Tag and \code{pubspec.yaml} version differ; fix \code{pubspec.yaml}, release the next beta number \\ \hline
 CI fails at ``Test'' but tests pass locally & Look for tests depending on Windows paths or fonts; tests must not use \code{C:\textbackslash{}...} \\ \hline
