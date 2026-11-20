@@ -785,7 +785,7 @@ Release hook blocked pushes on Linux & It called Windows-only \code{powershell.e
 The pre-push release hook was unreliable & It asked on every master push, made its version commit after git had decided what to push (so master lagged the tag), and needed dialog boxes & Replaced by \code{dart run tool/release.dart} (after beta 9): you run it when you want a release; it pushes master and the tag together \\ \hline
 Debug and release app couldn't both be installed & Same package name & Debug builds use the \code{.debug} suffix \\ \hline
 Releases didn't show on the GitHub repo page & Published as pre-releases & Published as Latest releases \\ \hline
-\code{INSTALL_FAILED_UPDATE_INCOMPATIBLE} on the phone & Release builds are signed with a CI-generated debug key that changes each run & Uninstall then install; permanent fix in Section~\ref{sec:signing} \\ \hline
+\code{INSTALL_FAILED_UPDATE_INCOMPATIBLE} on the phone & The installed app is beta 9 or older (signed with a debug key that changed every run), or the build came from CI without the signing secrets & Uninstall once, then install; check the secrets (Section~\ref{sec:signing}) \\ \hline
 \end{tbl}
 
 \subsection{Answer explanation problems}
@@ -886,7 +886,7 @@ Shading lost on photocopies & See Section~\ref{sec:open} \\ \hline
 \begin{tbl}{P{0.3\linewidth}P{0.28\linewidth}L}
 \thead{Item} & \thead{Held by now} & \thead{Action} \\ \midrule
 GitHub repository \code{harikn2003/mental-ability-app} & The developer's GitHub account & Add the new owner as a collaborator with Admin, or transfer the repository to an organisation account \\ \hline
-GitHub Actions & Runs in the repository & No secrets are configured at present \\ \hline
+Release signing key & The \code{.jks} file and password with the developer; four \code{ANDROID_*} secrets in the repository & Hand over as in Section~\ref{sec:signing}; check the secrets are still there after a transfer \\ \hline
 Notion tracker & The mentors' Notion workspace & Ask the workspace owner to share the database with the new owner \\ \hline
 Test phone & The developer & Hand over or set up a new one (Section~\ref{sec:phone}) \\ \hline
 \end{tbl}
@@ -899,36 +899,82 @@ No passwords, keys or tokens are stored in the repository.
 
 The project folder on the developer's PC also has these, which are \textbf{not} part of the code and should not be committed: \code{android.zip}, \code{lib.zip}, \code{commit-diff.txt}, the JNV PDFs in \code{docs/} and \code{docs/pyq/}, and assistant folders (\code{.claude/}, \code{.agents/}, \code{AGENTS.md}). The JNV guide books and model papers in \code{docs/} were used as references for question styles; hand them over separately if needed.
 
-\subsection{Must fix: release signing (high priority)}\label{sec:signing}
+\subsection{Release signing}\label{sec:signing}
 
-Until beta~10, release builds were signed with the \textbf{debug} key, and CI makes a new debug key on every run. Result: every new beta had a different signature, so Android refused to update the old one (\code{INSTALL_FAILED_UPDATE_INCOMPATIBLE}) and testers had to uninstall first, which \textbf{deletes their session history}. It also blocks any Play Store release.
+Android installs an update only when it is signed with the \textbf{same key} as the app already on the phone. Lose the key and every user has to uninstall and reinstall, which \textbf{deletes their saved progress} (the app keeps everything on the phone). The key is one file (\code{.jks}) and one password; treat them as the master key to the app for as long as it exists.
 
-\textbf{The code side is done.} \code{android/app/build.gradle.kts} signs release builds with the key named in \code{android/key.properties} (never committed) and falls back to the debug key, with a warning, when that file is missing. In CI, the ``Release signing key'' step in \code{beta-release.yml} writes that file from four repository secrets; without them it warns and the build stays debug-signed. Both paths were checked with a throwaway key.
+\textbf{State at handover:} done. The release key was created on 20~November~2026, \code{android/key.properties} points to it on the developer's PC, the four GitHub secrets are set, and beta~10 is the first build signed with it. Before beta~10, builds were signed with a debug key that CI made fresh on every run, so testers had to uninstall between betas.
 
-\textbf{Still to do, by the owner} (about 20 minutes; it involves passwords, so do it yourself):
+\begin{tbl}{P{0.3\linewidth}L}
+\thead{Item} & \thead{Value} \\ \midrule
+Key alias & \code{nplusprep} \\ \hline
+Certificate SHA-256 & \code{7e4cde81b3334339007e927a8a99eb94} \code{0fcd6407c484e1f4b69662442e793670} \\ \hline
+Package name & \code{com.nplusone.maa.mental_ability_app} (never change it) \\ \hline
+GitHub secrets & \code{ANDROID_KEYSTORE_BASE64}, \code{ANDROID_KEYSTORE_PASSWORD}, \code{ANDROID_KEY_ALIAS}, \code{ANDROID_KEY_PASSWORD} \\ \hline
+\end{tbl}
+
+The SHA-256 is the key's public ID: safe to share, and the way to check that a copy of the key is the right one.
+
+\textbf{How it works.} \code{android/app/build.gradle.kts} signs release builds with the key named in \code{android/key.properties} (git-ignored) and falls back to the debug key, with a warning, when that file is missing. In CI, the ``Release signing key'' step in \code{beta-release.yml} writes that file from the four secrets; without them it warns and the build stays debug-signed.
+
+\subsubsection{Setting the key up on a PC (about 30 minutes)}
+
 \begin{enumerate}
-\item Create the release keystore once (it asks for a password):
+\item \textbf{Create the key} (first owner only; later owners receive it, see below). It asks for a password: use a long one and save it in a password manager straight away. If it asks for a separate key password, use the same one.
 \begin{shell}
-keytool -genkey -v -keystore nplusprep-release.jks -alias nplusprep `
+mkdir "$HOME\keys"
+keytool -genkey -v -keystore "$HOME\keys\nplusprep-release.jks" -alias nplusprep `
   -keyalg RSA -keysize 2048 -validity 10000
 \end{shell}
-\item Turn it into one line of base64 (PowerShell):
+The key lives outside the project folder on purpose, so it can never be committed.
+\item \textbf{Point local builds at it.} Create \code{android/key.properties}:
 \begin{shell}
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("nplusprep-release.jks")) | Set-Clipboard
+storeFile=C:/Users/YOUR NAME/keys/nplusprep-release.jks
+storePassword=YOUR_PASSWORD
+keyAlias=nplusprep
+keyPassword=YOUR_PASSWORD
 \end{shell}
-\item In GitHub: Settings $\rightarrow$ Secrets and variables $\rightarrow$ Actions $\rightarrow$ add \code{ANDROID_KEYSTORE_BASE64} (the clipboard), \code{ANDROID_KEYSTORE_PASSWORD}, \code{ANDROID_KEY_ALIAS} (\code{nplusprep}) and, if different from the store password, \code{ANDROID_KEY_PASSWORD}.
-\item Release the next beta. Testers uninstall one last time; after that, updates install over the top.
+Use \textbf{forward slashes}: a backslash in this file is read as an escape character and breaks the path.
+\item \textbf{Give it to GitHub CI} (the last two lines ask for the password without showing it):
+\begin{shell}
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$HOME\keys\nplusprep-release.jks")) |
+  gh secret set ANDROID_KEYSTORE_BASE64
+gh secret set ANDROID_KEY_ALIAS --body nplusprep
+gh secret set ANDROID_KEYSTORE_PASSWORD
+gh secret set ANDROID_KEY_PASSWORD
+\end{shell}
+\item \textbf{Check it.} Build, make sure the output does \textbf{not} say \code{key.properties not found}, and compare the APK's SHA-256 with the table above:
+\begin{shell}
+flutter build apk --release
+& "C:\Android\Sdk\build-tools\36.0.0\apksigner.bat" verify --print-certs `
+  build\app\outputs\flutter-apk\app-release.apk
+\end{shell}
+\item \textbf{Back it up} in at least two places: a password-manager entry with the \code{.jks} attached, and a USB stick kept offline. Never in git, email or chat in plain text.
+\end{enumerate}
+
+\begin{important}
+After a release, check the CI log. If it says \code{No ANDROID_KEYSTORE_BASE64 secret}, that build is debug-signed and will not update over a signed one: fix the secrets (step 3) and release again.
+\end{important}
+
+\subsubsection{Handing the key to a new owner}
+
+\begin{enumerate}
+\item Give them the \code{.jks} file and, by a \textbf{different channel}, the password (for example the file on a USB stick and the password through a password-manager share or by phone). Give them the alias and the SHA-256 above so they can check they have the right key.
+\item \textbf{Repository transferred} (Settings $\rightarrow$ Danger Zone $\rightarrow$ Transfer): check under Settings $\rightarrow$ Secrets and variables $\rightarrow$ Actions that the four \code{ANDROID_*} secrets are still there, and add any that are missing with step 3. \textbf{New repository or fork:} secrets never copy, so run step 3.
+\item The new owner does steps 2--5 with their own paths and confirms their APK's SHA-256 matches the table.
+\item Once they have a working signed build, the old owner deletes their copies (or keeps one sealed backup, if agreed).
 \end{enumerate}
 
 \begin{warning}
-Keep the keystore and its passwords safe and backed up in two places. If it is lost, the app can never again be updated under the same name.
+Never change the key or the package name. Either one makes Android treat it as a different app, and users lose their data. If the key is lost, the app can never again be updated under the same name.
 \end{warning}
+
+\textbf{If the app ever goes on the Play Store:} turn on \textbf{Play App Signing}. Google then keeps the real signing key and this key becomes the ``upload key''; a lost upload key can be reset through Play support. Moving the app between Play accounts is a separate ``App transfer'' request in Play Console.
 
 \subsection{Open items}\label{sec:open}
 
 \begin{tbl}{P{0.24\linewidth}LP{0.1\linewidth}}
 \thead{Item} & \thead{Detail} & \thead{Size} \\ \midrule
-Release signing & Code done; the owner creates the key and adds the GitHub secrets (Section~\ref{sec:signing}) & $\sim$20\,min \\ \hline
 Sandia Pattern grids that don't decide the answer & In some Hard Sandia grids, the part that tells the options apart (often the shape) isn't fixed by the grid, so a child can only guess. Cause: in \code{hard_question_generator.dart} the missing cell (2,2) sits alone on its diagonal (bottom-left to top-right) line, so its shape there is random. Fix: reject such grids or fix that part from another line. Read \code{docs/hard-mode-history.md} first & $\sim$1\,h \\ \hline
 Other generator findings from the explanation work & Dual-rule Pattern dots stop at 4, so that rule can break; one Analogy type (\code{analogy_r4}) sometimes hides the inner-shape change & $\sim$30\,min each \\ \hline
 Hard/Medium Embedded wrong options & \code{_embeddedHard} (Hard, and 40\% of Medium) still uses turned, flipped or opposite-fill copies of the shape as wrong options -- the pattern testers objected to (section~9.1). Decide whether to change its wrong options or lower its share (keep it in the mix: ``add, never replace'') & $\sim$45\,min \\ \hline
