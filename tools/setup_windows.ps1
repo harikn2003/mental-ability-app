@@ -8,6 +8,7 @@
     - Flutter SDK (stable)                               into C:\src\flutter
     - Android SDK command-line tools, platform-tools,
       Android 36 platform, build-tools 36, NDK 27        into %LOCALAPPDATA%\Android\Sdk
+                                                         (C:\Android\Sdk if that path has a space)
     - The Flutter extension for VS Code
   Then sets ANDROID_HOME / PATH for your user, accepts the Android licences,
   optionally clones the project, and runs `flutter doctor`.
@@ -35,7 +36,18 @@ $ErrorActionPreference = 'Stop'
 # (the command-line tools took 18 minutes with it on).
 $ProgressPreference = 'SilentlyContinue'
 $FlutterDir = 'C:\src\flutter'
-$SdkDir = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+# The Android NDK breaks on paths with spaces, and %LOCALAPPDATA% has one when
+# the Windows user name does (C:\Users\FIRST LAST\...). Use, in order: an
+# existing ANDROID_HOME without spaces, %LOCALAPPDATA%\Android\Sdk without
+# spaces, else C:\Android\Sdk.
+$existingSdk = [Environment]::GetEnvironmentVariable('ANDROID_HOME', 'User')
+if ($existingSdk -and ($existingSdk -notmatch ' ') -and (Test-Path $existingSdk)) {
+  $SdkDir = $existingSdk
+} elseif ($env:LOCALAPPDATA -notmatch ' ') {
+  $SdkDir = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+} else {
+  $SdkDir = 'C:\Android\Sdk'
+}
 $RepoUrl = 'https://github.com/harikn2003/mental-ability-app.git'
 # Keep in step with android/app/build.gradle.kts (ndkVersion) and Flutter's compileSdk.
 $SdkPackages = @('platform-tools', 'platforms;android-36', 'build-tools;36.0.0', 'ndk;27.0.12077973')

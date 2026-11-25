@@ -220,7 +220,7 @@ The project can be developed on \textbf{Windows 10/11} or \textbf{Linux} (Ubuntu
 \textbf{Android SDK command-line tools}: platform-tools (\code{adb}), Android 36, build-tools 36, NDK 27 & Builds and installs the Android app & Google's download, then \code{sdkmanager} \\ \hline
 \end{tbl}
 
-Install locations: Flutter in \code{C:\textbackslash{}src\textbackslash{}flutter} (Windows) or \code{\textasciitilde{}/development/flutter} (Linux); the Android SDK in \code{\%LOCALAPPDATA\%\textbackslash{}Android\textbackslash{}Sdk} (Windows) or \code{\textasciitilde{}/Android/Sdk} (Linux).
+Install locations: Flutter in \code{C:\textbackslash{}src\textbackslash{}flutter} (Windows) or \code{\textasciitilde{}/development/flutter} (Linux); the Android SDK in \code{\%LOCALAPPDATA\%\textbackslash{}Android\textbackslash{}Sdk} (Windows) or \code{\textasciitilde{}/Android/Sdk} (Linux). If the Windows user name has a space (\code{C:\textbackslash{}Users\textbackslash{}FIRST LAST}), the script puts the SDK in \code{C:\textbackslash{}Android\textbackslash{}Sdk} instead, because the NDK breaks on paths with spaces.
 
 Both setup scripts install only what is missing, set the paths, accept the Android licences, install the VS Code extension, can clone the project, and finish with \code{flutter doctor}. Both have a dry-run mode that shows what they would do without changing anything.
 
@@ -777,7 +777,7 @@ Shading may vanish on a photocopier & Light greys become white in pure black/whi
 CI failed with a Java toolchain error & Gradle daemon JVM settings pointed at a local Java & CI uses Temurin 17 and deletes \code{gradle-daemon-jvm.properties} before building \\ \hline
 Gradle / Android Gradle Plugin mismatch & Upgrading Gradle to 9.x broke the Flutter Gradle plugin & Pinned Gradle 8.14.3 with AGP 8.13.0 until Flutter supported AGP 9; with Flutter 3.50 (Nov 2026) moved to Gradle 9.5.0 / AGP 9.3.1, Java 17 target, \code{resValues} switched on \\ \hline
 Build asked for Oracle Java 23 on a new PC & \code{android/gradle/gradle-daemon-jvm.properties} pinned the old PC's JDK & File removed; Gradle uses \code{JAVA_HOME} (Java 17) \\ \hline
-Android SDK in the user folder failed & The Windows user name has a space; the NDK can't handle spaces & SDK moved to \code{C:\codebs Android\codebs Sdk} \\ \hline
+Android SDK in the user folder failed & The Windows user name has a space; the NDK can't handle spaces & SDK moved to \code{C:\codebs Android\codebs Sdk}; the Windows setup script now does this by itself \\ \hline
 Beta 6 CI failed & Tests depended on a Windows-only font & Tests no longer load Windows fonts \\ \hline
 pubspec version and in-app version drifted & Two files updated by hand & The release command (\code{tool/release.dart}) updates both together; a test checks they agree \\ \hline
 Hook suggested the wrong next beta & It didn't notice an untagged version & Fixed in the hook (Sep) \\ \hline
