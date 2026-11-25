@@ -75,6 +75,13 @@ fi
 step "3/6  Flutter SDK"
 if has flutter; then
   echo "    Flutter already installed: $(command -v flutter)"
+elif [[ -x "$FLUTTER_DIR/bin/flutter" ]]; then
+  # An earlier run cloned it; this terminal just hasn't loaded ~/.bashrc yet.
+  echo "    Flutter already in $FLUTTER_DIR"
+elif [[ -n "$(ls -A "$FLUTTER_DIR" 2>/dev/null)" ]]; then
+  echo "    $FLUTTER_DIR exists but has no Flutter in it (an interrupted download?)." >&2
+  echo "    Move or delete that folder, then run this script again." >&2
+  exit 1
 else
   run "clone Flutter stable into $FLUTTER_DIR" bash -c "mkdir -p '$(dirname "$FLUTTER_DIR")' && git clone -q https://github.com/flutter/flutter.git -b stable '$FLUTTER_DIR'"
 fi
@@ -128,9 +135,19 @@ fi
 
 step "6/6  Project"
 if [[ -n "$PROJECT_DIR" ]]; then
-  if [[ -d "$PROJECT_DIR" ]]; then
-    echo "    $PROJECT_DIR already exists - not cloning"
+  if [[ -f "$PROJECT_DIR/pubspec.yaml" ]]; then
+    echo "    $PROJECT_DIR already has the project - not cloning"
+  elif [[ -n "$(ls -A "$PROJECT_DIR" 2>/dev/null)" ]]; then
+    echo "    $PROJECT_DIR exists but is not the project (no pubspec.yaml in it)." >&2
+    found="$(find "$PROJECT_DIR" -mindepth 2 -maxdepth 3 -name pubspec.yaml -print -quit)"
+    if [[ -n "$found" ]]; then
+      echo "    The project looks like it is in $(dirname "$found"): run again with --project-dir $(dirname "$found")" >&2
+    else
+      echo "    Give a new or empty folder to --project-dir, or move that folder away." >&2
+    fi
+    exit 1
   else
+    # A missing or empty folder: git clones into either.
     run "clone the project into $PROJECT_DIR" git clone -q "$REPO_URL" "$PROJECT_DIR"
   fi
   run "download packages" bash -c "cd '$PROJECT_DIR' && flutter pub get"

@@ -77,6 +77,12 @@ $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [En
 Step '2/6  Flutter SDK'
 if (Has 'flutter') {
   Write-Host "    Flutter already installed: $((Get-Command flutter).Source)"
+} elseif (Test-Path "$FlutterDir\bin\flutter.bat") {
+  # An earlier run cloned it; this terminal just hasn't picked up the PATH yet.
+  Write-Host "    Flutter already in $FlutterDir"
+  Add-UserPath "$FlutterDir\bin"
+} elseif ((Test-Path $FlutterDir) -and (Get-ChildItem $FlutterDir -Force | Select-Object -First 1)) {
+  throw "$FlutterDir exists but has no Flutter in it (an interrupted download?). Move or delete that folder, then run this script again."
 } else {
   Run "clone Flutter stable into $FlutterDir" {
     New-Item -ItemType Directory -Force (Split-Path $FlutterDir) | Out-Null
@@ -136,9 +142,14 @@ Run 'install Dart-Code.flutter (adds Dart too)' { code --install-extension Dart-
 
 Step '6/6  Project'
 if ($ProjectDir) {
-  if (Test-Path $ProjectDir) {
-    Write-Host "    $ProjectDir already exists - not cloning"
+  if (Test-Path (Join-Path $ProjectDir 'pubspec.yaml')) {
+    Write-Host "    $ProjectDir already has the project - not cloning"
+  } elseif ((Test-Path $ProjectDir) -and (Get-ChildItem $ProjectDir -Force | Select-Object -First 1)) {
+    $found = Get-ChildItem $ProjectDir -Filter pubspec.yaml -Recurse -Depth 2 -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($found) { throw "$ProjectDir is not the project (no pubspec.yaml in it). It looks like it is in $($found.DirectoryName): run again with -ProjectDir `"$($found.DirectoryName)`"" }
+    throw "$ProjectDir exists but is not the project (no pubspec.yaml in it). Give a new or empty folder to -ProjectDir, or move that folder away."
   } else {
+    # A missing or empty folder: git clones into either.
     Run "clone the project into $ProjectDir" { git clone $RepoUrl $ProjectDir }
   }
   Run 'download packages' {
