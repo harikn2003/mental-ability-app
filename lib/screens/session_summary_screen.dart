@@ -34,7 +34,8 @@ class SessionSummaryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // Calculate Accuracy
     double accuracy = totalQuestions > 0 ? (score / totalQuestions) * 100 : 0;
-    int incorrect = totalQuestions - score;
+    // Skipped questions are shown on their own, not as wrong answers.
+    int incorrect = (totalQuestions - score - skipped).clamp(0, totalQuestions);
 
     // The app's own colours (this screen used the stock Material 3 lavender
     // and purple, so it looked like a different app).
@@ -100,7 +101,7 @@ class SessionSummaryScreen extends StatelessWidget {
     // Pie chart edge case: if both values are 0 show a grey placeholder
     final double pieCorrect = score > 0 ? score.toDouble() : 0;
     final double pieWrong = incorrect > 0 ? incorrect.toDouble() : 0;
-    final bool allZero = pieCorrect == 0 && pieWrong == 0;
+    final bool allZero = pieCorrect == 0 && pieWrong == 0 && skipped == 0;
 
     return Card(
       elevation: 0,
@@ -207,6 +208,13 @@ class SessionSummaryScreen extends StatelessWidget {
                       title: '',
                       radius: 16,
                     ),
+                    if (skipped > 0)
+                      PieChartSectionData(
+                        color: const Color(0xFF94A3B8),
+                        value: skipped.toDouble(),
+                        title: '',
+                        radius: 16,
+                      ),
                   ],
                 ),
               ),

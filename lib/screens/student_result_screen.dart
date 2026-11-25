@@ -208,7 +208,8 @@ class StudentResultScreen extends StatelessWidget {
 
   // ── 3. Stat pills ──────────────────────────────────────────────────────
   Widget _buildStatRow() {
-    final incorrect = totalQuestions - score;
+    // Skipped questions get their own pill; a timed-out answer stays incorrect.
+    final incorrect = (totalQuestions - score - skipped).clamp(0, totalQuestions);
     final mins = _avgSecs ~/ 60;
     final secs = _avgSecs % 60;
     final timeStr = mins > 0
@@ -230,6 +231,15 @@ class StudentResultScreen extends StatelessWidget {
           label: AppLocale.s('incorrect'),
           value: '$incorrect',
         ),
+        if (skipped > 0) ...[
+          const SizedBox(width: 10),
+          _StatPill(
+            icon: Icons.skip_next_rounded,
+            color: _muted,
+            label: AppLocale.s('skipped_title'),
+            value: '$skipped',
+          ),
+        ],
         const SizedBox(width: 10),
         _StatPill(
           icon: Icons.timer_rounded,

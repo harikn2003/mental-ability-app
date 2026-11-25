@@ -78,4 +78,22 @@ void main() {
     expect(find.text('HOME'), findsOneWidget);
     expect(find.text('RESULT'), findsNothing);
   });
+
+  // Regression: the score donut drew skipped questions as red "wrong" ones.
+  testWidgets('score donut keeps skipped apart from wrong', (tester) async {
+    AppLocale.setLang('EN');
+    await tester.pumpWidget(MaterialApp(
+      home: SessionSummaryScreen(
+        score: 5,
+        totalQuestions: 10,
+        skipped: 3,
+        timeSpent: List.filled(10, 20),
+        categoryStats: const {'analogy': [true, false]},
+        attempts: const [],
+      ),
+    ));
+    await tester.pump(const Duration(seconds: 1));
+    final donut = tester.widget<PieChart>(find.byType(PieChart));
+    expect(donut.data.sections.map((s) => s.value), [5, 2, 3]);
+  });
 }
